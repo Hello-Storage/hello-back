@@ -6,6 +6,7 @@ type CreateFolder struct {
 }
 
 type UpdateFolder struct {
+	Id   string `json:"id"`
 	Uid  string `json:"uid"`
-	Root  string `json:"root"`
+	Root string `json:"root"`
 }
