@@ -35,6 +35,7 @@ type EnvVar struct {
 	WasabiBucket    string
 	WasabiEndpoint  string
 	WasabiRegion    string
+	EncryptionKey   string
 }
 
 var env EnvVar
@@ -84,6 +85,8 @@ func LoadEnv() (err error) {
 		WasabiBucket:    os.Getenv("WASABI_BUCKET"),
 		WasabiEndpoint:  os.Getenv("WASABI_ENDPOINT"),
 		WasabiRegion:    os.Getenv("WASABI_REGION"),
+		
+		EncryptionKey:    os.Getenv("ENCRYPTION_KEY"),
 	}
 
 	values := reflect.ValueOf(env)

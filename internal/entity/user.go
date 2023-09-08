@@ -41,7 +41,7 @@ func (User) TableName() string {
 }
 
 func (user *User) Create() error {
-	
+
 	return db.Db().Create(user).Error
 }
 

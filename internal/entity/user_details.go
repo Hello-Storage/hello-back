@@ -10,6 +10,8 @@ type UserDetail struct {
 	ID           uint         `gorm:"primarykey" json:"id"`
 	StorageUsed  uint         `                  json:"storage_used"` // bytes format
 	Subscription Subscription `                  json:"subscription"`
+	ReferredBy   uint         `gorm:"index;column:referred_by" json:"referred_by"`
+	Referrals    []Referrals  `                                    json:"referrals"`
 	UserID       uint
 }
 
