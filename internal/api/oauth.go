@@ -1,16 +1,16 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/Hello-Storage/hello-back/internal/config"
+	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
+	"github.com/Hello-Storage/hello-back/pkg/crypto"
 	"github.com/Hello-Storage/hello-back/pkg/oauth"
 	"github.com/Hello-Storage/hello-back/pkg/token"
-	"github.com/Hello-Storage/hello-back/pkg/crypto"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,10 +20,7 @@ import (
 func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 	router.GET("/oauth/google", func(ctx *gin.Context) {
 
-		
-
 		code := ctx.Query("code")
-
 
 		if code == "" {
 			log.Errorf("Authorization code not provided!")
@@ -43,20 +40,27 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 		}
 
 		u := query.FindUserByEmail(google_user.Email)
+
+		// Start a new transaction
+		tx := db.Db().Begin()
+
 		if u == nil {
 
 			var req struct {
 				WalletAddress string `json:"wallet_address" binding:"required"`
-				PrivateKey   string `json:"private_key" binding:"required"`
+				PrivateKey    string `json:"private_key" binding:"required"`
+				ReferralCode  string `json:"referral_code" binding:"required"`
 			}
 
 			req.WalletAddress = ctx.Query("wallet_address")
 			req.PrivateKey = ctx.Query("private_key")
+			req.ReferralCode = ctx.Query("referrer_code")
 
 			isValidEthereumAddress := crypto.IsValidEthereumAddress(req.WalletAddress)
 			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(req.PrivateKey)
 			if !isValidEthereumAddress || !isValidEthereumPrivateKey {
 				log.Errorf("invalid ethereum address or private key")
+				tx.Rollback()
 				ctx.JSON(
 					http.StatusBadRequest,
 					gin.H{"status": "fail", "message": "invalid ethereum address or private key"},
@@ -67,11 +71,10 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			encryptedPrivateKey, err := crypto.Encrypt(req.PrivateKey)
 			if err != nil {
 				log.Errorf("failed to encrypt private key: %v", err)
+				tx.Rollback()
 				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
 				return
 			}
-
-			fmt.Printf("Request: %+v\n", req)
 
 			// create new user
 			new := entity.User{
@@ -82,31 +85,54 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 				Wallet: entity.Wallet{
 					Address:    req.WalletAddress,
 					PrivateKey: encryptedPrivateKey,
-					Type: string(entity.Google),
+					Type:       string(entity.Google),
 				},
 			}
 
-			//decrypt andn print private key
+			//decrypt and print private key
 			//decryptedPrivateKey, err := crypto.Decrypt(encryptedPrivateKey)
-			if err := new.Create(); err != nil {
+			if err := new.TxCreate(tx); err != nil {
 				log.Errorf("failed to create user: %v", err)
+				tx.Rollback()
 				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
 				return
 			}
 
+			// check if referral code is valid
+			referrer_id, err := query.CheckReferralCode(req.ReferralCode)
 			// initialize user detail
 			user_detail := entity.UserDetail{
 				StorageUsed: 0,
 				UserID:      new.ID,
+				ReferredBy:  referrer_id,
 			}
 
-			if err := user_detail.Create(); err != nil {
+			if err := user_detail.TxCreate(tx); err != nil {
 				log.Errorf("failed to create user detail: %v", err)
+				tx.Rollback()
 				ctx.JSON(
 					http.StatusInternalServerError,
 					gin.H{"status": "fail", "message": err.Error()},
 				)
 				return
+			}
+
+			if err == nil {
+				referral := entity.Referral{
+					ReferrerID:   referrer_id,
+					ReferredID:  new.ID,
+					UserDetailID: user_detail.ID,
+				}
+
+				if err := referral.TxCreate(tx); err != nil {
+					log.Errorf("failed to create referral: %v", err)
+					tx.Rollback()
+					ctx.JSON(
+						http.StatusInternalServerError,
+						gin.H{"status": "fail", "message": err.Error()},
+					)
+					return
+				}
 			}
 
 			u = &new
@@ -120,6 +146,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			config.Env().AccessTokenDuration,
 		)
 		if err != nil {
+			tx.Rollback()
 			log.Errorf("failed to create access token: %v", err)
 			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
 			return
@@ -133,6 +160,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 		)
 		if err != nil {
 			log.Errorf("failed to create refresh token: %v", err)
+			tx.Rollback()
 			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
 			return
 		}
@@ -146,6 +174,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			RefreshToken:          refreshToken,
 			RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
 		}
+		tx.Commit()
 		ctx.JSON(http.StatusOK, rsp)
 	})
 }
@@ -155,9 +184,11 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 // GET /api/oauth/github
 func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 	router.GET("/oauth/github", func(ctx *gin.Context) {
+		log.Printf("github oauth call")
 		code := ctx.Query("code")
 
 		if code == "" {
+			log.Errorf("Authorization code not provided!")
 			ctx.JSON(
 				http.StatusUnauthorized,
 				gin.H{"status": "fail", "message": "Authorization code not provided!"},
@@ -179,7 +210,40 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 		}
 
 		u := query.FindUserByGithub(github_user.ID)
+		// Start a new transaction
+		tx := db.Db().Begin()
 		if u == nil {
+			var req struct {
+				WalletAddress string `json:"wallet_address" binding:"required"`
+				PrivateKey    string `json:"private_key" binding:"required"`
+				ReferralCode  string `json:"referral_code" binding:"required"`
+			}
+
+			req.WalletAddress = ctx.Query("wallet_address")
+			req.PrivateKey = ctx.Query("private_key")
+			req.ReferralCode = ctx.Query("referrer_code")
+
+			isValidEthereumAddress := crypto.IsValidEthereumAddress(req.WalletAddress)
+			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(req.PrivateKey)
+			if !isValidEthereumAddress || !isValidEthereumPrivateKey {
+				log.Errorf("invalid ethereum address or private key")
+				tx.Rollback()
+				ctx.JSON(
+					http.StatusBadRequest,
+					gin.H{"status": "fail", "message": "invalid ethereum address or private key"},
+				)
+				return
+			}
+
+			encryptedPrivateKey, err := crypto.Encrypt(req.PrivateKey)
+			if err != nil {
+				log.Errorf("failed to encrypt private key: %v", err)
+				tx.Rollback()
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+				return
+			}
+
+			// create new user
 			new := entity.User{
 				Name: github_user.Name,
 				Github: entity.Github{
@@ -190,29 +254,61 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 				Detail: entity.UserDetail{
 					StorageUsed: 0,
 				},
+				Wallet: entity.Wallet{
+					Address:    req.WalletAddress,
+					PrivateKey: encryptedPrivateKey,
+					Type:       string(entity.GitHub),
+				},
 			}
 
-			if err := new.Create(); err != nil {
+			if err := new.TxCreate(tx); err != nil {
+				log.Errorf("failed to create user: %v", err)
+				tx.Rollback()
 				ctx.JSON(
 					http.StatusInternalServerError,
 					gin.H{"status": "fail", "message": err.Error()},
 				)
 				return
 			}
+
+			// check if referral code is valid
+			referrer_id, err := query.CheckReferralCode(req.ReferralCode)
 
 			// initialize user detail
 			user_detail := entity.UserDetail{
 				StorageUsed: 0,
 				UserID:      new.ID,
+				ReferredBy: referrer_id,
 			}
 
-			if err := user_detail.Create(); err != nil {
+			if err := user_detail.TxCreate(tx); err != nil {
+				log.Errorf("failed to create user detail: %v", err)
+				tx.Rollback()
 				ctx.JSON(
 					http.StatusInternalServerError,
 					gin.H{"status": "fail", "message": err.Error()},
 				)
 				return
 			}
+
+			if err == nil {
+				referral := entity.Referral{
+					ReferrerID:   referrer_id,
+					ReferredID:  new.ID,
+					UserDetailID: user_detail.ID,
+				}
+
+				if err := referral.TxCreate(tx); err != nil {
+					log.Errorf("failed to create referral: %v", err)
+					tx.Rollback()
+					ctx.JSON(
+						http.StatusInternalServerError,
+						gin.H{"status": "fail", "message": err.Error()},
+					)
+					return
+				}
+			}
+
 
 			u = &new
 		}
@@ -225,6 +321,7 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 			config.Env().AccessTokenDuration,
 		)
 		if err != nil {
+			tx.Rollback()
 			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
 			return
 		}
@@ -236,6 +333,8 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 			config.Env().RefreshTokenDuration,
 		)
 		if err != nil {
+			log.Errorf("failed to create refresh token: %v", err)
+			tx.Rollback()
 			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
 			return
 		}
@@ -249,6 +348,7 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 			RefreshToken:          refreshToken,
 			RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
 		}
+		tx.Commit()
 		ctx.JSON(http.StatusOK, rsp)
 	})
 }

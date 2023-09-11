@@ -11,7 +11,7 @@ import (
 
 // UpdateUser updates the profile information of the currently authenticated user.
 //
-// PUT /api/user/:uid
+// GET /api/user/:uid
 func GetUserDetail(router *gin.RouterGroup) {
 	router.GET("/user/detail", func(ctx *gin.Context) {
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)

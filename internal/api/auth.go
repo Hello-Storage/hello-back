@@ -9,6 +9,7 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
+	"github.com/Hello-Storage/hello-back/pkg/crypto"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/Hello-Storage/hello-back/pkg/web3"
 	"github.com/gin-gonic/gin"
@@ -23,22 +24,39 @@ func LoadUser(router *gin.RouterGroup) {
 	router.GET("/load", func(ctx *gin.Context) {
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 
-		u := query.FindUser(entity.User{ID: authPayload.UserID})
+		u := query.FindUserWithWallet(authPayload.UserID)
 		if u == nil {
+			log.Errorf("user not found: %d", authPayload.UserID)
 			ctx.JSON(http.StatusNotFound, "user not found")
 			return
 		}
 
+		var privateKey *string
+		if u.Wallet.Type != string(entity.Provider) {
+
+			decryptedKey, err := crypto.Decrypt(u.Wallet.PrivateKey)
+
+			if err != nil {
+				log.Errorf("failed to decrypt private key: %s", err)
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+				return
+			}
+
+			privateKey = &decryptedKey
+		}
+
 		var resp = struct {
-			UID           string `json:"uid"`
-			Name          string `json:"name"`
-			Role          string `json:"role"`
-			WalletAddress string `json:"walletAddress"`
+			UID              string  `json:"uid"`
+			Name             string  `json:"name"`
+			Role             string  `json:"role"`
+			WalletAddress    string  `json:"walletAddress"`
+			WalletPrivateKey *string `json:"walletPrivateKey"`
 		}{
-			UID:           u.UID,
-			Name:          u.Name,
-			Role:          string(u.Role),
-			WalletAddress: u.Wallet.Address,
+			UID:              u.UID,
+			Name:             u.Name,
+			Role:             string(u.Role),
+			WalletAddress:    u.Wallet.Address,
+			WalletPrivateKey: privateKey,
 		}
 
 		ctx.JSON(http.StatusOK, resp)
@@ -144,7 +162,6 @@ func RegisterUser(router *gin.RouterGroup, tokenMaker token.Maker) {
 		if user := query.FindUser(u); user != nil {
 			Abort(ctx, http.StatusBadRequest, "user already exists!")
 		}
-		
 
 		if err := u.Create(); err != nil {
 			AbortInternalServerError(ctx)

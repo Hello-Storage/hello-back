@@ -20,7 +20,7 @@ type Wallet struct {
 	Type       string `gorm:"type:account_type;not null;default:'provider'" json:"type"`
 	PrivateKey []byte `gorm:"type:bytea;" json:"private_key"`
 	Nonce      string `gorm:"type:varchar(16);not null"             json:"nonce"`
-	UserID     uint
+	UserID     uint   `gorm:"uniqueIndex"`
 }
 
 // TableName returns the entity table name.

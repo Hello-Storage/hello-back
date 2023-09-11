@@ -22,12 +22,13 @@ const (
 )
 
 type User struct {
-	ID        uint           `gorm:"primarykey"                   json:"id"`
-	UID       string         `gorm:"type:varchar(42);uniqueIndex" json:"uid"`
-	Name      string         `gorm:"not null;max:50"              json:"name"`
-	Role      role           `gorm:"not null;default:user"        json:"role"`
-	Email     Email          `                                    json:"email"`
-	Wallet    Wallet         `                                    json:"wallet"`
+	ID        uint   `gorm:"primarykey"                   json:"id"`
+	UID       string `gorm:"type:varchar(42);uniqueIndex" json:"uid"`
+	Name      string `gorm:"not null;max:50"              json:"name"`
+	Role      role   `gorm:"not null;default:user"        json:"role"`
+	Email     Email  `                                    json:"email"`
+	Wallet    Wallet `                                    json:"wallet"`
+	WalletID  uint
 	Github    Github         `                                    json:"github"`
 	Detail    UserDetail     `                                    json:"detail"`
 	CreatedAt time.Time      `                                    json:"created_at"`
@@ -43,6 +44,11 @@ func (User) TableName() string {
 func (user *User) Create() error {
 
 	return db.Db().Create(user).Error
+}
+
+func (user *User) TxCreate(tx *gorm.DB) error {
+
+	return tx.Create(user).Error
 }
 
 func (user *User) Save() error {

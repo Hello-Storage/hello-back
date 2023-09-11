@@ -4,8 +4,8 @@ import "github.com/Hello-Storage/hello-back/internal/db"
 
 type Subscription struct {
 	ID           uint `gorm:"primarykey"           json:"id"`
-	PlanID       uint `gorm:"index;column:plan_id" json:"plan_id"`
-	UserID       uint `gorm:"index;column:user_id" json:"user_id"`
+	PlanID       uint `gorm:"index" json:"plan_id"`
+	UserID       uint `gorm:"index" json:"user_id"`
 	UserDetailID uint
 }
 
