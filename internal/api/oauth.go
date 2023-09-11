@@ -85,7 +85,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 				Wallet: entity.Wallet{
 					Address:    req.WalletAddress,
 					PrivateKey: encryptedPrivateKey,
-					Type:       string(entity.Google),
+					AccountType:       string(entity.Google),
 				},
 			}
 
@@ -256,7 +256,7 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 				Wallet: entity.Wallet{
 					Address:    req.WalletAddress,
 					PrivateKey: encryptedPrivateKey,
-					Type:       string(entity.GitHub),
+					AccountType:       string(entity.GitHub),
 				},
 			}
 
