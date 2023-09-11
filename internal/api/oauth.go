@@ -184,7 +184,6 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 // GET /api/oauth/github
 func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 	router.GET("/oauth/github", func(ctx *gin.Context) {
-		log.Printf("github oauth call")
 		code := ctx.Query("code")
 
 		if code == "" {
