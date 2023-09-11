@@ -27,4 +27,6 @@ type LoginUserResponse struct {
 	AccessTokenExpiresAt  time.Time `json:"access_token_expires_at"`
 	RefreshToken          string    `json:"refresh_token"`
 	RefreshTokenExpiresAt time.Time `json:"refresh_token_expires_at"`
+	WalletAddress		 string    `json:"wallet_address"`
+	WalletPrivateKey	 string    `json:"wallet_private_key"`
 }

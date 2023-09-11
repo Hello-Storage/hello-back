@@ -151,7 +151,12 @@ Don't forget to give the project a star! Thanks again! ⭐⭐⭐
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
+<p>REMOVE docker backend-dev container logs:</p>
 
+```sh
+sudo -i &&
+echo "" > $(docker inspect --format='{{.LogPath}}' backend-dev)
+```
 <!-- LICENSE -->
 ## 📝 License
 

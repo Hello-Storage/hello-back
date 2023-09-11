@@ -37,6 +37,9 @@ func ConnectDB() error {
 		IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'encryption_status') THEN
 			CREATE TYPE encryption_status AS ENUM ('public', 'encrypted');
 		END IF;
+		IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'account_type') THEN
+			CREATE TYPE account_type AS ENUM ('provider', 'google', 'github');
+		END IF;
 	END
 	$$;
 	`
