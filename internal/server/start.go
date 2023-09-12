@@ -32,7 +32,7 @@ func Start(ctx context.Context) {
 
 	// cors config
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "https://staging.joinhello.app", "https://joinhello.app", "https://joinhello.vercel.app"},
+		AllowOrigins:     []string{"http://localhost:5173", "https://staging.joinhello.app", "https://joinhello.app", "https://joinhello.vercel.app", "https://hello.storage"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Cross-Origin-Opener-Policy", "Authorization" },
 		AllowCredentials: false,
