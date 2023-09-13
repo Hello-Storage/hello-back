@@ -91,10 +91,10 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			// create new user
 			new := entity.User{
 				Name: google_user.Name,
-				Email: entity.Email{
+				Email: &entity.Email{
 					Email: google_user.Email,
 				},
-				Wallet: entity.Wallet{
+				Wallet: &entity.Wallet{
 					Address:    publicKey,
 					PrivateKey: privateKey,
 					Signature:  signature,
@@ -239,15 +239,15 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 			// create new user
 			new := entity.User{
 				Name: github_user.Name,
-				Github: entity.Github{
+				Github: &entity.Github{
 					GithubID: github_user.ID,
 					Name:     github_user.Name,
 					Avatar:   github_user.Avatar,
 				},
-				Detail: entity.UserDetail{
+				Detail: &entity.UserDetail{
 					StorageUsed: 0,
 				},
-				Wallet: entity.Wallet{
+				Wallet: &entity.Wallet{
 					Address:    publicKey,
 					PrivateKey: privateKey,
 					Signature:  signature,

@@ -137,7 +137,7 @@ func RequestNonce(router *gin.RouterGroup) {
 		}
 
 		u := entity.User{
-			Wallet: entity.Wallet{
+			Wallet: &entity.Wallet{
 				Address: req.WalletAddress,
 			},
 		}

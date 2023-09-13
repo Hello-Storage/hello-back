@@ -42,15 +42,29 @@ func StartOTP(router *gin.RouterGroup) {
 		u := query.FindUserByEmail(f.Email)
 
 		if u == nil {
+			privateKey, publicKey, signature, err := CreateNewWallet()
+			if err != nil {
+				ctx.JSON(
+					http.StatusInternalServerError,
+					"can't create wallet",
+				)
+				return
+			}
+
 			// create new user
 			u = &entity.User{
 				Name: strings.Split(f.Email, "@")[0],
-				Detail: entity.UserDetail{
-					StorageUsed: 0,
-				},
-				Email: entity.Email{
+				Email: &entity.Email{
 					Email:  f.Email,
 					Secret: key.Secret(),
+				},
+				Wallet: &entity.Wallet{
+					Address:    publicKey,
+					PrivateKey: privateKey,
+					Signature:  signature,
+				},
+				Detail: &entity.UserDetail{
+					StorageUsed: 0,
 				},
 			}
 
