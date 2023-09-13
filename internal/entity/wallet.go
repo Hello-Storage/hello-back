@@ -15,12 +15,13 @@ const (
 )
 
 type Wallet struct {
-	ID         uint   `gorm:"primarykey"                            json:"id"`
-	Address    string `gorm:"type:varchar(50);not null;uniqueIndex" json:"address"`
-	Type       string `gorm:"type:account_type;not null;default:'provider'" json:"type"`
-	PrivateKey []byte `gorm:"type:bytea;" json:"private_key"`
-	Nonce      string `gorm:"type:varchar(16);not null"             json:"nonce"`
-	UserID     uint   `gorm:"uniqueIndex"`
+	ID          uint   `gorm:"primarykey"                            json:"id"`
+	Address     string `gorm:"type:varchar(50);not null;uniqueIndex" json:"address"`
+	AccountType string `gorm:"type:account_type;not null;default:'provider'" json:"account_type"`
+	Type        string `gorm:"type:varchar(30);not null;default:eth" json:"type"`
+	PrivateKey  []byte `gorm:"type:bytea;" json:"private_key"`
+	Nonce       string `gorm:"type:varchar(16);not null"             json:"nonce"`
+	UserID      uint   `gorm:"uniqueIndex"`
 }
 
 // TableName returns the entity table name.

@@ -32,7 +32,7 @@ func LoadUser(router *gin.RouterGroup) {
 		}
 
 		var privateKey *string
-		if u.Wallet.Type != string(entity.Provider) {
+		if u.Wallet.AccountType != string(entity.Provider) {
 
 			decryptedKey, err := crypto.Decrypt(u.Wallet.PrivateKey)
 
