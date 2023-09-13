@@ -9,7 +9,6 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
-	"github.com/Hello-Storage/hello-back/pkg/crypto"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/Hello-Storage/hello-back/pkg/web3"
 	"github.com/gin-gonic/gin"
@@ -31,32 +30,16 @@ func LoadUser(router *gin.RouterGroup) {
 			return
 		}
 
-		var privateKey *string
-		if u.Wallet.AccountType != string(entity.Provider) {
-
-			decryptedKey, err := crypto.Decrypt(u.Wallet.PrivateKey)
-
-			if err != nil {
-				log.Errorf("failed to decrypt private key: %s", err)
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
-				return
-			}
-
-			privateKey = &decryptedKey
-		}
-
 		var resp = struct {
-			UID              string  `json:"uid"`
-			Name             string  `json:"name"`
-			Role             string  `json:"role"`
-			WalletAddress    string  `json:"walletAddress"`
-			WalletPrivateKey *string `json:"walletPrivateKey"`
+			UID       string `json:"uid"`
+			Name      string `json:"name"`
+			Role      string `json:"role"`
+			Signature string `json:"signature"`
 		}{
-			UID:              u.UID,
-			Name:             u.Name,
-			Role:             string(u.Role),
-			WalletAddress:    u.Wallet.Address,
-			WalletPrivateKey: privateKey,
+			UID:       u.UID,
+			Name:      u.Name,
+			Role:      string(u.Role),
+			Signature: u.Wallet.Signature,
 		}
 
 		ctx.JSON(http.StatusOK, resp)

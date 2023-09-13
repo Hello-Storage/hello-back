@@ -32,6 +32,7 @@ func StartOTP(router *gin.RouterGroup) {
 		key, err := totp.Generate(totp.GenerateOpts{
 			Issuer:      "joinhello.app",
 			AccountName: f.Email,
+			Period:      30 * 60,
 		})
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
