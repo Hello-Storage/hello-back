@@ -32,11 +32,12 @@ func registerRoutes(router *gin.Engine) {
 
 	// auth routes
 	api.LoginUser(APIv1, tokenMaker)
-	api.RegisterUser(APIv1, tokenMaker)
 	api.RenewAccessToken(APIv1, tokenMaker)
 	api.OAuthGoogle(APIv1, tokenMaker)
 	api.OAuthGithub(APIv1, tokenMaker)
 	api.RequestNonce(APIv1)
+	api.StartOTP(APIv1)
+	api.VerifyOTP(APIv1, tokenMaker)
 
 	// user routes
 	api.LoadUser(AuthAPIv1)
@@ -47,7 +48,6 @@ func registerRoutes(router *gin.Engine) {
 	FileRoutes := AuthAPIv1.Group("/file")
 	api.GetFile(FileRoutes)
 	api.PutUploadFiles(FileRoutes)
-	api.GetUploadProgress(FileRoutes)
 	api.DeleteFile(FileRoutes)
 	api.DownloadFile(FileRoutes)
 	api.UpdateFileRoot(FileRoutes)

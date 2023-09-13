@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
@@ -13,40 +12,12 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/query"
-	"github.com/Hello-Storage/hello-back/internal/rds"
 	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gin-gonic/gin"
 )
-
-// GetUploadProgress return progress info of user
-//
-// GET /api/file/upload
-func GetUploadProgress(router *gin.RouterGroup) {
-	router.GET("/upload", func(ctx *gin.Context) {
-		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
-
-		progress_as_string, err := rds.GetUploadProgress(authPayload.UserUID)
-
-		if err != nil {
-			log.Errorf("failed to get upload progress at redis \n error: %v", err)
-			AbortInternalServerError(ctx)
-			return
-		}
-
-		if progress_as_string == "" || progress_as_string == "{}" {
-			ctx.JSON(http.StatusNotFound, "not found")
-			return
-		}
-
-		var jsonMap map[string]interface{}
-		json.Unmarshal([]byte(progress_as_string), &jsonMap)
-
-		ctx.JSON(http.StatusOK, jsonMap)
-	})
-}
 
 // UploadFiles upload files to wasabi using s3
 //
@@ -100,7 +71,12 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 			// create corresponding folders to locate this file at proper path
 			file_path := params["filename"]
-			actual_root, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
+			actual_root, err := GetAndProcessFileRoot(
+				file_path,
+				r,
+				authPayload.UserID,
+				entity.Public,
+			)
 			log.Infof("actual_root: %s", actual_root)
 
 			// create file
@@ -184,7 +160,12 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 			// create corresponding folders to locate this file at proper path
 			file_path := webkitRelativePath[0]
-			actual_root, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Encrypted)
+			actual_root, err := GetAndProcessFileRoot(
+				file_path,
+				r,
+				authPayload.UserID,
+				entity.Encrypted,
+			)
 			if err != nil {
 				log.Errorf("get and process file root: %s", err)
 				AbortInternalServerError(ctx)
@@ -266,7 +247,11 @@ func UploadFileToS3(file *multipart.FileHeader, key string) error {
 
 // internal
 // here root => uid format
-func GetAndProcessFileRoot(file_path, root string, user_id uint, status entity.EncryptionStatus) (string, error) {
+func GetAndProcessFileRoot(
+	file_path, root string,
+	user_id uint,
+	status entity.EncryptionStatus,
+) (string, error) {
 	res := strings.Split(file_path, "/")
 	if len(res) == 1 {
 		return root, nil
@@ -280,8 +265,8 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, status entity.E
 	log.Infof("folder find by title and root: %v", f)
 	if f == nil {
 		f = &entity.Folder{
-			Title: sub_title,
-			Root:  root,
+			Title:  sub_title,
+			Root:   root,
 			Status: status,
 		}
 
@@ -302,4 +287,3 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, status entity.E
 
 	return GetAndProcessFileRoot(sub_file_path, f.UID, user_id, status)
 }
-

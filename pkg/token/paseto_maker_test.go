@@ -38,7 +38,12 @@ func TestExpiredPasetoToken(t *testing.T) {
 	maker, err := NewPasetoMaker(rnd.GenerateRandomString(32))
 	require.NoError(t, err)
 
-	token, payload, err := maker.CreateToken(1, rnd.GenerateRandomString(6), rnd.GenerateRandomString(6), -time.Minute)
+	token, payload, err := maker.CreateToken(
+		1,
+		rnd.GenerateRandomString(6),
+		rnd.GenerateRandomString(6),
+		-time.Minute,
+	)
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 	require.NotEmpty(t, payload)
