@@ -29,6 +29,33 @@ func FindFilesByRoot(root string) (files entity.Files, err error) {
 	return files, err
 }
 
+// Count all files overall
+func CountFiles() (upfile int64, err error) {
+	if err := db.Db().Table("files").Count(&upfile).Error; err != nil {
+		return upfile, err
+	}
+
+	return upfile, nil
+}
+
+// Count total public files in database
+func CountPublicFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
+// count total encrypted files in database
+func CountEncryptedFiles() (encryptedfiles int64, err error) {
+	if err := db.Db().Table("files").Where("status = 'encrypted'").Count(&encryptedfiles).Error; err != nil {
+		return encryptedfiles, err
+	}
+
+	return encryptedfiles, nil
+}
+
 func FindRootFilesByUser(user_id uint) (files entity.Files, err error) {
 	if err := db.Db().
 		Table("files").
@@ -48,4 +75,23 @@ func DeleteFileByUID(file_uid string) error {
 	}
 
 	return db.Db().Where("uid = ?", file_uid).Delete(&entity.File{}).Error
+}
+
+// query of the average size of all the files among the users
+func CountMediumSizeFiles() (msize int64, err error) {
+	if err := db.Db().Table("files").Select("ROUND(AVG(size))").Scan(&msize).Error; err != nil {
+		return msize, err
+	}
+
+	return msize, nil
+
+}
+
+// query total sum storaged_used of all users
+func CountTotalUsedStorage() (totalusedstorage int64, err error) {
+	if err := db.Db().Table("user_details").Select("SUM(storage_used)").Scan(&totalusedstorage).Error; err != nil {
+		return totalusedstorage, err
+	}
+
+	return totalusedstorage, nil
 }

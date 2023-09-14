@@ -30,6 +30,9 @@ func registerRoutes(router *gin.Engine) {
 	// routes
 	api.Ping(APIv1)
 
+	//statistics routes
+	api.GetStatistics(APIv1)
+
 	// auth routes
 	api.LoginUser(APIv1, tokenMaker)
 	api.RegisterUser(APIv1, tokenMaker)
