@@ -24,20 +24,18 @@ const (
 type Files []File
 
 type File struct {
-	ID                   uint             `gorm:"primarykey"                          json:"id"`
-	UID                  string           `gorm:"type:varchar(42);uniqueIndex;"       json:"uid"`
-	CID                  string           `gorm:"type:varchar(64)" json:"cid"`
-	CIDOriginalEncrypted *string          `gorm:"type:varchar(256)" json:"cid_original_encrypted"`
-	Name                 string           `gorm:"type:varchar(1024);"                 json:"name"`
-	Root                 string           `gorm:"type:varchar(1024);index;default:'/';" json:"root"` // parent folder uid
-	Mime                 string           `gorm:"type:varchar(256)"                    json:"mime_type"`
-	Size                 int64            `                                           json:"size"`
-	MediaType            string           `gorm:"type:varchar(16)"                    json:"media_type"`
-	CreatedAt            time.Time        `                                           json:"created_at"`
-	UpdatedAt            time.Time        `                                           json:"updated_at"`
-	DeletedAt            gorm.DeletedAt   `gorm:"index"                               json:"deleted_at"`
-	Path                 string           `gorm:"type:varchar(1024);"                 json:"path"` // full path
-	Status               EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"status"`
+	ID        uint             `gorm:"primarykey"                            json:"id"`
+	UID       string           `gorm:"type:varchar(42);uniqueIndex;"         json:"uid"`
+	Name      string           `gorm:"type:varchar(1024);"                   json:"name"`
+	Root      string           `gorm:"type:varchar(1024);index;default:'/';" json:"root"` // parent folder uid
+	Mime      string           `gorm:"type:varchar(256)"                     json:"mime_type"`
+	Size      int64            `                                             json:"size"`
+	MediaType string           `gorm:"type:varchar(16)"                      json:"media_type"`
+	Path      string           `gorm:"type:varchar(1024);"                   json:"path"` // full path
+	Status    EncryptionStatus `gorm:"type:status;default:'public'"          json:"status"`
+	CreatedAt time.Time        `                                             json:"created_at"`
+	UpdatedAt time.Time        `                                             json:"updated_at"`
+	DeletedAt gorm.DeletedAt   `gorm:"index"                                 json:"deleted_at"`
 }
 
 // TableName returns the entity table name.
