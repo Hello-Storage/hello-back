@@ -29,6 +29,7 @@ func registerRoutes(router *gin.Engine) {
 	AuthAPIv1.Use(middlewares.AuthMiddleware(tokenMaker))
 	// routes
 	api.Ping(APIv1)
+	api.FetchReferredUsers(APIv1)
 
 	// auth routes
 	api.LoginUser(APIv1, tokenMaker)
