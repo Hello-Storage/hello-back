@@ -15,15 +15,14 @@ const (
 type Folders []Folder
 
 type Folder struct {
-	ID        uint             `gorm:"primarykey"                          json:"id"`
-	UID       string           `gorm:"type:varchar(42);uniqueIndex;"       json:"uid"`
-	Title     string           `gorm:"type:varchar(255);"                  json:"title"`
-	Path      string           `gorm:"type:varchar(1024);default:'/';"     json:"path"` // folderA/folderB/***
-	Root      string           `gorm:"type:varchar(42);index;default:'/';" json:"root"` // parent folder uid
-	CreatedAt time.Time        `                                           json:"created_at"`
-	UpdatedAt time.Time        `                                           json:"updated_at"`
-	DeletedAt gorm.DeletedAt   `gorm:"index"                               json:"deleted_at"`
-	Status    EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"status"`
+	ID        uint           `gorm:"primarykey"                          json:"id"`
+	UID       string         `gorm:"type:varchar(42);uniqueIndex;"       json:"uid"`
+	Title     string         `gorm:"type:varchar(255);"                  json:"title"`
+	Path      string         `gorm:"type:varchar(1024);default:'/';"     json:"path"` // folderA/folderB/***
+	Root      string         `gorm:"type:varchar(42);index;default:'/';" json:"root"` // parent folder uid
+	CreatedAt time.Time      `                                           json:"created_at"`
+	UpdatedAt time.Time      `                                           json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index"                               json:"deleted_at"`
 }
 
 // TableName returns the entity table name.
