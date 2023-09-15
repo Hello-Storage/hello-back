@@ -91,6 +91,50 @@ func LoginUser(router *gin.RouterGroup, tokenMaker token.Maker) {
 			return
 		}
 
+		user_detail := query.FindUserDetailByUserID(u.ID)
+		if user_detail.ReferredBy == 0 && f.Referral != "" {
+			// check if referral code is valid
+			referrer_id, _ := query.CheckReferralCode(f.Referral)
+
+			log.Infof("referrer_id %d", referrer_id)
+			// initialize user detail
+
+			user_detail.ReferredBy = referrer_id
+
+			if err := user_detail.Save(); err != nil {
+				log.Errorf("failed to update user detail: %v", err)
+				ctx.JSON(
+					http.StatusInternalServerError,
+					gin.H{"status": "fail", "message": err.Error()},
+				)
+				return
+			}
+
+			referral := &entity.Referral{
+				ReferrerID:   referrer_id,
+				ReferredID:   u.ID,
+				UserDetailID: user_detail.ID,
+			}
+
+			if err := referral.Create(); err != nil {
+				log.Errorf("failed to create referral: %v", err)
+				ctx.JSON(
+					http.StatusInternalServerError,
+					gin.H{"status": "fail", "message": err.Error()},
+				)
+				return
+			}
+
+			if err := query.UpdateReferralStorage(referrer_id); err != nil {
+				log.Errorf("failed to create referral: %v", err)
+				ctx.JSON(
+					http.StatusInternalServerError,
+					gin.H{"status": "fail", "message": err.Error()},
+				)
+				return
+			}
+		}
+
 		// authorization token
 		accessToken, accessPayload, err := tokenMaker.CreateToken(
 			u.ID,
