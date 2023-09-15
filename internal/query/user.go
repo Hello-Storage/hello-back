@@ -79,7 +79,7 @@ func FindUserByWalletAddress(walletAddress string) *entity.User {
 
 func FindUserWithWallet(userID uint) *entity.User {
 	var user entity.User
-	if result := db.Db().Preload("Wallet").First(&user, userID); result.Error != nil {
+	if result := db.Db().Model(user).Preload("Wallet").Preload("Detail").Where("id = ?", userID).First(&user); result.Error != nil {
 		log.Errorf("failed to find user: %s", result.Error)
 		return nil
 	}
