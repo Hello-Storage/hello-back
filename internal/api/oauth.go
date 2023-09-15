@@ -147,6 +147,8 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 				}
 			}
 
+			tx.Commit()
+
 			if err := query.UpdateReferralStorage(referrer_id); err != nil {
 				log.Errorf("failed to create referral: %v", err)
 				tx.Rollback()
