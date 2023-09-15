@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/Hello-Storage/hello-back/internal/query"
+	"github.com/gin-gonic/gin"
 )
 
 // FetchReferredUsers returns referred users for a given referral code.
@@ -13,12 +13,10 @@ import (
 // Params:
 // - referral_code string
 func FetchReferredUsers(router *gin.RouterGroup) {
-	router.GET("/referral/:referral_code", func(ctx *gin.Context) {
-		
-		referral_code := ctx.Param("referral_code")
+	router.GET("/referrals/:referral_code", func(ctx *gin.Context) {
 
-		if referral_code == "" {
-			log.Errorf("referral code not provided!")
+		referralCode := ctx.Param("referral_code")
+		if referralCode == "" {
 			ctx.JSON(
 				http.StatusBadRequest,
 				gin.H{"status": "fail", "message": "referral code not provided!"},
@@ -26,14 +24,27 @@ func FetchReferredUsers(router *gin.RouterGroup) {
 			return
 		}
 
-		users, err := query.FindReferredUsers(referral_code)
+		addresses, err := query.FindReferredUsers(referralCode)
 
 		if err != nil {
-			log.Errorf("failed to get referred users: %v", err)
-			ctx.JSON(http.StatusBadGateway, gin.H{"status": "fail", "message": err.Error()})
+			ctx.JSON(
+				http.StatusBadRequest,
+				gin.H{"status": "fail", "message": err.Error()},
+			)
 			return
 		}
 
-		ctx.JSON(http.StatusOK, gin.H{"status": "success", "data": users})
+
+		referredByAddress := query.FindReferrerFromAddress(referralCode)
+
+		response := gin.H{"status": "success"}
+		if len(addresses) > 0 {
+			response["referredAddresses"] = addresses
+		}
+		if referredByAddress != "" {
+			response["referredBy"] = referredByAddress
+		}
+		ctx.JSON(http.StatusOK, response)
+
 	})
 }

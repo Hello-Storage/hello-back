@@ -23,39 +23,55 @@ func CheckReferralCode(referral_code string) (uint, error) {
 	return m.UserID, nil
 }
 
-func FindReferredUsers(referral_code string) ([]entity.User, error) {
+func FindReferredUsers(referralCode string) ([]string, error) {
 	//get the user id from the referral code
-	m := &entity.Wallet{}
-	stmt := db.Db()
+	var wallet entity.Wallet
+	var userDetail entity.UserDetail
 
-	stmt = stmt.Where("address = ?", referral_code)
 
-	// Find matching record.
-	if err := stmt.First(m).Error; err != nil {
+	if err := db.Db().Where("address = ?", referralCode).First(&wallet).Error; err != nil {
 		return nil, err
 	}
 
+
 	//get the user details from the user id
-	n := &entity.UserDetail{}
-	stmt = db.Db()
-
-	stmt = stmt.Where("user_id = ?", m.UserID)
-
-	// Find matching record.
-	if err := stmt.First(n).Error; err != nil {
+	if err := db.Db().Where("user_id = ?", wallet.UserID).First(&userDetail).Error; err != nil {
 		return nil, err
 	}
 
 	//get the referred users from the user details
-	o := &[]entity.User{}
-	stmt = db.Db()
 
-	stmt = stmt.Where("referred_by = ?", n.ID)
 
 	// Find matching record.
-	if err := stmt.Find(o).Error; err != nil {
+	var userDetails []entity.UserDetail
+	if err := db.Db().Where("referred_by = ?", userDetail.ID).Find(&userDetails).Error; err != nil {
 		return nil, err
 	}
 
-	return *o, nil
+	//get the users from the users details' user_id
+	var addresses []string
+	for _, detail := range userDetails {
+		var wallet entity.Wallet
+		
+		if err := db.Db().Where("user_id = ?", detail.UserID).First(&wallet).Error; err != nil {
+			return nil, err
+		}
+		addresses = append(addresses, wallet.Address)
+
+	}
+
+	return addresses, nil
+}
+
+func FindReferrerIdFromReferredId(referred_id uint) uint {
+	m := &entity.Referral{}
+	stmt := db.Db()
+
+	stmt = stmt.Where("referred_id = ?", referred_id)
+
+	// Find matching record.
+	if err := stmt.First(m).Error; err != nil {
+		return 0
+	}
+	return m.ReferrerID
 }
