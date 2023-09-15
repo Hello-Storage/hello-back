@@ -55,6 +55,15 @@ func FindUserByName(name string) *entity.User {
 	return m
 }
 
+// Count total users in database
+func CountUsers() (totalusers int64, err error) {
+	if err := db.Db().Table("users").Count(&totalusers).Error; err != nil {
+		return totalusers, err
+	}
+
+	return totalusers, nil
+}
+
 func FindUserByEmail(email string) *entity.User {
 	u := &entity.User{}
 
