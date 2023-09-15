@@ -42,7 +42,7 @@ func registerRoutes(router *gin.Engine) {
 
 	// user routes
 	api.LoadUser(AuthAPIv1)
-	api.UpdateUser(AuthAPIv1)
+	api.UpdateUserSignature(AuthAPIv1)
 	api.GetUserDetail(AuthAPIv1)
 
 	// file routes

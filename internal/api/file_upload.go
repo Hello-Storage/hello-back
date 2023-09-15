@@ -57,16 +57,18 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 			// create corresponding folders to locate this file at proper path
 			file_path := params["filename"]
+			log.Infof("file_path, %v", file_path)
 			actual_root, err := GetAndProcessFileRoot(
 				file_path,
 				root,
 				authPayload.UserID,
+				entity.EncryptionStatus(status),
 			)
 			log.Infof("actual_root: %s", actual_root)
 
 			// create file
 			f := entity.File{
-				Name:   file.Filename,
+				Name:   file_path[strings.LastIndex(file_path, "/")+1:],
 				Root:   actual_root,
 				Mime:   mime,
 				Size:   file.Size,
@@ -135,6 +137,7 @@ func UploadFileToS3(file *multipart.FileHeader, key string) error {
 func GetAndProcessFileRoot(
 	file_path, root string,
 	user_id uint,
+	status entity.EncryptionStatus,
 ) (string, error) {
 	res := strings.Split(file_path, "/")
 	if len(res) == 1 {
@@ -149,8 +152,9 @@ func GetAndProcessFileRoot(
 	log.Infof("folder find by title and root: %v", f)
 	if f == nil {
 		f = &entity.Folder{
-			Title: sub_title,
-			Root:  root,
+			Title:  sub_title,
+			Root:   root,
+			Status: status,
 		}
 
 		if err := f.Create(); err != nil {
@@ -168,5 +172,5 @@ func GetAndProcessFileRoot(
 		}
 	}
 
-	return GetAndProcessFileRoot(sub_file_path, f.UID, user_id)
+	return GetAndProcessFileRoot(sub_file_path, f.UID, user_id, status)
 }
