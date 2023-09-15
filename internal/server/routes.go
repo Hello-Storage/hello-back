@@ -31,6 +31,9 @@ func registerRoutes(router *gin.Engine) {
 	api.Ping(APIv1)
 	api.FetchReferredUsers(APIv1)
 
+	//statistics routes
+	api.GetStatistics(APIv1)
+
 	// auth routes
 	api.LoginUser(APIv1, tokenMaker)
 	api.RenewAccessToken(APIv1, tokenMaker)
