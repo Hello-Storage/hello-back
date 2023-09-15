@@ -24,11 +24,14 @@ func LoadUser(router *gin.RouterGroup) {
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 
 		u := query.FindUserWithWallet(authPayload.UserID)
+
 		if u == nil {
 			log.Errorf("user not found: %d", authPayload.UserID)
 			ctx.JSON(http.StatusNotFound, "user not found")
 			return
 		}
+
+		log.Infof("user: %v", u.Detail)
 
 		var resp = struct {
 			UID           string `json:"uid"`
