@@ -95,3 +95,20 @@ func CountTotalUsedStorage() (totalusedstorage int64, err error) {
 
 	return totalusedstorage, nil
 }
+
+// Query daily storage used by all users in the last 24 hours
+// func CountDailyStorage(daystring string) (dailystorage int64, err error) {
+// 	log.Infof("daystring: %s", daystring)
+
+// 	query := db.Db().Table("files").Select("SUM(size)")
+
+// 	// Apply the date range filter
+// 	query = query.Where("created_at >= DATE_TRUNC('DAY', TIMESTAMP ?) AND created_at < DATE_TRUNC('DAY', TIMESTAMP ?) + INTERVAL '1 DAY'", daystring, "2023-09-14 17:52:29")
+
+// 	// Execute and scan the result
+// 	if err := query.Scan(&dailystorage).Error; err != nil {
+// 		return dailystorage, err
+// 	}
+
+// 	return dailystorage, nil
+// }

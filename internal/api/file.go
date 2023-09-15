@@ -14,6 +14,7 @@ type Statistics struct {
 	CountMediumSizeFiles int64 `json:"CountMediumSizeFiles"`
 	EncryptedFiles       int64 `json:"EncryptedFiles"`
 	PublicFiles          int64 `json:"PublicFiles"`
+	// CountDailyStorage    int64 `json:"CountDailyStorage"`
 }
 
 // GetFile returns file details as JSON.
@@ -41,11 +42,49 @@ func GetFile(router *gin.RouterGroup) {
 func GetStatistics(router *gin.RouterGroup) {
 	router.GET("/statistics", func(c *gin.Context) {
 		totalusedstorage, err := query.CountTotalUsedStorage()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
 		totalusers, err := query.CountUsers()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
 		upfile, err := query.CountFiles()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
 		msize, err := query.CountMediumSizeFiles()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
 		encryptedfiles, err := query.CountEncryptedFiles()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
 		publicfiles, err := query.CountPublicFiles()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
+		// temptime := time.Now().Format("2006-01-02 15:04:05")
+
+		//To Do: implment .map or .foreach for recursive query
+		// daylystorage, err := query.CountDailyStorage(temptime)
+		// if err != nil {
+		// 	AbortEntityNotFound(c)
+		// 	return
+		// }
 
 		stats := Statistics{
 			TotalUsedStorage:     totalusedstorage,
@@ -54,11 +93,7 @@ func GetStatistics(router *gin.RouterGroup) {
 			CountMediumSizeFiles: msize,
 			EncryptedFiles:       encryptedfiles,
 			PublicFiles:          publicfiles,
-		}
-
-		if err != nil {
-			AbortEntityNotFound(c)
-			return
+			// CountDailyStorage:    daylystorage,
 		}
 
 		c.JSON(http.StatusOK, stats)
