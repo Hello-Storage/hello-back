@@ -28,7 +28,7 @@ services:
 
   postgres:
     container_name: postgres-dev
-    image: postgres:alpine
+    image: postgres:15-alpine
     user: postgres
     restart: always
     volumes:
