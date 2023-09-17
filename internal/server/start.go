@@ -32,9 +32,26 @@ func Start(ctx context.Context) {
 
 	// cors config
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000", "https://joinhello.app", "https://staging.joinhello.app", "https://www.staging.joinhello.app", "https://www.joinhello.app", "https://joinhello.vercel.app", "https://www.joinhello.vercel.app", "https://hello.storage", "https://www.hello.storage"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Cross-Origin-Opener-Policy", "Authorization" },
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"http://localhost:3000",
+			"https://joinhello.app",
+			"https://staging.joinhello.app",
+			"https://www.staging.joinhello.app",
+			"https://www.joinhello.app",
+			"https://joinhello.vercel.app",
+			"https://www.joinhello.vercel.app",
+			"https://hello.storage",
+			"https://www.hello.storage",
+		},
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders: []string{
+			"Origin",
+			"Content-Length",
+			"Content-Type",
+			"Cross-Origin-Opener-Policy",
+			"Authorization",
+		},
 		AllowCredentials: false,
 		AllowOriginFunc: func(origin string) bool {
 			return strings.Contains(origin, "hello-storage.vercel.app")
@@ -52,8 +69,11 @@ func Start(ctx context.Context) {
 
 	log.Infof("port: %s", config.Env().AppPort)
 	server := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", "0.0.0.0", config.Env().AppPort),
-		Handler: router,
+		Addr:           fmt.Sprintf("%s:%s", "0.0.0.0", config.Env().AppPort),
+		Handler:        router,
+		ReadTimeout:    200 * time.Second,
+		WriteTimeout:   20 * time.Second,
+		MaxHeaderBytes: 5 << 30, // 5 GB
 	}
 	log.Infof("server: listening on %s [%s]", server.Addr, time.Since(start))
 	go StartHttp(server)
