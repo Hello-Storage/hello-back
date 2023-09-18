@@ -14,6 +14,11 @@ type Statistics struct {
 	CountMediumSizeFiles int64 `json:"CountMediumSizeFiles"`
 	EncryptedFiles       int64 `json:"EncryptedFiles"`
 	PublicFiles          int64 `json:"PublicFiles"`
+	PublicFolders        int64 `json:"PublicFolders"`
+	CountTxtFiles        int64 `json:"CountTxtFiles"`
+	CountPngFiles        int64 `json:"CountPngFiles"`
+	CountJpgFiles        int64 `json:"CountJpgFiles"`
+	CountPdfFiles        int64 `json:"CountPdfFiles"`
 	// CountDailyStorage    int64 `json:"CountDailyStorage"`
 }
 
@@ -77,6 +82,36 @@ func GetStatistics(router *gin.RouterGroup) {
 			return
 		}
 
+		publicfolders, err := query.CountPublicFolders()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
+		counttxtfiles, err := query.CountTxtFiles()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
+		countpngfiles, err := query.CountPngFiles()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
+		countjpgfiles, err := query.CountJpgFiles()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
+		countpdffiles, err := query.CountPdfFiles()
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+
 		// temptime := time.Now().Format("2006-01-02 15:04:05")
 
 		//To Do: implment .map or .foreach for recursive query
@@ -93,6 +128,12 @@ func GetStatistics(router *gin.RouterGroup) {
 			CountMediumSizeFiles: msize,
 			EncryptedFiles:       encryptedfiles,
 			PublicFiles:          publicfiles,
+			PublicFolders:        publicfolders,
+			CountTxtFiles:        counttxtfiles,
+			CountPngFiles:        countpngfiles,
+			CountJpgFiles:        countjpgfiles,
+			CountPdfFiles:        countpdffiles,
+
 			// CountDailyStorage:    daylystorage,
 		}
 
