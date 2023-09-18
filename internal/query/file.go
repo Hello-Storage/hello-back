@@ -96,6 +96,42 @@ func CountTotalUsedStorage() (totalusedstorage int64, err error) {
 	return totalusedstorage, nil
 }
 
+// query for count all txt files
+func CountTxtFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("media_type = 'text/plain' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
+// query for count all public png files
+func CountPngFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("media_type = 'image/png' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
+// query for count all jpg files
+func CountJpgFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("media_type = 'image/jpg' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
+// query for count all pdf files
+func CountPdfFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("media_type = 'application/pdf' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
 // Query daily storage used by all users in the last 24 hours
 // func CountDailyStorage(daystring string) (dailystorage int64, err error) {
 // 	log.Infof("daystring: %s", daystring)

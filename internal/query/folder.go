@@ -77,7 +77,6 @@ func FindFolderPathByRoot(root string) entity.Folders {
 	return append(FindFolderPathByRoot(m.Root), *m)
 }
 
-
 // FindFolderByUID finds a folder by UID.
 func FindFolderByUID(uid string) (*entity.Folder, error) {
 	m := &entity.Folder{}
@@ -85,7 +84,6 @@ func FindFolderByUID(uid string) (*entity.Folder, error) {
 	if err := db.Db().Where("uid = ?", uid).First(m).Error; err != nil {
 		return nil, err
 	}
-
 
 	return m, nil
 }
@@ -98,7 +96,6 @@ func DeleteFolderByUID(uid string) error {
 	return nil
 }
 
-
 // FindFolderUsers finds a user with a certain permission level for a folder
 func FindFolderUser(folderID, userID uint) (*entity.FolderUser, error) {
 	fu := &entity.FolderUser{}
@@ -108,7 +105,6 @@ func FindFolderUser(folderID, userID uint) (*entity.FolderUser, error) {
 	return fu, nil
 }
 
-
 // GetChildFoldersByUID returns child folders of a given folder.
 func GetChildFoldersByUID(uid string) (folders entity.Folders, err error) {
 	if err := db.Db().Where("root = ?", uid).Find(&folders).Error; err != nil {
@@ -117,10 +113,18 @@ func GetChildFoldersByUID(uid string) (folders entity.Folders, err error) {
 	return folders, nil
 }
 
-
 func GetFolderFilesByUID(folderUID string) (files entity.Files, err error) {
 	if err := db.Db().Where("root = ?", folderUID).Find(&files).Error; err != nil {
 		return files, err
 	}
 	return files, nil
+}
+
+// query for count all public folders
+func CountPublicFolders() (publicfolders int64, err error) {
+	if err := db.Db().Table("folders").Where("status = 'public'").Count(&publicfolders).Error; err != nil {
+		return publicfolders, err
+	}
+
+	return publicfolders, nil
 }
