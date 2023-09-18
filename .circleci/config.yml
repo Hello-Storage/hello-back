@@ -11,7 +11,7 @@ executors:
     environment:
       CGO_ENABLED: 0
       DOCKER_BUILDKIT: 1
-      IMAGE_TAG: eroist/joinhello-backend:staging
+      IMAGE_TAG: hellodecentralized/joinhello-backend:staging
 
 commands:
   build-docker-image:
@@ -70,7 +70,7 @@ jobs:
     steps:
       - checkout
       - aws-cli/setup:
-          profile_name: eroist
+          profile_name: hello-back
           aws_access_key_id: AWS_ACCESS_KEY
           aws_secret_access_key: AWS_SECRET_KEY
           region: AWS_REGION

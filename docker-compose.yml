@@ -7,7 +7,7 @@ name: hello
 services:
   backend:
     container_name: backend
-    image: eroist/joinhello-backend:staging
+    image: hellodecentralized/joinhello-backend:staging
     restart: always
     depends_on:
       postgres:
