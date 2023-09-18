@@ -31,24 +31,27 @@ func registerRoutes(router *gin.Engine) {
 	api.Ping(APIv1)
 	api.FetchReferredUsers(APIv1)
 
+	//statistics routes
+	api.GetStatistics(APIv1)
+
 	// auth routes
 	api.LoginUser(APIv1, tokenMaker)
-	api.RegisterUser(APIv1, tokenMaker)
 	api.RenewAccessToken(APIv1, tokenMaker)
 	api.OAuthGoogle(APIv1, tokenMaker)
 	api.OAuthGithub(APIv1, tokenMaker)
 	api.RequestNonce(APIv1)
+	api.StartOTP(APIv1)
+	api.VerifyOTP(APIv1, tokenMaker)
 
 	// user routes
 	api.LoadUser(AuthAPIv1)
-	api.UpdateUser(AuthAPIv1)
+	api.UpdateUserSignature(AuthAPIv1)
 	api.GetUserDetail(AuthAPIv1)
 
 	// file routes
 	FileRoutes := AuthAPIv1.Group("/file")
 	api.GetFile(FileRoutes)
 	api.PutUploadFiles(FileRoutes)
-	api.GetUploadProgress(FileRoutes)
 	api.DeleteFile(FileRoutes)
 	api.DownloadFile(FileRoutes)
 	api.UpdateFileRoot(FileRoutes)

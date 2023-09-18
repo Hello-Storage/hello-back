@@ -55,6 +55,15 @@ func FindUserByName(name string) *entity.User {
 	return m
 }
 
+// Count total users in database
+func CountUsers() (totalusers int64, err error) {
+	if err := db.Db().Table("users").Count(&totalusers).Error; err != nil {
+		return totalusers, err
+	}
+
+	return totalusers, nil
+}
+
 func FindUserByEmail(email string) *entity.User {
 	u := &entity.User{}
 
@@ -79,7 +88,7 @@ func FindUserByWalletAddress(walletAddress string) *entity.User {
 
 func FindUserWithWallet(userID uint) *entity.User {
 	var user entity.User
-	if result := db.Db().Preload("Wallet").First(&user, userID); result.Error != nil {
+	if result := db.Db().Model(user).Preload("Wallet").Preload("Detail").Where("id = ?", userID).First(&user); result.Error != nil {
 		log.Errorf("failed to find user: %s", result.Error)
 		return nil
 	}

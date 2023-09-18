@@ -8,12 +8,13 @@ import (
 )
 
 type UserDetail struct {
-	ID           uint         `gorm:"primarykey" json:"id"`
-	StorageUsed  uint         `                  json:"storage_used"` // bytes format
-	Subscription Subscription `                  json:"subscription"`
-	ReferredBy   uint         `gorm:"foreignKey:UserID;references:ID" json:"referred_by"`
-	Referrals    []Referral  `gorm:"foreignKey:ReferrerID;references:ID"    json:"referrals"`
-	UserID       uint
+	ID              uint         `gorm:"primarykey"                          json:"id"`
+	StorageUsed     uint         `                                           json:"storage_used"` // bytes format
+	Subscription    Subscription `                                           json:"subscription"`
+	ReferralStorage uint         `                                           json:"referral_storage"`
+	ReferredBy      uint         `gorm:"foreignKey:UserID;references:ID"     json:"referred_by"`
+	Referrals       []Referral   `gorm:"foreignKey:ReferrerID;references:ID" json:"referrals"`
+	UserID          uint
 }
 
 // TableName returns the entity table name.

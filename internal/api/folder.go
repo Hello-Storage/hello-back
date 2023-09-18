@@ -32,8 +32,8 @@ func CreateFolder(router *gin.RouterGroup) {
 		defer folderMutex.Unlock()
 
 		folder := entity.Folder{
-			Title: form.Title,
-			Root:  form.Root,
+			Title:  form.Title,
+			Root:   form.Root,
 			Status: form.Status,
 		}
 

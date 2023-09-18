@@ -5,10 +5,10 @@ import (
 )
 
 type Email struct {
-	ID       uint   `gorm:"primarykey"       json:"id"`
-	Email    string `gorm:"uniqueIndex;"     json:"email"`
-	Password string `gorm:"type:varchar(64)" json:"password"`
-	UserID   uint
+	ID     uint   `gorm:"primarykey"       json:"id"`
+	Email  string `gorm:"uniqueIndex;"     json:"email"`
+	Secret string `gorm:"type:varchar(64)" json:"secret"`
+	UserID uint
 }
 
 // TableName returns the entity table name.

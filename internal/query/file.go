@@ -29,6 +29,33 @@ func FindFilesByRoot(root string) (files entity.Files, err error) {
 	return files, err
 }
 
+// Count all files overall
+func CountFiles() (upfile int64, err error) {
+	if err := db.Db().Table("files").Count(&upfile).Error; err != nil {
+		return upfile, err
+	}
+
+	return upfile, nil
+}
+
+// Count total public files in database
+func CountPublicFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
+// count total encrypted files in database
+func CountEncryptedFiles() (encryptedfiles int64, err error) {
+	if err := db.Db().Table("files").Where("status = 'encrypted'").Count(&encryptedfiles).Error; err != nil {
+		return encryptedfiles, err
+	}
+
+	return encryptedfiles, nil
+}
+
 func FindRootFilesByUser(user_id uint) (files entity.Files, err error) {
 	if err := db.Db().
 		Table("files").
@@ -49,3 +76,39 @@ func DeleteFileByUID(file_uid string) error {
 
 	return db.Db().Where("uid = ?", file_uid).Delete(&entity.File{}).Error
 }
+
+// query of the average size of all the files among the users
+func CountMediumSizeFiles() (msize int64, err error) {
+	if err := db.Db().Table("files").Select("ROUND(AVG(size))").Scan(&msize).Error; err != nil {
+		return msize, err
+	}
+
+	return msize, nil
+
+}
+
+// query total sum storaged_used of all users
+func CountTotalUsedStorage() (totalusedstorage int64, err error) {
+	if err := db.Db().Table("user_details").Select("SUM(storage_used)").Scan(&totalusedstorage).Error; err != nil {
+		return totalusedstorage, err
+	}
+
+	return totalusedstorage, nil
+}
+
+// Query daily storage used by all users in the last 24 hours
+// func CountDailyStorage(daystring string) (dailystorage int64, err error) {
+// 	log.Infof("daystring: %s", daystring)
+
+// 	query := db.Db().Table("files").Select("SUM(size)")
+
+// 	// Apply the date range filter
+// 	query = query.Where("created_at >= DATE_TRUNC('DAY', TIMESTAMP ?) AND created_at < DATE_TRUNC('DAY', TIMESTAMP ?) + INTERVAL '1 DAY'", daystring, "2023-09-14 17:52:29")
+
+// 	// Execute and scan the result
+// 	if err := query.Scan(&dailystorage).Error; err != nil {
+// 		return dailystorage, err
+// 	}
+
+// 	return dailystorage, nil
+// }

@@ -22,15 +22,14 @@ const (
 )
 
 type User struct {
-	ID        uint   `gorm:"primarykey"                   json:"id"`
-	UID       string `gorm:"type:varchar(42);uniqueIndex" json:"uid"`
-	Name      string `gorm:"not null;max:50"              json:"name"`
-	Role      role   `gorm:"not null;default:user"        json:"role"`
-	Email     Email  `                                    json:"email"`
-	Wallet    Wallet `                                    json:"wallet"`
-	WalletID  uint
-	Github    Github         `                                    json:"github"`
-	Detail    UserDetail     `                                    json:"detail"`
+	ID        uint           `gorm:"primarykey"                   json:"id"`
+	UID       string         `gorm:"type:varchar(42);uniqueIndex" json:"uid"`
+	Name      string         `gorm:"not null ;max:50"             json:"name"`
+	Role      role           `gorm:"not null;default:user"        json:"role"`
+	Email     *Email         `                                    json:"email"`
+	Wallet    *Wallet        `                                    json:"wallet"`
+	Github    *Github        `                                    json:"github"`
+	Detail    *UserDetail    `                                    json:"detail"`
 	CreatedAt time.Time      `                                    json:"created_at"`
 	UpdatedAt time.Time      `                                    json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index"                        json:"deleted_at"`
@@ -52,7 +51,7 @@ func (user *User) TxCreate(tx *gorm.DB) error {
 }
 
 func (user *User) Save() error {
-	return db.Db().Save(user).Error
+	return db.Db().Session(&gorm.Session{FullSaveAssociations: true}).Save(user).Error
 }
 
 // BeforeCreate sets a random UID if needed before inserting a new row to the database.
@@ -76,7 +75,7 @@ func (user *User) RetrieveNonce(renew bool) (string, error) {
 	subquery := db.Db().Table("wallets").Select("user_id").Where("address = ?", user.Wallet.Address)
 	if err := db.Db().Model(&u).Preload("Wallet").Where("id IN (?)", subquery).First(&u).Error; err == nil {
 		log.Info("err: ", err)
-		w = &u.Wallet
+		w = u.Wallet
 		if renew {
 			w.Nonce = rnd.GenerateRandomString(16)
 			if err := w.Save(); err != nil {
@@ -86,18 +85,11 @@ func (user *User) RetrieveNonce(renew bool) (string, error) {
 		return w.Nonce, nil
 	} else {
 		user.Name = user.Wallet.Address
+		user.Detail = &UserDetail{
+			StorageUsed: 0,
+		}
 
 		if err := user.Create(); err != nil {
-			return "", err
-		}
-
-		// initialize user detail
-		user_detail := UserDetail{
-			StorageUsed: 0,
-			UserID:      user.ID,
-		}
-
-		if err := user_detail.Create(); err != nil {
 			return "", err
 		}
 	}

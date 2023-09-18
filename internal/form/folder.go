@@ -1,14 +1,13 @@
 package form
 
 import (
-		"github.com/Hello-Storage/hello-back/internal/entity"
+	"github.com/Hello-Storage/hello-back/internal/entity"
 )
 
-
 type CreateFolder struct {
-	Title string `json:"title"`
-	Root  string `json:"root"`
-	Status    entity.EncryptionStatus `json:"status"`
+	Title  string                  `json:"title"`
+	Root   string                  `json:"root"`
+	Status entity.EncryptionStatus `json:"status"`
 }
 
 type UpdateFolder struct {
