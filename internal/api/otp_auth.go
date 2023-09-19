@@ -23,7 +23,8 @@ import (
 func StartOTP(router *gin.RouterGroup) {
 	router.POST("/otp/start", func(ctx *gin.Context) {
 		var f struct {
-			Email string `json:"email" binding:"required"`
+			Email    string `json:"email" binding:"required"`
+			ReferrerCode string `json:"referrer_code"`
 		}
 
 		if err := ctx.ShouldBindJSON(&f); err != nil {
@@ -42,20 +43,17 @@ func StartOTP(router *gin.RouterGroup) {
 		}
 
 		u := query.FindUserByEmail(f.Email)
- 
+
 		tx := db.Db().Begin()
-		
+
 		if u == nil {
 			var req struct {
 				WalletAddress string `json:"wallet_address" binding:"required"`
 				PrivateKey    string `json:"private_key" binding:"required"`
-				ReferralCode  string `json:"referral_code" binding:"required"`
 			}
 
 			req.WalletAddress = ctx.Query("wallet_address")
 			req.PrivateKey = ctx.Query("private_key")
-			req.ReferralCode = ctx.Query("referrer_code")
-
 
 			isValidEthereumAddress := crypto.IsValidEthereumAddress(req.WalletAddress)
 			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(req.PrivateKey)
@@ -85,8 +83,8 @@ func StartOTP(router *gin.RouterGroup) {
 					Secret: key.Secret(),
 				},
 				Wallet: &entity.Wallet{
-					Address:    req.WalletAddress,
-					PrivateKey: encryptedPrivateKey,
+					Address:     req.WalletAddress,
+					PrivateKey:  encryptedPrivateKey,
 					AccountType: string(entity.Mail),
 				},
 			}
@@ -98,10 +96,8 @@ func StartOTP(router *gin.RouterGroup) {
 				return
 			}
 
-
-
 			// check if referral code is valid
-			referrer_id, err := query.CheckReferralCode(req.ReferralCode)
+			referrer_id, err := query.CheckReferralCode(f.ReferrerCode)
 			// initialize user detail
 			user_detail := entity.UserDetail{
 				StorageUsed: 0,
@@ -146,9 +142,6 @@ func StartOTP(router *gin.RouterGroup) {
 				)
 				return
 			}
-
-
-
 
 		} else {
 			email := u.Email
@@ -211,7 +204,6 @@ func VerifyOTP(router *gin.RouterGroup, tokenMaker token.Maker) {
 			return
 		}
 
-
 		result := totp.Validate(f.Code, u.Email.Secret)
 		log.Infof("code: %s, secret: %s", f.Code, u.Email.Secret)
 		if !result {
@@ -249,7 +241,6 @@ func VerifyOTP(router *gin.RouterGroup, tokenMaker token.Maker) {
 			RefreshToken:          refreshToken,
 			RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
 		}
-
 
 		ctx.JSON(http.StatusOK, rsp)
 	})
