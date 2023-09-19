@@ -11,7 +11,7 @@ executors:
     environment:
       CGO_ENABLED: 0
       DOCKER_BUILDKIT: 1
-      IMAGE_TAG: hellodecentralized/joinhello-backend:staging
+      IMAGE_TAG: hellodecentralized/hello-back:staging
 
 commands:
   build-docker-image:
