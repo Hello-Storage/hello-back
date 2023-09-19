@@ -20,7 +20,6 @@ type Folder struct {
 	Title     string           `gorm:"type:varchar(255);"                  json:"title"`
 	Path      string           `gorm:"type:varchar(1024);default:'/';"     json:"path"` // folderA/folderB/***
 	Root      string           `gorm:"type:varchar(42);index;default:'/';" json:"root"` // parent folder uid
-	Status    EncryptionStatus `gorm:"type:status;default:'public'"        json:"status"`
 	CreatedAt time.Time        `                                           json:"created_at"`
 	UpdatedAt time.Time        `                                           json:"updated_at"`
 	DeletedAt gorm.DeletedAt   `gorm:"index"                               json:"deleted_at"`

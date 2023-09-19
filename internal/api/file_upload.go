@@ -237,7 +237,7 @@ func UploadFileToS3(file *multipart.FileHeader, key string) error {
 
 // internal
 // here root => uid format
-func GetAndProcessFileRoot(file_path, root string, user_id uint, status entity.EncryptionStatus) (string, error) {
+func GetAndProcessFileRoot(file_path, root string, user_id uint, encryption_status entity.EncryptionStatus) (string, error) {
 	res := strings.Split(file_path, "/")
 	if len(res) == 1 {
 		return root, nil
@@ -253,7 +253,7 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, status entity.E
 		f = &entity.Folder{
 			Title: sub_title,
 			Root:  root,
-			Status: status,
+			EncryptionStatus: encryption_status,
 		}
 
 		if err := f.Create(); err != nil {
@@ -271,5 +271,5 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, status entity.E
 		}
 	}
 
-	return GetAndProcessFileRoot(sub_file_path, f.UID, user_id, status)
+	return GetAndProcessFileRoot(sub_file_path, f.UID, user_id, encryption_status)
 }
