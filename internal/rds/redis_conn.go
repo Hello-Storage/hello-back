@@ -2,7 +2,6 @@ package rds
 
 import (
 	"context"
-
 	"github.com/redis/go-redis/v9"
 )
 
@@ -12,8 +11,8 @@ type RdsConn struct {
 	Url      string
 	Password string
 
-	rds *redis.Client
-	ctx context.Context
+	rds     *redis.Client
+	ctx     context.Context
 }
 
 func (g *RdsConn) Open() {

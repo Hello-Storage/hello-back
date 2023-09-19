@@ -32,9 +32,9 @@ func CreateFolder(router *gin.RouterGroup) {
 		defer folderMutex.Unlock()
 
 		folder := entity.Folder{
-			Title:  form.Title,
-			Root:   form.Root,
-			Status: form.Status,
+			Title: form.Title,
+			Root:  form.Root,
+			EncryptionStatus: form.EncryptionStatus,
 		}
 
 		if err := folder.Create(); err != nil {

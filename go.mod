@@ -12,9 +12,10 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/leandro-lugaresi/hub v1.1.1
 	github.com/magiconair/properties v1.8.7
+	github.com/mailgun/mailgun-go/v4 v4.11.0
 	github.com/o1egl/paseto v1.0.0
+	github.com/pquerna/otp v1.4.0
 	github.com/redis/go-redis/v9 v9.1.0
-	github.com/redis/rueidis v1.0.16
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.14.4
@@ -42,18 +43,17 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/gomodule/redigo v1.8.4 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/holiman/uint256 v1.2.2-0.20230321075855-87b91420868c // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
-	github.com/mailgun/mailgun-go/v4 v4.11.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.9 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/pquerna/otp v1.4.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect

@@ -34,8 +34,11 @@ func ConnectDB() error {
 	const createEnumSQL = `
 	DO $$
 	BEGIN
-		IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'status') THEN
-			CREATE TYPE status AS ENUM ('public', 'encrypted');
+		IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'encryption_status') THEN
+			CREATE TYPE encryption_status AS ENUM ('public', 'encrypted');
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'account_type') THEN
+			CREATE TYPE account_type AS ENUM ('provider', 'google', 'github');
 		END IF;
 	END
 	$$;
@@ -60,14 +63,7 @@ func MigrateDb(runFailed bool, ids []string) {
 
 // DatabaseDsn returns the database data source name (DSN).
 func DatabaseDsn() string {
-	dbDsn := fmt.Sprintf(
-		"host=%s port=%s dbname=%s user=%s password=%s sslmode=disable",
-		env.DBHost,
-		env.DBPort,
-		env.DBName,
-		env.DBUser,
-		env.DBPassword,
-	)
+	dbDsn := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=disable", env.DBHost, env.DBPort, env.DBName, env.DBUser, env.DBPassword)
 
 	return dbDsn
 }
