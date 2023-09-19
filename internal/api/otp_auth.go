@@ -23,8 +23,10 @@ import (
 func StartOTP(router *gin.RouterGroup) {
 	router.POST("/otp/start", func(ctx *gin.Context) {
 		var f struct {
-			Email    string `json:"email" binding:"required"`
-			ReferrerCode string `json:"referrer_code"`
+			Email         string `json:"email" binding:"required"`
+			ReferrerCode  string `json:"referrer_code"`
+			WalletAddress string `json:"wallet_address"`
+			PrivateKey    string `json:"private_key"`
 		}
 
 		if err := ctx.ShouldBindJSON(&f); err != nil {
@@ -47,16 +49,10 @@ func StartOTP(router *gin.RouterGroup) {
 		tx := db.Db().Begin()
 
 		if u == nil {
-			var req struct {
-				WalletAddress string `json:"wallet_address" binding:"required"`
-				PrivateKey    string `json:"private_key" binding:"required"`
-			}
 
-			req.WalletAddress = ctx.Query("wallet_address")
-			req.PrivateKey = ctx.Query("private_key")
 
-			isValidEthereumAddress := crypto.IsValidEthereumAddress(req.WalletAddress)
-			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(req.PrivateKey)
+			isValidEthereumAddress := crypto.IsValidEthereumAddress(f.WalletAddress)
+			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(f.PrivateKey)
 			if !isValidEthereumAddress || !isValidEthereumPrivateKey {
 				log.Errorf("invalid ethereum address or private key")
 				tx.Rollback()
@@ -67,7 +63,7 @@ func StartOTP(router *gin.RouterGroup) {
 				return
 			}
 
-			encryptedPrivateKey, err := crypto.Encrypt(req.PrivateKey)
+			encryptedPrivateKey, err := crypto.Encrypt(f.PrivateKey)
 			if err != nil {
 				log.Errorf("failed to encrypt private key: %v", err)
 				tx.Rollback()
@@ -83,7 +79,7 @@ func StartOTP(router *gin.RouterGroup) {
 					Secret: key.Secret(),
 				},
 				Wallet: &entity.Wallet{
-					Address:     req.WalletAddress,
+					Address:     f.WalletAddress,
 					PrivateKey:  encryptedPrivateKey,
 					AccountType: string(entity.Mail),
 				},
