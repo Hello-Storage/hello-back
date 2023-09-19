@@ -29,7 +29,6 @@ func FindFilesByRoot(root string) (files entity.Files, err error) {
 	return files, err
 }
 
-
 // Count all files overall
 func CountFiles() (upfile int64, err error) {
 	if err := db.Db().Table("files").Count(&upfile).Error; err != nil {
@@ -114,3 +113,56 @@ func DeleteFileByUID(file_uid string) error {
 
 	return db.Db().Where("uid = ?", file_uid).Delete(&entity.File{}).Error
 }
+
+// query for count all txt files
+func CountTxtFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("media_type = 'text/plain' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
+// query for count all public png files
+func CountPngFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("media_type = 'image/png' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
+// query for count all jpg files
+func CountJpgFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("media_type = 'image/jpg' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
+// query for count all pdf files
+func CountPdfFiles() (publicfiles int64, err error) {
+	if err := db.Db().Table("files").Where("media_type = 'application/pdf' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+		return publicfiles, err
+	}
+
+	return publicfiles, nil
+}
+
+// Query daily storage used by all users in the last 24 hours
+// func CountDailyStorage(daystring string) (dailystorage int64, err error) {
+// 	log.Infof("daystring: %s", daystring)
+
+// 	query := db.Db().Table("files").Select("SUM(size)")
+
+// 	// Apply the date range filter
+// 	query = query.Where("created_at >= DATE_TRUNC('DAY', TIMESTAMP ?) AND created_at < DATE_TRUNC('DAY', TIMESTAMP ?) + INTERVAL '1 DAY'", daystring, "2023-09-14 17:52:29")
+
+// 	// Execute and scan the result
+// 	if err := query.Scan(&dailystorage).Error; err != nil {
+// 		return dailystorage, err
+// 	}
+
+// 	return dailystorage, nil
+// }

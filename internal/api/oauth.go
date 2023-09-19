@@ -79,10 +79,10 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			// create new user
 			new := entity.User{
 				Name: google_user.Name,
-				Email: entity.Email{
+				Email: &entity.Email{
 					Email: google_user.Email,
 				},
-				Wallet: entity.Wallet{
+				Wallet: &entity.Wallet{
 					Address:     req.WalletAddress,
 					PrivateKey:  encryptedPrivateKey,
 					AccountType: string(entity.Google),
@@ -133,16 +133,15 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 					)
 					return
 				}
-			}
 
-			if err := query.UpdateReferralStorage(referrer_id); err != nil {
-				log.Errorf("failed to update referral storage: %v", err)
-				tx.Rollback()
-				ctx.JSON(
-					http.StatusInternalServerError,
-					gin.H{"status": "fail", "message": err.Error()},
-				)
-				return
+				if err := query.UpdateReferralStorage(referrer_id); err != nil {
+					log.Errorf("failed to update referral storage: %v", err)
+					ctx.JSON(
+						http.StatusInternalServerError,
+						gin.H{"status": "fail", "message": err.Error()},
+					)
+					return
+				}
 			}
 
 			u = &new
@@ -184,7 +183,6 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			RefreshToken:          refreshToken,
 			RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
 		}
-
 		tx.Commit()
 		ctx.JSON(http.StatusOK, rsp)
 	})
@@ -257,15 +255,15 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 			// create new user
 			new := entity.User{
 				Name: github_user.Name,
-				Github: entity.Github{
+				Github: &entity.Github{
 					GithubID: github_user.ID,
 					Name:     github_user.Name,
 					Avatar:   github_user.Avatar,
 				},
-				Detail: entity.UserDetail{
+				Detail: &entity.UserDetail{
 					StorageUsed: 0,
 				},
-				Wallet: entity.Wallet{
+				Wallet: &entity.Wallet{
 					Address:     req.WalletAddress,
 					PrivateKey:  encryptedPrivateKey,
 					AccountType: string(entity.GitHub),
@@ -318,16 +316,16 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 					)
 					return
 				}
-			}
+
 
 			if err := query.UpdateReferralStorage(referrer_id); err != nil {
 				log.Errorf("failed to update referral storage: %v", err)
-				tx.Rollback()
 				ctx.JSON(
 					http.StatusInternalServerError,
 					gin.H{"status": "fail", "message": err.Error()},
 				)
 				return
+			}
 			}
 
 			u = &new

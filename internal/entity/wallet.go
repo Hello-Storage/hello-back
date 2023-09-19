@@ -9,10 +9,10 @@ import (
 type AccountType string
 
 const (
+	Mail     AccountType = "email"
 	Provider AccountType = "provider"
 	Google   AccountType = "google"
 	GitHub   AccountType = "github"
-	Mail AccountType = "email"
 )
 
 type Wallet struct {

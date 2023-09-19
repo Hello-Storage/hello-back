@@ -80,11 +80,11 @@ func StartOTP(router *gin.RouterGroup) {
 			// create new user
 			u = &entity.User{
 				Name: strings.Split(f.Email, "@")[0],
-				Email: entity.Email{
+				Email: &entity.Email{
 					Email:  f.Email,
 					Secret: key.Secret(),
 				},
-				Wallet: entity.Wallet{
+				Wallet: &entity.Wallet{
 					Address:    req.WalletAddress,
 					PrivateKey: encryptedPrivateKey,
 					AccountType: string(entity.Mail),

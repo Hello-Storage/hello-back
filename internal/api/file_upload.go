@@ -38,9 +38,9 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			return
 		}
 
+		root := form.Value["root"]
 		files := form.File["files"]
 
-		root := form.Value["root"]
 
 		var r string
 		if len(root) > 0 {
@@ -253,7 +253,7 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, status entity.E
 		f = &entity.Folder{
 			Title: sub_title,
 			Root:  root,
-			EncryptionStatus: status,
+			Status: status,
 		}
 
 		if err := f.Create(); err != nil {
@@ -273,4 +273,3 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, status entity.E
 
 	return GetAndProcessFileRoot(sub_file_path, f.UID, user_id, status)
 }
-

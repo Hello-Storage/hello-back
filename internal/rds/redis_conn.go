@@ -29,7 +29,6 @@ func (g *RdsConn) Open() {
 	var ctx = context.Background()
 
 	g.rds = rds
-
 	g.ctx = ctx
 
 	g.Init()

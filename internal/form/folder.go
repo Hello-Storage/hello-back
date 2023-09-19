@@ -1,9 +1,8 @@
 package form
 
 import (
-		"github.com/Hello-Storage/hello-back/internal/entity"
+	"github.com/Hello-Storage/hello-back/internal/entity"
 )
-
 
 type CreateFolder struct {
 	Title string `json:"title"`

@@ -12,6 +12,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/leandro-lugaresi/hub v1.1.1
 	github.com/magiconair/properties v1.8.7
+	github.com/mailgun/mailgun-go/v4 v4.11.0
 	github.com/o1egl/paseto v1.0.0
 	github.com/pquerna/otp v1.4.0
 	github.com/redis/go-redis/v9 v9.1.0
@@ -70,7 +71,6 @@ require (
 	github.com/jackc/pgx/v5 v5.3.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/mailgun/mailgun-go/v4 v4.11.0
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	golang.org/x/crypto v0.12.0
 	golang.org/x/sys v0.11.0 // indirect

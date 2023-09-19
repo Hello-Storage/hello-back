@@ -28,11 +28,9 @@ func FindReferredUsers(referralCode string) ([]string, error) {
 	var wallet entity.Wallet
 	var userDetail entity.UserDetail
 
-
 	if err := db.Db().Where("address = ?", referralCode).First(&wallet).Error; err != nil {
 		return nil, err
 	}
-
 
 	//get the user details from the user id
 	if err := db.Db().Where("user_id = ?", wallet.UserID).First(&userDetail).Error; err != nil {
@@ -40,7 +38,6 @@ func FindReferredUsers(referralCode string) ([]string, error) {
 	}
 
 	//get the referred users from the user details
-
 
 	// Find matching record.
 	var userDetails []entity.UserDetail
@@ -52,7 +49,7 @@ func FindReferredUsers(referralCode string) ([]string, error) {
 	var addresses []string
 	for _, detail := range userDetails {
 		var wallet entity.Wallet
-		
+
 		if err := db.Db().Where("user_id = ?", detail.UserID).First(&wallet).Error; err != nil {
 			return nil, err
 		}
@@ -75,7 +72,6 @@ func FindReferrerIdFromReferredId(referred_id uint) uint {
 	}
 	return m.ReferrerID
 }
-
 
 func UpdateReferralStorage(user_id uint) error {
 	detail := &entity.UserDetail{}
