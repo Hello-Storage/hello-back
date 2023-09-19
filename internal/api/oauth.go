@@ -83,9 +83,9 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 					Email: google_user.Email,
 				},
 				Wallet: entity.Wallet{
-					Address:    req.WalletAddress,
-					PrivateKey: encryptedPrivateKey,
-					AccountType:       string(entity.Google),
+					Address:     req.WalletAddress,
+					PrivateKey:  encryptedPrivateKey,
+					AccountType: string(entity.Google),
 				},
 			}
 
@@ -120,7 +120,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			if err == nil {
 				referral := entity.Referral{
 					ReferrerID:   referrer_id,
-					ReferredID:  new.ID,
+					ReferredID:   new.ID,
 					UserDetailID: user_detail.ID,
 				}
 
@@ -133,6 +133,16 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 					)
 					return
 				}
+			}
+
+			if err := query.UpdateReferralStorage(referrer_id); err != nil {
+				log.Errorf("failed to update referral storage: %v", err)
+				tx.Rollback()
+				ctx.JSON(
+					http.StatusInternalServerError,
+					gin.H{"status": "fail", "message": err.Error()},
+				)
+				return
 			}
 
 			u = &new
@@ -174,6 +184,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			RefreshToken:          refreshToken,
 			RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
 		}
+
 		tx.Commit()
 		ctx.JSON(http.StatusOK, rsp)
 	})
@@ -255,9 +266,9 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 					StorageUsed: 0,
 				},
 				Wallet: entity.Wallet{
-					Address:    req.WalletAddress,
-					PrivateKey: encryptedPrivateKey,
-					AccountType:       string(entity.GitHub),
+					Address:     req.WalletAddress,
+					PrivateKey:  encryptedPrivateKey,
+					AccountType: string(entity.GitHub),
 				},
 			}
 
@@ -278,7 +289,7 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 			user_detail := entity.UserDetail{
 				StorageUsed: 0,
 				UserID:      new.ID,
-				ReferredBy: referrer_id,
+				ReferredBy:  referrer_id,
 			}
 
 			if err := user_detail.TxCreate(tx); err != nil {
@@ -294,7 +305,7 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 			if err == nil {
 				referral := entity.Referral{
 					ReferrerID:   referrer_id,
-					ReferredID:  new.ID,
+					ReferredID:   new.ID,
 					UserDetailID: user_detail.ID,
 				}
 
@@ -309,6 +320,15 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 				}
 			}
 
+			if err := query.UpdateReferralStorage(referrer_id); err != nil {
+				log.Errorf("failed to update referral storage: %v", err)
+				tx.Rollback()
+				ctx.JSON(
+					http.StatusInternalServerError,
+					gin.H{"status": "fail", "message": err.Error()},
+				)
+				return
+			}
 
 			u = &new
 		}

@@ -13,8 +13,8 @@ require (
 	github.com/leandro-lugaresi/hub v1.1.1
 	github.com/magiconair/properties v1.8.7
 	github.com/o1egl/paseto v1.0.0
+	github.com/pquerna/otp v1.4.0
 	github.com/redis/go-redis/v9 v9.1.0
-	github.com/redis/rueidis v1.0.16
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
 	github.com/tidwall/gjson v1.14.4
@@ -24,6 +24,7 @@ require (
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
 	github.com/aead/chacha20poly1305 v0.0.0-20201124145622-1a5aba2a8b29 // indirect
 	github.com/aead/poly1305 v0.0.0-20180717145839-3fee0db0b635 // indirect
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/bytedance/sonic v1.10.0-rc2 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -34,12 +35,14 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
+	github.com/go-chi/chi/v5 v5.0.8 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.14.1 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/gomodule/redigo v1.8.4 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/holiman/uint256 v1.2.2-0.20230321075855-87b91420868c // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -67,6 +70,7 @@ require (
 	github.com/jackc/pgx/v5 v5.3.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/mailgun/mailgun-go/v4 v4.11.0
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	golang.org/x/crypto v0.12.0
 	golang.org/x/sys v0.11.0 // indirect

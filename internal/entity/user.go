@@ -52,7 +52,7 @@ func (user *User) TxCreate(tx *gorm.DB) error {
 }
 
 func (user *User) Save() error {
-	return db.Db().Save(user).Error
+	return db.Db().Session(&gorm.Session{FullSaveAssociations: true}).Save(user).Error
 }
 
 // BeforeCreate sets a random UID if needed before inserting a new row to the database.

@@ -48,7 +48,6 @@ func registerRoutes(router *gin.Engine) {
 	FileRoutes := AuthAPIv1.Group("/file")
 	api.GetFile(FileRoutes)
 	api.PutUploadFiles(FileRoutes)
-	api.GetUploadProgress(FileRoutes)
 	api.DeleteFile(FileRoutes)
 	api.DownloadFile(FileRoutes)
 	api.UpdateFileRoot(FileRoutes)

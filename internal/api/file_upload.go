@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
@@ -13,40 +12,12 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/query"
-	"github.com/Hello-Storage/hello-back/internal/rds"
 	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gin-gonic/gin"
 )
-
-// GetUploadProgress return progress info of user
-//
-// GET /api/file/upload
-func GetUploadProgress(router *gin.RouterGroup) {
-	router.GET("/upload", func(ctx *gin.Context) {
-		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
-
-		progress_as_string, err := rds.GetUploadProgress(authPayload.UserUID)
-
-		if err != nil {
-			log.Errorf("failed to get upload progress at redis \n error: %v", err)
-			AbortInternalServerError(ctx)
-			return
-		}
-
-		if progress_as_string == "" || progress_as_string == "{}" {
-			ctx.JSON(http.StatusNotFound, "not found")
-			return
-		}
-
-		var jsonMap map[string]interface{}
-		json.Unmarshal([]byte(progress_as_string), &jsonMap)
-
-		ctx.JSON(http.StatusOK, jsonMap)
-	})
-}
 
 // UploadFiles upload files to wasabi using s3
 //
@@ -110,7 +81,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				CID:    cid[0],
 				Mime:   mime,
 				Size:   file.Size,
-				Status: entity.Public,
+				EncryptionStatus: entity.Public,
 			}
 			if err := f.Create(); err != nil {
 				log.Errorf("create file: %s", err)
@@ -201,7 +172,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				CIDOriginalEncrypted: &cidOriginalEncrypted[0],
 				Mime:                 mime,
 				Size:                 encryptedFile.Size,
-				Status:               entity.Encrypted,
+				EncryptionStatus:               entity.Encrypted,
 			}
 
 			if err := f.Create(); err != nil {
@@ -282,7 +253,7 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, status entity.E
 		f = &entity.Folder{
 			Title: sub_title,
 			Root:  root,
-			Status: status,
+			EncryptionStatus: status,
 		}
 
 		if err := f.Create(); err != nil {

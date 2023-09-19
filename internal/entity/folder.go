@@ -23,7 +23,7 @@ type Folder struct {
 	CreatedAt time.Time        `                                           json:"created_at"`
 	UpdatedAt time.Time        `                                           json:"updated_at"`
 	DeletedAt gorm.DeletedAt   `gorm:"index"                               json:"deleted_at"`
-	Status    EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"status"`
+	EncryptionStatus    EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"encryption_status"`
 }
 
 // TableName returns the entity table name.

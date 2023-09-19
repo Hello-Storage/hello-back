@@ -34,7 +34,7 @@ func CreateFolder(router *gin.RouterGroup) {
 		folder := entity.Folder{
 			Title: form.Title,
 			Root:  form.Root,
-			Status: form.Status,
+			EncryptionStatus: form.EncryptionStatus,
 		}
 
 		if err := folder.Create(); err != nil {

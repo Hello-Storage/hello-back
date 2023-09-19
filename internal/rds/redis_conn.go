@@ -2,9 +2,7 @@ package rds
 
 import (
 	"context"
-
 	"github.com/redis/go-redis/v9"
-	"github.com/redis/rueidis"
 )
 
 var rdsConn RdsConn
@@ -14,7 +12,6 @@ type RdsConn struct {
 	Password string
 
 	rds     *redis.Client
-	jsonRds rueidis.Client
 	ctx     context.Context
 }
 
@@ -29,15 +26,10 @@ func (g *RdsConn) Open() {
 		log.Infof("redis: %s connected!", g.Url)
 	}
 
-	jsonRds, err := rueidis.NewClient(rueidis.ClientOption{InitAddress: []string{g.Url}})
-	if err != nil {
-		panic(err)
-	}
-
 	var ctx = context.Background()
 
 	g.rds = rds
-	g.jsonRds = jsonRds
+
 	g.ctx = ctx
 
 	g.Init()

@@ -75,3 +75,21 @@ func FindReferrerIdFromReferredId(referred_id uint) uint {
 	}
 	return m.ReferrerID
 }
+
+
+func UpdateReferralStorage(user_id uint) error {
+	detail := &entity.UserDetail{}
+
+	if err := db.Db().Preload("Referrals").Where("user_id = ?", user_id).First(&detail).Error; err != nil {
+		return err
+	}
+
+	detail.ReferralStorage = uint(len(detail.Referrals) * 10 * 1024 * 1024 * 1024)
+
+	log.Infof("referral length: %d", len(detail.Referrals))
+	if err := detail.Save(); err != nil {
+		return err
+	}
+
+	return nil
+}

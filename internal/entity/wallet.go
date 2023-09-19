@@ -12,6 +12,7 @@ const (
 	Provider AccountType = "provider"
 	Google   AccountType = "google"
 	GitHub   AccountType = "github"
+	Mail AccountType = "email"
 )
 
 type Wallet struct {

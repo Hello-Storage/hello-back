@@ -37,7 +37,7 @@ type File struct {
 	UpdatedAt            time.Time        `                                           json:"updated_at"`
 	DeletedAt            gorm.DeletedAt   `gorm:"index"                               json:"deleted_at"`
 	Path                 string           `gorm:"type:varchar(1024);"                 json:"path"` // full path
-	Status               EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"status"`
+	EncryptionStatus               EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"encryption_status"`
 }
 
 // TableName returns the entity table name.

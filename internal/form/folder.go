@@ -8,7 +8,7 @@ import (
 type CreateFolder struct {
 	Title string `json:"title"`
 	Root  string `json:"root"`
-	Status    entity.EncryptionStatus `json:"status"`
+	EncryptionStatus    entity.EncryptionStatus `json:"encryption_status"`
 }
 
 type UpdateFolder struct {
