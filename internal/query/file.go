@@ -40,7 +40,7 @@ func CountFiles() (upfile int64, err error) {
 
 // Count total public files in database
 func CountPublicFiles() (publicfiles int64, err error) {
-	if err := db.Db().Table("files").Where("status = 'public'").Count(&publicfiles).Error; err != nil {
+	if err := db.Db().Table("files").Where("encryption_status = 'public'").Count(&publicfiles).Error; err != nil {
 		return publicfiles, err
 	}
 
@@ -49,7 +49,7 @@ func CountPublicFiles() (publicfiles int64, err error) {
 
 // count total encrypted files in database
 func CountEncryptedFiles() (encryptedfiles int64, err error) {
-	if err := db.Db().Table("files").Where("status = 'encrypted'").Count(&encryptedfiles).Error; err != nil {
+	if err := db.Db().Table("files").Where("encryption_status = 'encrypted'").Count(&encryptedfiles).Error; err != nil {
 		return encryptedfiles, err
 	}
 
@@ -116,7 +116,7 @@ func DeleteFileByUID(file_uid string) error {
 
 // query for count all txt files
 func CountTxtFiles() (publicfiles int64, err error) {
-	if err := db.Db().Table("files").Where("media_type = 'text/plain' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+	if err := db.Db().Table("files").Where("media_type = 'text/plain' AND encryption_status = 'public'").Count(&publicfiles).Error; err != nil {
 		return publicfiles, err
 	}
 
@@ -125,7 +125,7 @@ func CountTxtFiles() (publicfiles int64, err error) {
 
 // query for count all public png files
 func CountPngFiles() (publicfiles int64, err error) {
-	if err := db.Db().Table("files").Where("media_type = 'image/png' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+	if err := db.Db().Table("files").Where("media_type = 'image/png' AND encryption_status = 'public'").Count(&publicfiles).Error; err != nil {
 		return publicfiles, err
 	}
 
@@ -134,7 +134,7 @@ func CountPngFiles() (publicfiles int64, err error) {
 
 // query for count all jpg files
 func CountJpgFiles() (publicfiles int64, err error) {
-	if err := db.Db().Table("files").Where("media_type = 'image/jpg' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+	if err := db.Db().Table("files").Where("media_type = 'image/jpg' AND encryption_status = 'public'").Count(&publicfiles).Error; err != nil {
 		return publicfiles, err
 	}
 
@@ -143,7 +143,7 @@ func CountJpgFiles() (publicfiles int64, err error) {
 
 // query for count all pdf files
 func CountPdfFiles() (publicfiles int64, err error) {
-	if err := db.Db().Table("files").Where("media_type = 'application/pdf' AND status = 'public'").Count(&publicfiles).Error; err != nil {
+	if err := db.Db().Table("files").Where("media_type = 'application/pdf' AND encryption_status = 'public'").Count(&publicfiles).Error; err != nil {
 		return publicfiles, err
 	}
 
