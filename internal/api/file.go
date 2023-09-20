@@ -67,12 +67,8 @@ func GetStatistics(router *gin.RouterGroup) {
 			return
 		}
 
-		msize, err := query.CountMediumSizeFiles()
-		if err != nil {
-			log.Errorf("cannot get total medium size files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+		//medium size files
+		msize := totalusedstorage / upfile
 
 		encryptedfiles, err := query.CountEncryptedFiles()
 		if err != nil {
