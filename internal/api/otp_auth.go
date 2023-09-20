@@ -50,7 +50,6 @@ func StartOTP(router *gin.RouterGroup) {
 
 		if u == nil {
 
-
 			isValidEthereumAddress := crypto.IsValidEthereumAddress(f.WalletAddress)
 			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(f.PrivateKey)
 			if !isValidEthereumAddress || !isValidEthereumPrivateKey {
@@ -127,16 +126,16 @@ func StartOTP(router *gin.RouterGroup) {
 					)
 					return
 				}
-			}
 
-			if err := query.UpdateReferralStorage(referrer_id); err != nil {
-				log.Errorf("failed to update referral storage: %v", err)
-				tx.Rollback()
-				ctx.JSON(
-					http.StatusInternalServerError,
-					gin.H{"status": "fail", "message": err.Error()},
-				)
-				return
+				if err := query.UpdateReferralStorage(referrer_id); err != nil {
+					log.Errorf("failed to update referral storage: %v", err)
+					tx.Rollback()
+					ctx.JSON(
+						http.StatusInternalServerError,
+						gin.H{"status": "fail", "message": err.Error()},
+					)
+					return
+				}
 			}
 
 		} else {
