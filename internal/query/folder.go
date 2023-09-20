@@ -122,7 +122,7 @@ func GetFolderFilesByUID(folderUID string) (files entity.Files, err error) {
 
 // query for count all public folders
 func CountPublicFolders() (publicfolders int64, err error) {
-	if err := db.Db().Table("folders").Where("status = 'public'").Count(&publicfolders).Error; err != nil {
+	if err := db.Db().Table("folders").Where("encryption_status = 'public'").Count(&publicfolders).Error; err != nil {
 		return publicfolders, err
 	}
 

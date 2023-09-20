@@ -48,66 +48,77 @@ func GetStatistics(router *gin.RouterGroup) {
 	router.GET("/statistics", func(c *gin.Context) {
 		totalusedstorage, err := query.CountTotalUsedStorage()
 		if err != nil {
+			log.Errorf("cannot get total used storage: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		totalusers, err := query.CountUsers()
 		if err != nil {
+			log.Errorf("cannot get total users: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		upfile, err := query.CountFiles()
 		if err != nil {
+			log.Errorf("cannot get total uploaded files: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		msize, err := query.CountMediumSizeFiles()
 		if err != nil {
+			log.Errorf("cannot get total medium size files: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		encryptedfiles, err := query.CountEncryptedFiles()
 		if err != nil {
+			log.Errorf("cannot get total encrypted files: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		publicfiles, err := query.CountPublicFiles()
 		if err != nil {
+			log.Errorf("cannot get total public files: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		publicfolders, err := query.CountPublicFolders()
 		if err != nil {
+			log.Errorf("cannot get total public folders: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		counttxtfiles, err := query.CountTxtFiles()
 		if err != nil {
+			log.Errorf("cannot get total txt files: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		countpngfiles, err := query.CountPngFiles()
 		if err != nil {
+			log.Errorf("cannot get total png files: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		countjpgfiles, err := query.CountJpgFiles()
 		if err != nil {
+			log.Errorf("cannot get total jpg files: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
 		countpdffiles, err := query.CountPdfFiles()
 		if err != nil {
+			log.Errorf("cannot get total pdf files: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
