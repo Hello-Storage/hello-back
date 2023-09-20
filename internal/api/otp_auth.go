@@ -173,6 +173,15 @@ func StartOTP(router *gin.RouterGroup) {
 
 		log.Infof("id: %s", id)
 
+
+		if err != nil {
+			log.Errorf("failed to send email: %v", err)
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+			return
+		}
+
+		tx.Commit()
+
 		ctx.JSON(http.StatusOK, "success")
 	})
 }
