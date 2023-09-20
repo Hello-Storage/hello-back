@@ -80,7 +80,7 @@ func UpdateReferralStorage(user_id uint) error {
 		return err
 	}
 
-	detail.ReferralStorage = uint(len(detail.Referrals) * 10 * 1024 * 1024 * 1024)
+	detail.ReferralStorage = uint((len(detail.Referrals) + 1) * 10 * 1024 * 1024 * 1024)
 
 	if err := detail.Save(); err != nil {
 		return err
