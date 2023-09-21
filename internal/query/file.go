@@ -133,7 +133,7 @@ func CountPngFiles() (publicfiles int64, err error) {
 
 // query for count all jpg files
 func CountJpgFiles() (publicfiles int64, err error) {
-	if err := db.Db().Table("files").Where("encryption_status = 'public' AND mime = 'image/jpg'").Count(&publicfiles).Error; err != nil {
+	if err := db.Db().Table("files").Where("encryption_status = 'public' AND (mime = 'image/jpg' OR mime = 'image/jpeg')").Count(&publicfiles).Error; err != nil {
 		return publicfiles, err
 	}
 
