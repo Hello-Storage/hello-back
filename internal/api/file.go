@@ -100,10 +100,11 @@ func GetStatistics(router *gin.RouterGroup) {
 
 		countpngfiles, err := query.CountPngFiles()
 		if err != nil {
-			log.Errorf("cannot get total png files: %s", err)
+			log.Errorf("cannot get total png fileas: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
+
 
 		countjpgfiles, err := query.CountJpgFiles()
 		if err != nil {
