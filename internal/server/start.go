@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/config"
+	"github.com/Hello-Storage/hello-back/internal/middlewares"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -25,11 +26,11 @@ func Start(ctx context.Context) {
 
 	// Create new HTTP router engine without standard middleware.
 	router := gin.New()
-	router.MaxMultipartMemory = 5 << 30
+	router.MaxMultipartMemory = 500 << 20
 
 	// Register common middleware.
-	router.Use(gin.Recovery(), Logger())
-
+	router.Use(gin.Recovery(), Logger(), middlewares.RateLimitMiddleware(100, 100))
+	log.Info("server: common middleware registered")
 	// cors config
 	router.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
@@ -71,8 +72,8 @@ func Start(ctx context.Context) {
 	server := &http.Server{
 		Addr:           fmt.Sprintf("%s:%s", "0.0.0.0", config.Env().AppPort),
 		Handler:        router,
-		ReadTimeout:    200 * time.Second,
-		WriteTimeout:   20 * time.Second,
+		ReadTimeout:    10 * time.Minute,
+		WriteTimeout:   10 * time.Minute,
 		MaxHeaderBytes: 5 << 30, // 5 GB
 	}
 	log.Infof("server: listening on %s [%s]", server.Addr, time.Since(start))
