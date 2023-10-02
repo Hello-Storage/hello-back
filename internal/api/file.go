@@ -22,6 +22,13 @@ type Statistics struct {
 	// CountDailyStorage    int64 `json:"CountDailyStorage"`
 }
 
+type UserSratistics struct {
+	CountTotalUsedStorageUser    int64 `json:"CountTotalUsedStorageUser"`
+	CountTotalEncryptedFilesUser int64 `json:"CountTotalEncryptedFilesUser"`
+	CountTotalPublicFilesUser    int64 `json:"CountTotalPublicFilesUser"`
+	CountTotalFilesUser          int64 `json:"CountTotalFilesUser"`
+}
+
 // GetFile returns file details as JSON.
 //
 // GET /api/file/info/:uid
@@ -105,7 +112,6 @@ func GetStatistics(router *gin.RouterGroup) {
 			return
 		}
 
-
 		countjpgfiles, err := query.CountJpgFiles()
 		if err != nil {
 			log.Errorf("cannot get total jpg files: %s", err)
@@ -145,6 +151,45 @@ func GetStatistics(router *gin.RouterGroup) {
 			// CountDailyStorage:    daylystorage,
 		}
 
+		c.JSON(http.StatusOK, stats)
+	})
+	router.GET("/statistics/:uid", func(c *gin.Context) {
+
+		uid := c.Param("uid")
+		counttotalusedstorageuser, err := query.CountTotalUsedStorageUser(uid)
+		if err != nil {
+			log.Errorf("cannot get total used storage for user %s: %s", uid, err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		counttotalencryptedfilesuser, err := query.CountTotalEncryptedFilesUser(uid)
+		if err != nil {
+			log.Errorf("cannot get total encrypted files for user %s: %s", uid, err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		counttotalpublicfilesuser, err := query.CountTotalPublicFilesUser(uid)
+		if err != nil {
+			log.Errorf("cannot get total public files for user %s: %s", uid, err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		counttotalfilesuser, err := query.CountTotalFilesUser(uid)
+		if err != nil {
+			log.Errorf("cannot get total files for user %s: %s", uid, err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		stats := UserSratistics{
+			CountTotalUsedStorageUser:    counttotalusedstorageuser,
+			CountTotalEncryptedFilesUser: counttotalencryptedfilesuser,
+			CountTotalPublicFilesUser:    counttotalpublicfilesuser,
+			CountTotalFilesUser:          counttotalfilesuser,
+		}
 		c.JSON(http.StatusOK, stats)
 	})
 }
