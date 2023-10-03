@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/gin-gonic/gin"
@@ -22,11 +23,21 @@ type Statistics struct {
 	// CountDailyStorage    int64 `json:"CountDailyStorage"`
 }
 
-type UserSratistics struct {
+type UserStatistics struct {
 	CountTotalUsedStorageUser    int64 `json:"CountTotalUsedStorageUser"`
 	CountTotalEncryptedFilesUser int64 `json:"CountTotalEncryptedFilesUser"`
 	CountTotalPublicFilesUser    int64 `json:"CountTotalPublicFilesUser"`
 	CountTotalFilesUser          int64 `json:"CountTotalFilesUser"`
+}
+
+type UserDailyStatistics struct {
+	CountDailyStorageUser1 int64 `json:"CountDailyStorageUser1"`
+	CountDailyStorageUser2 int64 `json:"CountDailyStorageUser2"`
+	CountDailyStorageUser3 int64 `json:"CountDailyStorageUser3"`
+	CountDailyStorageUser4 int64 `json:"CountDailyStorageUser4"`
+	CountDailyStorageUser5 int64 `json:"CountDailyStorageUser5"`
+	CountDailyStorageUser6 int64 `json:"CountDailyStorageUser6"`
+	CountDailyStorageUser7 int64 `json:"CountDailyStorageUser7"`
 }
 
 // GetFile returns file details as JSON.
@@ -184,12 +195,51 @@ func GetStatistics(router *gin.RouterGroup) {
 			return
 		}
 
-		stats := UserSratistics{
+		stats := UserStatistics{
 			CountTotalUsedStorageUser:    counttotalusedstorageuser,
 			CountTotalEncryptedFilesUser: counttotalencryptedfilesuser,
 			CountTotalPublicFilesUser:    counttotalpublicfilesuser,
 			CountTotalFilesUser:          counttotalfilesuser,
 		}
 		c.JSON(http.StatusOK, stats)
+	})
+
+	router.GET("/statistics/:uid/day", func(c *gin.Context) {
+		uid := c.Param("uid")
+
+		var countdailystorageuser [7]int64
+
+		for i := 0; i < len(countdailystorageuser); i++ {
+			err := error(nil)
+			// Get today date in this format (year-month-day hour:minute:second)
+			temptime1 := time.Now().AddDate(0, 0, -i).Format("2006-01-02 15:04:05")
+			// sum 1 days to today date
+			temptime2 := time.Now().AddDate(0, 0, -i+1).Format("2006-01-02 15:04:05")
+			// set hours, seconds, minutes to 00:00:00
+			temptime1 = temptime1[0:11] + "00:00:00"
+			temptime2 = temptime2[0:11] + "00:00:00"
+
+			countdailystorageuser[i], err = query.CountDailyStorageUser(temptime1, temptime2, uid)
+
+			if err != nil {
+				log.Errorf("cannot get total used storage for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			log.Info(countdailystorageuser[i])
+		}
+
+		// stats := UserDailyStatistics{
+		// 	CountDailyStorageUser1: countdailystorageuser1,
+		// 	CountDailyStorageUser2: countdailystorageuser2,
+		// 	CountDailyStorageUser3: countdailystorageuser3,
+		// 	CountDailyStorageUser4: countdailystorageuser4,
+		// 	CountDailyStorageUser5: countdailystorageuser5,
+		// 	CountDailyStorageUser6: countdailystorageuser6,
+		// 	CountDailyStorageUser7: countdailystorageuser7,
+		// }
+		// c.JSON(http.StatusOK, stats)
+		c.JSON(http.StatusOK, countdailystorageuser)
+
 	})
 }
