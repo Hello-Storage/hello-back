@@ -169,7 +169,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## ☎️ Contact
 
-Hello Decentralized - [@joinhelloapp](https://twitter.com/joinhelloapp) - team@hello.app
+Hello Decentralized - [@helloapp](https://twitter.com/joinhelloapp) - team@hello.app
 
 Project Link: [https://hello.app/](https://hello.app/)
 
