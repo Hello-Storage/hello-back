@@ -44,6 +44,12 @@ func Start(ctx context.Context) {
 			"https://www.joinhello.vercel.app",
 			"https://hello.storage",
 			"https://www.hello.storage",
+			"https://space.hello.app",
+			"https://www.space.hello.app",
+			"https://space.hello.storage",
+			"https://www.space.hello.storage",
+			"https://space.hello.ws",
+			"https://www.space.hello.ws",
 		},
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders: []string{

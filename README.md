@@ -64,7 +64,7 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-**[joinhello.app](https://joinhello.app)**
+**[hello.app](https://hello.app)**
 building fully decentralized storage protocol!
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -169,9 +169,9 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## ☎️ Contact
 
-Hello Decentralized - [@joinhelloapp](https://twitter.com/joinhelloapp) - team@joinhello.app
+Hello Decentralized - [@joinhelloapp](https://twitter.com/joinhelloapp) - team@hello.app
 
-Project Link: [https://hello.ws/](https://hello.ws/)
+Project Link: [https://hello.app/](https://hello.app/)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
