@@ -41,7 +41,6 @@ func PutUploadFiles(router *gin.RouterGroup) {
 		root := form.Value["root"]
 		files := form.File["files"]
 
-
 		var r string
 		if len(root) > 0 {
 			r = root[0]
@@ -49,6 +48,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			r = "/"
 		}
 
+		encryptedFiles := form.File["encryptedFiles"]
 		// Handle regular files
 		for index, file := range files {
 
@@ -75,11 +75,11 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 			// create file
 			f := entity.File{
-				Name:   file.Filename,
-				Root:   actual_root,
-				CID:    cid[0],
-				Mime:   mime,
-				Size:   file.Size,
+				Name:             file.Filename,
+				Root:             actual_root,
+				CID:              cid[0],
+				Mime:             mime,
+				Size:             file.Size,
 				EncryptionStatus: entity.Public,
 			}
 			if err := f.Create(); err != nil {
@@ -99,8 +99,9 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				return
 			}
 
-			keyPath := authPayload.UserUID + "/" + f.UID
+			keyPath := f.CID
 			// upload file
+			ctx.JSON(http.StatusOK, fmt.Sprintf("%d files and %d encrypted files uploaded!", len(files), len(encryptedFiles)))
 			if err := UploadFileToS3(file, keyPath); err != nil {
 				log.Errorf("uploading file to s3: %s", err)
 				AbortInternalServerError(ctx)
@@ -117,8 +118,6 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			}
 
 		}
-
-		encryptedFiles := form.File["encryptedFiles"]
 
 		for key, encryptedFile := range encryptedFiles {
 			// Ensure the key exists and has values
@@ -172,7 +171,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				CIDOriginalEncrypted: &cidOriginalEncrypted[0],
 				Mime:                 mime,
 				Size:                 encryptedFile.Size,
-				EncryptionStatus:               entity.Encrypted,
+				EncryptionStatus:     entity.Encrypted,
 			}
 
 			if err := f.Create(); err != nil {
@@ -193,8 +192,9 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				return
 			}
 
-			keyPath := authPayload.UserUID + "/" + f.UID
+			keyPath := f.CID
 			// upload file
+			ctx.JSON(http.StatusOK, fmt.Sprintf("%d files and %d encrypted files uploaded!", len(files), len(encryptedFiles)))
 			if err := UploadFileToS3(encryptedFile, keyPath); err != nil {
 				log.Errorf("uploading file to s3: %s", err)
 				AbortInternalServerError(ctx)
@@ -212,7 +212,6 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 		}
 
-		ctx.JSON(http.StatusOK, fmt.Sprintf("%d files and %d encrypted files uploaded!", len(files), len(encryptedFiles)))
 	})
 }
 
@@ -251,8 +250,8 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, encryption_stat
 	log.Infof("folder find by title and root: %v", f)
 	if f == nil {
 		f = &entity.Folder{
-			Title: sub_title,
-			Root:  root,
+			Title:            sub_title,
+			Root:             root,
 			EncryptionStatus: encryption_status,
 		}
 

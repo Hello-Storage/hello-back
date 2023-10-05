@@ -25,6 +25,9 @@ func CreateBucket(s3Config aws.Config, bucket string) error {
 
 	// create a s3 client session
 	s3Client := s3.New(goSession)
+	
+
+	
 
 	// set parameter for bucket name
 	b := aws.String(bucket)

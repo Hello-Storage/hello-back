@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
+	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/aws/aws-sdk-go/aws"
@@ -30,15 +32,30 @@ func DownloadFile(router *gin.RouterGroup) {
 		// Multipart form
 		keyPath := authPayload.UserUID + "/" + file_uid
 		out, error := DownloadFileFromS3(keyPath)
-
+		log.Printf("test1")
+		//if error contains "NoSuchKey" then set keyPath without the userUID
 		if error != nil {
-			log.Errorf("download file: %s", error)
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"message": error.Error(),
-			})
-			return
-		}
+			if strings.Contains(error.Error(), "NoSuchKey") {
+				log.Printf("test2")
+				//get file by uid
+				f, err := query.FindFileByUID(file_uid)
+				if err != nil {
+					ctx.JSON(http.StatusBadRequest, gin.H{
+						"message": error.Error(),
+					})
+					return
+				}
+				keyPath = f.CID
+				out, error = DownloadFileFromS3(keyPath)
+			} else {
+				log.Errorf("download file: %s", error)
+				ctx.JSON(http.StatusBadRequest, gin.H{
+					"message": error.Error(),
+				})
+				return
+			}
 
+		}
 		// Set the correct content type and file name
 		ctx.Header("Content-Type", *out.ContentType)
 		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", file_uid))
