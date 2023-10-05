@@ -72,7 +72,6 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			// create corresponding folders to locate this file at proper path
 			file_path := params["filename"]
 			actual_root, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
-			log.Infof("actual_root: %s", actual_root)
 
 			// create file
 			f := entity.File{
@@ -95,6 +94,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				Permission: entity.OwnerPermission,
 			}
 			if err := f_u.Create(); err != nil {
+				log.Errorf("create file_user relation: %s", err)
 				AbortInternalServerError(ctx)
 				return
 			}
@@ -212,7 +212,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 		}
 
-		ctx.JSON(http.StatusOK, fmt.Sprintf("%d files uploaded!", len(files)))
+		ctx.JSON(http.StatusOK, fmt.Sprintf("%d files and %d encrypted files uploaded!", len(files), len(encryptedFiles)))
 	})
 }
 
