@@ -28,6 +28,7 @@ type UserStatistics struct {
 	CountTotalEncryptedFilesUser int64 `json:"CountTotalEncryptedFilesUser"`
 	CountTotalPublicFilesUser    int64 `json:"CountTotalPublicFilesUser"`
 	CountTotalFilesUser          int64 `json:"CountTotalFilesUser"`
+	CountTotalPublicFoldersUser  int64 `json:"CountTotalPublicFoldersUser"`
 }
 
 type UserDailyStatistics struct {
@@ -195,11 +196,19 @@ func GetStatistics(router *gin.RouterGroup) {
 			return
 		}
 
+		counttotalpublicfoldersuser, err := query.CountTotalPublicFoldersUser(uid)
+		if err != nil {
+			log.Errorf("cannot get total public folders for user %s: %s", uid, err)
+			AbortEntityNotFound(c)
+			return
+		}
+
 		stats := UserStatistics{
 			CountTotalUsedStorageUser:    counttotalusedstorageuser,
 			CountTotalEncryptedFilesUser: counttotalencryptedfilesuser,
 			CountTotalPublicFilesUser:    counttotalpublicfilesuser,
 			CountTotalFilesUser:          counttotalfilesuser,
+			CountTotalPublicFoldersUser:  counttotalpublicfoldersuser,
 		}
 		c.JSON(http.StatusOK, stats)
 	})
