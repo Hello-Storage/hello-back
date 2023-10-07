@@ -128,3 +128,12 @@ func CountPublicFolders() (publicfolders int64, err error) {
 
 	return publicfolders, nil
 }
+
+// query total sum user public folders folders , need id in table users for make inner join with table folders_users and folders
+func CountTotalPublicFoldersUser(user_uid string) (publicfolders int64, err error) {
+	if err := db.Db().Table("folders").Select("COUNT(*)").Joins("INNER JOIN folders_users ON folders_users.folder_id = folders.id").Joins("INNER JOIN users ON users.id = folders_users.user_id").Where("users.uid = ? AND folders.deleted_at IS NULL ", user_uid).Scan(&publicfolders).Error; err != nil {
+		return publicfolders, err
+	}
+
+	return publicfolders, nil
+}
