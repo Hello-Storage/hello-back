@@ -212,7 +212,7 @@ func CountDailyStorageUser(daystring1 string, daystring2 string, user_uid string
 		Select("COALESCE(SUM(files.size), 0)").
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
-		Where("users.uid = ? AND (files.created_at >= DATE_TRUNC('DAY', ?::timestamp) AND files.created_at < DATE_TRUNC('DAY', ?::timestamp) + INTERVAL '1 DAY')", user_uid, daystring1, daystring2)
+		Where("users.uid = ? AND (files.created_at >= DATE_TRUNC('DAY', ?::timestamp) AND files.created_at < DATE_TRUNC('DAY', ?::timestamp)) AND files.deleted_at IS NULL ", user_uid, daystring1, daystring2)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailystorage).Error; err != nil {
@@ -220,4 +220,44 @@ func CountDailyStorageUser(daystring1 string, daystring2 string, user_uid string
 	}
 
 	return dailystorage, nil
+}
+
+// query daily total files used by user in the last 24 hours
+func CountDailyFilesUser(daystring1 string, daystring2 string, user_uid string) (dailyfiles int64, err error) {
+	log.Infof("daystring1: %s", daystring1)
+	log.Infof("daystring2: %s", daystring2)
+
+	query := db.Db().
+		Table("files").
+		Select("COALESCE(COUNT(files.id), 0)").
+		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
+		Joins("INNER JOIN users ON users.id = files_users.user_id").
+		Where("users.uid = ? AND (files.created_at >= DATE_TRUNC('DAY', ?::timestamp) AND files.created_at < DATE_TRUNC('DAY', ?::timestamp)) AND files.deleted_at IS NULL ", user_uid, daystring1, daystring2)
+
+	// Execute and scan the result
+	if err := query.Scan(&dailyfiles).Error; err != nil {
+		return dailyfiles, err
+	}
+
+	return dailyfiles, nil
+}
+
+// query daily public files used by user in the last 24 hours
+func CountDailyPublicFilesUser(daystring1 string, daystring2 string, user_uid string, status string) (dailypublicfiles int64, err error) {
+	log.Infof("daystring1: %s", daystring1)
+	log.Infof("daystring2: %s", daystring2)
+
+	query := db.Db().
+		Table("files").
+		Select("COALESCE(COUNT(files.id), 0)").
+		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
+		Joins("INNER JOIN users ON users.id = files_users.user_id").
+		Where("users.uid = ? AND (files.created_at >= DATE_TRUNC('DAY', ?::timestamp) AND files.created_at < DATE_TRUNC('DAY', ?::timestamp)) AND files.deleted_at IS NULL AND files.encryption_status = ?", user_uid, daystring1, daystring2, status)
+
+	// Execute and scan the result
+	if err := query.Scan(&dailypublicfiles).Error; err != nil {
+		return dailypublicfiles, err
+	}
+
+	return dailypublicfiles, nil
 }
