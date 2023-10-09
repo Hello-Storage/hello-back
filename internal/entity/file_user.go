@@ -2,6 +2,7 @@ package entity
 
 import (
 	"github.com/Hello-Storage/hello-back/internal/db"
+	"gorm.io/gorm"
 )
 
 type permission string
@@ -27,6 +28,10 @@ func (FileUser) TableName() string {
 
 func (m *FileUser) Create() error {
 	return db.Db().Create(m).Error
+}
+
+func (m *FileUser) TxCreate(tx *gorm.DB) error {
+	return tx.Create(m).Error
 }
 
 //update
