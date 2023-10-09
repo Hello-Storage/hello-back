@@ -32,13 +32,10 @@ type UserStatistics struct {
 }
 
 type UserDailyStatistics struct {
-	CountDailyStorageUser1 int64 `json:"CountDailyStorageUser1"`
-	CountDailyStorageUser2 int64 `json:"CountDailyStorageUser2"`
-	CountDailyStorageUser3 int64 `json:"CountDailyStorageUser3"`
-	CountDailyStorageUser4 int64 `json:"CountDailyStorageUser4"`
-	CountDailyStorageUser5 int64 `json:"CountDailyStorageUser5"`
-	CountDailyStorageUser6 int64 `json:"CountDailyStorageUser6"`
-	CountDailyStorageUser7 int64 `json:"CountDailyStorageUser7"`
+	CountDailyStorageUser        [7]int64 `json:"CountDailyStorageUser"`
+	CountDailyFilesUser          [7]int64 `json:"CountDailyFilesUser"`
+	CountDailyPublicFilesUser    [7]int64 `json:"CountDailyPublicFilesUser"`
+	CountDailyEncryptedFilesUser [7]int64 `json:"CountDailyEncryptedFilesUser"`
 }
 
 // GetFile returns file details as JSON.
@@ -217,6 +214,10 @@ func GetStatistics(router *gin.RouterGroup) {
 		uid := c.Param("uid")
 
 		var countdailystorageuser [7]int64
+		var countdailyfileuser [7]int64
+		var countdailypublicfilesuser [7]int64
+		var countdailyencryptedfilesuser [7]int64
+		// nueva
 
 		for i := 0; i < len(countdailystorageuser); i++ {
 			err := error(nil)
@@ -229,6 +230,10 @@ func GetStatistics(router *gin.RouterGroup) {
 			temptime2 = temptime2[0:11] + "00:00:00"
 
 			countdailystorageuser[i], err = query.CountDailyStorageUser(temptime1, temptime2, uid)
+			countdailyfileuser[i], err = query.CountDailyFilesUser(temptime1, temptime2, uid)
+			countdailypublicfilesuser[i], err = query.CountDailyPublicFilesUser(temptime1, temptime2, uid, "public")
+			countdailyencryptedfilesuser[i], err = query.CountDailyPublicFilesUser(temptime1, temptime2, uid, "encrypted")
+			//nue va
 
 			if err != nil {
 				log.Errorf("cannot get total used storage for user %s: %s", uid, err)
@@ -238,17 +243,14 @@ func GetStatistics(router *gin.RouterGroup) {
 			log.Info(countdailystorageuser[i])
 		}
 
-		// stats := UserDailyStatistics{
-		// 	CountDailyStorageUser1: countdailystorageuser1,
-		// 	CountDailyStorageUser2: countdailystorageuser2,
-		// 	CountDailyStorageUser3: countdailystorageuser3,
-		// 	CountDailyStorageUser4: countdailystorageuser4,
-		// 	CountDailyStorageUser5: countdailystorageuser5,
-		// 	CountDailyStorageUser6: countdailystorageuser6,
-		// 	CountDailyStorageUser7: countdailystorageuser7,
-		// }
-		// c.JSON(http.StatusOK, stats)
-		c.JSON(http.StatusOK, countdailystorageuser)
+		stats := UserDailyStatistics{
+			CountDailyStorageUser:        countdailystorageuser,
+			CountDailyFilesUser:          countdailyfileuser,
+			CountDailyPublicFilesUser:    countdailypublicfilesuser,
+			CountDailyEncryptedFilesUser: countdailyencryptedfilesuser,
+		}
+
+		c.JSON(http.StatusOK, stats)
 
 	})
 }
