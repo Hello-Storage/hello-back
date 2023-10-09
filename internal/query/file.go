@@ -151,7 +151,7 @@ func CountPdfFiles() (publicfiles int64, err error) {
 
 // query total sum storaged_used of individual user, need id in table users for make inner join with table user_details
 func CountTotalUsedStorageUser(user_uid string) (totalusedstorage int64, err error) {
-	if err := db.Db().Table("user_details").Select("SUM(storage_used)").Joins("INNER JOIN users ON users.id = user_details.user_id").Where("users.uid = ?", user_uid).Scan(&totalusedstorage).Error; err != nil {
+	if err := db.Db().Table("user_details").Select("SUM(storage_used)").Joins("INNER JOIN users ON users.id = user_details.user_id").Where("users.uid = ? ", user_uid).Scan(&totalusedstorage).Error; err != nil {
 		return totalusedstorage, err
 	}
 
@@ -160,7 +160,7 @@ func CountTotalUsedStorageUser(user_uid string) (totalusedstorage int64, err err
 
 // query total sum user encrypted files (encyption_status), need id in table users for make inner join with table files_users and files
 func CountTotalEncryptedFilesUser(user_uid string) (encryptedfiles int64, err error) {
-	if err := db.Db().Table("files").Select("COUNT(*)").Joins("INNER JOIN files_users ON files_users.file_id = files.id").Joins("INNER JOIN users ON users.id = files_users.user_id").Where("users.uid = ? AND files.encryption_status = 'encrypted'", user_uid).Scan(&encryptedfiles).Error; err != nil {
+	if err := db.Db().Table("files").Select("COUNT(*)").Joins("INNER JOIN files_users ON files_users.file_id = files.id").Joins("INNER JOIN users ON users.id = files_users.user_id").Where("users.uid = ? AND files.encryption_status = 'encrypted'  AND files.deleted_at IS NULL", user_uid).Scan(&encryptedfiles).Error; err != nil {
 		return encryptedfiles, err
 	}
 
@@ -169,7 +169,7 @@ func CountTotalEncryptedFilesUser(user_uid string) (encryptedfiles int64, err er
 
 // query total sum user publicfiles files (encyption_status), need id in table users for make inner join with table files_users and files
 func CountTotalPublicFilesUser(user_uid string) (publicfiles int64, err error) {
-	if err := db.Db().Table("files").Select("COUNT(*)").Joins("INNER JOIN files_users ON files_users.file_id = files.id").Joins("INNER JOIN users ON users.id = files_users.user_id").Where("users.uid = ? AND files.encryption_status = 'public'", user_uid).Scan(&publicfiles).Error; err != nil {
+	if err := db.Db().Table("files").Select("COUNT(*)").Joins("INNER JOIN files_users ON files_users.file_id = files.id").Joins("INNER JOIN users ON users.id = files_users.user_id").Where("users.uid = ? AND files.encryption_status = 'public' AND files.deleted_at IS NULL", user_uid).Scan(&publicfiles).Error; err != nil {
 		return publicfiles, err
 	}
 
@@ -178,7 +178,7 @@ func CountTotalPublicFilesUser(user_uid string) (publicfiles int64, err error) {
 
 // query total sum user publicfiles and encryptedfiles files (encyption_status), need id in table users for make inner join with table files_users and files
 func CountTotalFilesUser(user_uid string) (upfile int64, err error) {
-	if err := db.Db().Table("files").Select("COUNT(*)").Joins("INNER JOIN files_users ON files_users.file_id = files.id").Joins("INNER JOIN users ON users.id = files_users.user_id").Where("users.uid = ?", user_uid).Scan(&upfile).Error; err != nil {
+	if err := db.Db().Table("files").Select("COUNT(*)").Joins("INNER JOIN files_users ON files_users.file_id = files.id").Joins("INNER JOIN users ON users.id = files_users.user_id").Where("users.uid = ?  AND files.deleted_at IS NULL", user_uid).Scan(&upfile).Error; err != nil {
 		return upfile, err
 	}
 
@@ -201,3 +201,23 @@ func CountTotalFilesUser(user_uid string) (upfile int64, err error) {
 
 // 	return dailystorage, nil
 // }
+
+// Query daily storaged used by user in the last 24 hours
+func CountDailyStorageUser(daystring1 string, daystring2 string, user_uid string) (dailystorage int64, err error) {
+	log.Infof("daystring1: %s", daystring1)
+	log.Infof("daystring2: %s", daystring2)
+
+	query := db.Db().
+		Table("files").
+		Select("COALESCE(SUM(files.size), 0)").
+		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
+		Joins("INNER JOIN users ON users.id = files_users.user_id").
+		Where("users.uid = ? AND (files.created_at >= DATE_TRUNC('DAY', ?::timestamp) AND files.created_at < DATE_TRUNC('DAY', ?::timestamp) + INTERVAL '1 DAY')", user_uid, daystring1, daystring2)
+
+	// Execute and scan the result
+	if err := query.Scan(&dailystorage).Error; err != nil {
+		return dailystorage, err
+	}
+
+	return dailystorage, nil
+}
