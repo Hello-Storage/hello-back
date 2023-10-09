@@ -55,9 +55,11 @@ func UploadObject(
 	}
 
 	// Upload the file to S3.
-	result, err := uploader.Upload(input)
+	_, err = uploader.Upload(input)
+	if err != nil {
+		return fmt.Errorf("failed to upload file, %v", err)
+	}
 
-	fmt.Printf("result, %v\n", result)
 	// fmt.Printf("file uploaded to, %s\n", aws.StringValue(&result.Location))
 
 	if err != nil {

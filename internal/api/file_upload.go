@@ -10,6 +10,7 @@ import (
 
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
+	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/s3"
@@ -27,18 +28,19 @@ import (
 // - root
 func PutUploadFiles(router *gin.RouterGroup) {
 	type FileResponse struct {
-		Name string `json:"name"`
-		UID string `json:"uid"`
-		Root string `json:"root"`
-		CID string `json:"cid"`
-		Mime string `json:"mime"`
-		Size int64 `json:"size"`
+		Name            string                  `json:"name"`
+		UID             string                  `json:"uid"`
+		Root            string                  `json:"root"`
+		CID             string                  `json:"cid"`
+		Mime            string                  `json:"mime"`
+		Size            int64                   `json:"size"`
 		EnryptionStatus entity.EncryptionStatus `json:"encryption_status"`
-	}	
+	}
 
 	var fileResponses []FileResponse
 
 	router.POST("/upload", func(ctx *gin.Context) {
+		tx := db.Db().Begin()
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 
 		// Multipart form
@@ -53,7 +55,6 @@ func PutUploadFiles(router *gin.RouterGroup) {
 		root := form.Value["root"]
 		files := form.File["files"]
 
-
 		var r string
 		if len(root) > 0 {
 			r = root[0]
@@ -61,6 +62,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			r = "/"
 		}
 
+		encryptedFiles := form.File["encryptedFiles"]
 		// Handle regular files
 		for index, file := range files {
 
@@ -93,30 +95,30 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 			// create file
 			f := entity.File{
-				Name:   file.Filename,
-				Root:   actual_root,
-				CID:    cid[0],
-				Mime:   mime,
-				Size:   file.Size,
+				Name:             file.Filename,
+				Root:             actual_root,
+				CID:              cid[0],
+				Mime:             mime,
+				Size:             file.Size,
 				EncryptionStatus: entity.Public,
 			}
-			if err := f.Create(); err != nil {
+			if err := f.TxCreate(tx); err != nil {
 				log.Errorf("create file: %s", err)
+				tx.Rollback()
 				AbortInternalServerError(ctx)
 			}
 
 			fResponse := FileResponse{
-				Name: f.Name,
-				UID: f.UID,
-				Root: f.Root,
-				CID: f.CID,
-				Mime: f.Mime,
-				Size: f.Size,
+				Name:            f.Name,
+				UID:             f.UID,
+				Root:            f.Root,
+				CID:             f.CID,
+				Mime:            f.Mime,
+				Size:            f.Size,
 				EnryptionStatus: f.EncryptionStatus,
 			}
 
 			fileResponses = append(fileResponses, fResponse)
-			
 
 			// create file_user relation
 			f_u := entity.FileUser{
@@ -124,32 +126,35 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				UserID:     authPayload.UserID,
 				Permission: entity.OwnerPermission,
 			}
-			if err := f_u.Create(); err != nil {
+			if err := f_u.TxCreate(tx); err != nil {
 				log.Errorf("create file_user relation: %s", err)
+				tx.Rollback()
 				AbortInternalServerError(ctx)
 				return
 			}
 
-			keyPath := authPayload.UserUID + "/" + f.UID
+			keyPath := f.CID
 			// upload file
-			if err := UploadFileToS3(file, keyPath); err != nil {
-				log.Errorf("uploading file to s3: %s", err)
-				AbortInternalServerError(ctx)
-				return
-			}
+
+			go func(file *multipart.FileHeader, keyPath string) {
+				if err := UploadFileToS3(file, keyPath); err != nil {
+					log.Errorf("uploading file to s3: %s", err)
+					tx.Rollback()
+					AbortInternalServerError(ctx)
+					return
+				}
+			}(file, keyPath)
 
 			// add user storage quantity
 			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
 
-			if err := user_detail.Update("storage_used", user_detail.StorageUsed+uint(file.Size)); err != nil {
+			if err := user_detail.TxUpdate(tx, "storage_used", user_detail.StorageUsed+uint(file.Size)); err != nil {
 				log.Errorf("adding storage_used: %s", err)
 				AbortInternalServerError(ctx)
 				return
 			}
 
 		}
-
-		encryptedFiles := form.File["encryptedFiles"]
 
 		for key, encryptedFile := range encryptedFiles {
 			// Ensure the key exists and has values
@@ -203,14 +208,27 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				CIDOriginalEncrypted: &cidOriginalEncrypted[0],
 				Mime:                 mime,
 				Size:                 encryptedFile.Size,
-				EncryptionStatus:               entity.Encrypted,
+				EncryptionStatus:     entity.Encrypted,
 			}
 
-			if err := f.Create(); err != nil {
+			if err := f.TxCreate(tx); err != nil {
 				log.Errorf("create encrypted file: %s", err)
+				tx.Rollback()
 				AbortInternalServerError(ctx)
 				return
 			}
+
+			fResponse := FileResponse{
+				Name:            f.Name,
+				UID:             f.UID,
+				Root:            f.Root,
+				CID:             f.CID,
+				Mime:            f.Mime,
+				Size:            f.Size,
+				EnryptionStatus: f.EncryptionStatus,
+			}
+
+			fileResponses = append(fileResponses, fResponse)
 
 			// create file_user relation
 			f_u := entity.FileUser{
@@ -218,35 +236,45 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				UserID:     authPayload.UserID,
 				Permission: entity.OwnerPermission,
 			}
-			if err := f_u.Create(); err != nil {
+			if err := f_u.TxCreate(tx); err != nil {
 				log.Errorf("create file_user relation: %s", err)
+				tx.Rollback()
 				AbortInternalServerError(ctx)
 				return
 			}
 
-			keyPath := authPayload.UserUID + "/" + f.UID
+			keyPath := f.CID
 			// upload file
 			if err := UploadFileToS3(encryptedFile, keyPath); err != nil {
 				log.Errorf("uploading file to s3: %s", err)
 				AbortInternalServerError(ctx)
 				return
 			}
+			go func(file *multipart.FileHeader, keyPath string) {
+				if err := UploadFileToS3(file, keyPath); err != nil {
+					log.Errorf("uploading file to s3: %s", err)
+					tx.Rollback()
+					AbortInternalServerError(ctx)
+					return
+				}
+			}(encryptedFile, keyPath)
 
 			// add user storage quantity
 			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
 
-			if err := user_detail.Update("storage_used", user_detail.StorageUsed+uint(encryptedFile.Size)); err != nil {
+			if err := user_detail.TxUpdate(tx, "storage_used", user_detail.StorageUsed+uint(encryptedFile.Size)); err != nil {
 				log.Errorf("adding storage_used: %s", err)
 				AbortInternalServerError(ctx)
 				return
 			}
 
 		}
-
+		tx.Commit()
 		ctx.JSON(http.StatusOK, gin.H{
-			"message": "ok",
-			"files": fileResponses,
+			"status": "success",
+			"data":   fileResponses,
 		})
+
 	})
 }
 
@@ -285,8 +313,8 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, encryption_stat
 	log.Infof("folder find by title and root: %v", f)
 	if f == nil {
 		f = &entity.Folder{
-			Title: sub_title,
-			Root:  root,
+			Title:            sub_title,
+			Root:             root,
 			EncryptionStatus: encryption_status,
 		}
 

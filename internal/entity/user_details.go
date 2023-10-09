@@ -42,3 +42,11 @@ func (m *UserDetail) Update(attr string, value interface{}) error {
 
 	return db.Db().Model(m).Update(attr, value).Error
 }
+
+func (m *UserDetail) TxUpdate(tx *gorm.DB, attr string, value interface{}) error {
+	if m.ID == 0 {
+		return fmt.Errorf("empty id")
+	}
+
+	return tx.Model(m).Update(attr, value).Error
+}

@@ -49,6 +49,10 @@ func (m *File) Create() error {
 	return db.Db().Create(m).Error
 }
 
+func (m *File) TxCreate(tx *gorm.DB) error {
+	return tx.Create(m).Error
+}
+
 func (m *File) Save() error {
 	return db.Db().Save(m).Error
 }
