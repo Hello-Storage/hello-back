@@ -32,11 +32,9 @@ func DownloadFile(router *gin.RouterGroup) {
 		// Multipart form
 		keyPath := authPayload.UserUID + "/" + file_uid
 		out, error := DownloadFileFromS3(keyPath)
-		log.Printf("test1")
 		//if error contains "NoSuchKey" then set keyPath without the userUID
 		if error != nil {
 			if strings.Contains(error.Error(), "NoSuchKey") {
-				log.Printf("test2")
 				//get file by uid
 				f, err := query.FindFileByUID(file_uid)
 				if err != nil {
@@ -58,6 +56,7 @@ func DownloadFile(router *gin.RouterGroup) {
 		}
 		// Set the correct content type and file name
 		ctx.Header("Content-Type", *out.ContentType)
+		log.Printf("Content-Type: %s", *out.ContentType)
 		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", file_uid))
 
 		// Copy the file data to the response

@@ -28,20 +28,21 @@ import (
 // - root
 func PutUploadFiles(router *gin.RouterGroup) {
 	type FileResponse struct {
+		ID              uint                    `json:"id"`
 		Name            string                  `json:"name"`
 		UID             string                  `json:"uid"`
 		Root            string                  `json:"root"`
 		CID             string                  `json:"cid"`
+		CIDOriginalEncrypted *string                  `json:"cid_original_encrypted"`
 		Mime            string                  `json:"mime"`
 		Size            int64                   `json:"size"`
 		EnryptionStatus entity.EncryptionStatus `json:"encryption_status"`
 	}
 
-	var fileResponses []FileResponse
-
 	router.POST("/upload", func(ctx *gin.Context) {
 		tx := db.Db().Begin()
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+		var fileResponses []FileResponse
 
 		// Multipart form
 		form, err := ctx.MultipartForm()
@@ -109,6 +110,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			}
 
 			fResponse := FileResponse{
+				ID:              f.ID,
 				Name:            f.Name,
 				UID:             f.UID,
 				Root:            f.Root,
@@ -223,6 +225,8 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				UID:             f.UID,
 				Root:            f.Root,
 				CID:             f.CID,
+				CIDOriginalEncrypted: f.CIDOriginalEncrypted,
+				ID:              f.ID,
 				Mime:            f.Mime,
 				Size:            f.Size,
 				EnryptionStatus: f.EncryptionStatus,
@@ -245,11 +249,6 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 			keyPath := f.CID
 			// upload file
-			if err := UploadFileToS3(encryptedFile, keyPath); err != nil {
-				log.Errorf("uploading file to s3: %s", err)
-				AbortInternalServerError(ctx)
-				return
-			}
 			go func(file *multipart.FileHeader, keyPath string) {
 				if err := UploadFileToS3(file, keyPath); err != nil {
 					log.Errorf("uploading file to s3: %s", err)
@@ -272,7 +271,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 		tx.Commit()
 		ctx.JSON(http.StatusOK, gin.H{
 			"status": "success",
-			"data":   fileResponses,
+			"files":  fileResponses,
 		})
 
 	})
