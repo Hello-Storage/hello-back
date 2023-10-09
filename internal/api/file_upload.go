@@ -85,6 +85,12 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			file_path := params["filename"]
 			actual_root, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
 
+			if err != nil {
+				log.Errorf("get and process file root: %s", err)
+				AbortInternalServerError(ctx)
+				return
+			}
+
 			// create file
 			f := entity.File{
 				Name:   file.Filename,
@@ -99,6 +105,18 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				AbortInternalServerError(ctx)
 			}
 
+			fResponse := FileResponse{
+				Name: f.Name,
+				UID: f.UID,
+				Root: f.Root,
+				CID: f.CID,
+				Mime: f.Mime,
+				Size: f.Size,
+				EnryptionStatus: f.EncryptionStatus,
+			}
+
+			fileResponses = append(fileResponses, fResponse)
+			
 
 			// create file_user relation
 			f_u := entity.FileUser{
@@ -206,7 +224,6 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				return
 			}
 
-		ctx.JSON(http.StatusOK, fmt.Sprintf("%d files and %d encrypted files uploaded!", len(files), len(encryptedFiles)))
 			keyPath := authPayload.UserUID + "/" + f.UID
 			// upload file
 			if err := UploadFileToS3(encryptedFile, keyPath); err != nil {
@@ -226,6 +243,10 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 		}
 
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "ok",
+			"files": fileResponses,
+		})
 	})
 }
 
