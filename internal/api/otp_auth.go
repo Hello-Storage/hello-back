@@ -164,7 +164,7 @@ func StartOTP(router *gin.RouterGroup) {
 		id, err := mg.SendEmail(
 			"noreply@joinhello.app",
 			f.Email,
-			"Log in to JoinHello",
+			"Login to hello.app",
 			"magic-code",
 			map[string]interface{}{
 				"code": code,
