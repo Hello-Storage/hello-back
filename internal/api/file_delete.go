@@ -41,7 +41,26 @@ func DeleteFile(router *gin.RouterGroup) {
 
 		//delete file from s3
 		keyPath := authPayload.UserUID + "/" + f.UID
-		if err := DeleteFileFromS3(keyPath); err != nil {
+
+		s3Config := aws.Config{
+			Credentials: credentials.NewStaticCredentials(
+				config.Env().WasabiAccessKey,
+				config.Env().WasabiSecretKey,
+				"",
+			),
+			Endpoint:         aws.String(config.Env().WasabiEndpoint),
+			Region:           aws.String(config.Env().WasabiRegion),
+			S3ForcePathStyle: aws.Bool(true),
+		}
+
+		_, err = s3.HeadObject(s3Config, config.Env().WasabiBucket, keyPath)
+		if err != nil {
+			keyPath = f.CID
+		} 
+
+		
+
+		if err := DeleteFileFromS3(keyPath, s3Config); err != nil {
 			AbortInternalServerError(ctx)
 			log.Errorf("delete file from s3 error: %v", err)
 			return
@@ -77,25 +96,15 @@ func DeleteFile(router *gin.RouterGroup) {
 }
 
 // internal delete one file
-func DeleteFileFromS3(keyPath string) error {
+func DeleteFileFromS3(keyPath string, s3Config aws.Config) error {
 
 	if keyPath == "" {
 		log.Errorf("DeleteFileFromS3: file uid is empty")
 		return nil
 	}
 
-	s3Config := aws.Config{
-		Credentials: credentials.NewStaticCredentials(
-			config.Env().WasabiAccessKey,
-			config.Env().WasabiSecretKey,
-			"",
-		),
-		Endpoint:         aws.String(config.Env().WasabiEndpoint),
-		Region:           aws.String(config.Env().WasabiRegion),
-		S3ForcePathStyle: aws.Bool(true),
-	}
-
 	//delete file from s3
+
 	if err := s3.DeleteObject(s3Config, config.Env().WasabiBucket, keyPath); err != nil {
 		log.Errorf("DeleteFileFromS3: delete file from s3 error: %v", err)
 		return err

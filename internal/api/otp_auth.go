@@ -149,6 +149,21 @@ func StartOTP(router *gin.RouterGroup) {
 			}
 		}
 
+		userLogin := &entity.UserLogin{
+			LoginDate:  time.Now(),
+			WalletAddr: u.Wallet.Address,
+		}
+
+		if err := userLogin.TxCreate(tx); err != nil {
+			log.Errorf("failed to create user login: %v", err)
+			tx.Rollback()
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{"status": "fail", "message": err.Error()},
+			)
+			return
+		}
+
 		code, err := totp.GenerateCode(key.Secret(), time.Now())
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, ErrorResponse(err))
@@ -172,7 +187,6 @@ func StartOTP(router *gin.RouterGroup) {
 		)
 
 		log.Infof("id: %s", id)
-
 
 		if err != nil {
 			log.Errorf("failed to send email: %v", err)

@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/query"
+	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/Hello-Storage/hello-back/pkg/token"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gin-gonic/gin"
 )
 
@@ -98,10 +102,27 @@ func DeleteAllFilesInFolder(folderUID, userUID string) error {
 	// 2. Delete each file from S3
 	for _, file := range files {
 
-
 		// Delete from S3
 		keyPath := userUID + "/" + file.UID
-		if err := DeleteFileFromS3(keyPath); err != nil {
+
+		s3Config := aws.Config{
+			Credentials: credentials.NewStaticCredentials(
+				config.Env().WasabiAccessKey,
+				config.Env().WasabiSecretKey,
+				"",
+			),
+			Endpoint:         aws.String(config.Env().WasabiEndpoint),
+			Region:           aws.String(config.Env().WasabiRegion),
+			S3ForcePathStyle: aws.Bool(true),
+		}
+
+		_, err = s3.HeadObject(s3Config, config.Env().WasabiBucket, keyPath)
+		if err != nil {
+			keyPath = file.CID
+		} 
+
+
+		if err := DeleteFileFromS3(keyPath, s3Config); err != nil {
 			return err
 		}
 

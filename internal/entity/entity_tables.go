@@ -15,6 +15,7 @@ var Entities = Tables{
 	Error{}.TableName():        &Error{},
 	User{}.TableName():         &User{},
 	UserDetail{}.TableName():   &UserDetail{},
+	UserLogin{}.TableName():    &UserLogin{},
 	Plan{}.TableName():         &Plan{},
 	Subscription{}.TableName(): &Subscription{},
 	Email{}.TableName():        &Email{},

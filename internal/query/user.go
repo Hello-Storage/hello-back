@@ -68,7 +68,7 @@ func FindUserByEmail(email string) *entity.User {
 	u := &entity.User{}
 
 	subquery := db.Db().Table("emails").Select("user_id").Where("email = ?", email)
-	if err := db.Db().Model(u).Preload("Email").Where("id IN (?)", subquery).First(u).Error; err == nil {
+	if err := db.Db().Model(u).Preload("Wallet").Preload("Email").Where("id IN (?)", subquery).First(u).Error; err == nil {
 		return u
 	} else {
 		return nil
