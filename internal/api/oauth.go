@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/db"
@@ -183,6 +184,22 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			RefreshToken:          refreshToken,
 			RefreshTokenExpiresAt: refreshPayload.ExpiredAt,
 		}
+		
+		userLogin := &entity.UserLogin{
+			LoginDate:  time.Now(),
+			WalletAddr: u.Wallet.Address,
+		}
+
+		if err := userLogin.TxCreate(tx); err != nil {
+			log.Errorf("failed to create user login: %v", err)
+			tx.Rollback()
+			ctx.JSON(
+				http.StatusInternalServerError,
+				gin.H{"status": "fail", "message": err.Error()},
+			)
+			return
+		}
+
 		tx.Commit()
 		ctx.JSON(http.StatusOK, rsp)
 	})

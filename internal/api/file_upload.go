@@ -149,10 +149,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					CreatedAt:       f.CreatedAt.String(),
 					UpdatedAt:       f.UpdatedAt.String(),
 				}
-				log.Print("Updated at:")
-				log.Print(fResponse.UpdatedAt)
-				log.Print("File updated at:")
-				log.Print(f.UpdatedAt.String())
 
 				filesFoundResponses = append(filesFoundResponses, fResponse)
 
