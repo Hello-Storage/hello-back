@@ -12,7 +12,7 @@ func FindFileByUID(uid string) (*entity.File, error) {
 	f := entity.File{}
 
 	if uid == "" {
-		return &f, fmt.Errorf("file uid required")
+		return nil, fmt.Errorf("file uid required")
 	}
 
 	err := db.Db().Where("uid = ?", uid).First(&f).Error
@@ -102,6 +102,30 @@ func FindRootFilesByUser(user_id uint) (files entity.Files, err error) {
 	}
 
 	return files, nil
+}
+
+func FindUsersByFileCID(cid string) ([]uint, error) {
+	var fileUsers []entity.FileUser
+	var users []uint
+
+	// Join File and FileUser tables and find records by CID
+	err := db.Db().
+		Table("files_users").
+		Select("files_users.user_id").
+		Joins("JOIN files ON files.id = files_users.file_id").
+		Where("files.c_id = ?", cid).
+		Find(&fileUsers).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract user IDs from the result
+	for _, fu := range fileUsers {
+		users = append(users, fu.UserID)
+	}
+
+	return users, nil
 }
 
 // DeleteFileByUID deletes a file by its UID.
@@ -204,8 +228,6 @@ func CountTotalFilesUser(user_uid string) (upfile int64, err error) {
 
 // Query daily storaged used by user in the last 24 hours
 func CountDailyStorageUser(daystring1 string, daystring2 string, user_uid string) (dailystorage int64, err error) {
-	log.Infof("daystring1: %s", daystring1)
-	log.Infof("daystring2: %s", daystring2)
 
 	query := db.Db().
 		Table("files").
@@ -224,8 +246,6 @@ func CountDailyStorageUser(daystring1 string, daystring2 string, user_uid string
 
 // query daily total files used by user in the last 24 hours
 func CountDailyFilesUser(daystring1 string, daystring2 string, user_uid string) (dailyfiles int64, err error) {
-	log.Infof("daystring1: %s", daystring1)
-	log.Infof("daystring2: %s", daystring2)
 
 	query := db.Db().
 		Table("files").
@@ -244,8 +264,6 @@ func CountDailyFilesUser(daystring1 string, daystring2 string, user_uid string) 
 
 // query daily public files used by user in the last 24 hours
 func CountDailyPublicFilesUser(daystring1 string, daystring2 string, user_uid string, status string) (dailypublicfiles int64, err error) {
-	log.Infof("daystring1: %s", daystring1)
-	log.Infof("daystring2: %s", daystring2)
 
 	query := db.Db().
 		Table("files").
