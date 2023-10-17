@@ -32,7 +32,7 @@ func registerRoutes(router *gin.Engine) {
 	api.FetchReferredUsers(APIv1)
 
 	//statistics routes
-	api.GetStatistics(APIv1)
+	//api.GetStatistics(APIv1)
 
 	// auth routes
 	api.LoginUser(APIv1, tokenMaker)
