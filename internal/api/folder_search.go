@@ -30,7 +30,6 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 		resp := FolderResponse{Root: root}
 
-		// TO-DO folders
 		if root == "/" {
 			if folders, err := query.FindRootFoldersByUser(authPayload.UserID); err != nil {
 				log.Errorf("folder find root by user: %s", err)

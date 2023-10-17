@@ -45,6 +45,14 @@ func DownloadFile(router *gin.RouterGroup) {
 				}
 				keyPath = f.CID
 				out, error = DownloadFileFromS3(keyPath)
+				log.Errorf("download file: %s", error)
+				if error != nil {
+					ctx.JSON(http.StatusBadRequest, gin.H{
+						"message": error.Error(),
+					})
+					return
+				}
+
 			} else {
 				log.Errorf("download file: %s", error)
 				ctx.JSON(http.StatusBadRequest, gin.H{

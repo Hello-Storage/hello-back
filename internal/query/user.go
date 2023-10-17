@@ -18,8 +18,9 @@ func RegisteredUsers() (result entity.Users) {
 func FindUser(find entity.User) *entity.User {
 	m := &entity.User{}
 
-	stmt := db.Db()
+	stmt := db.Db().Preload("Wallet")
 
+	//INFO[2023-10-17T13:01:30Z] user id: 4                                   
 	if find.ID != 0 && find.Name != "" {
 		stmt = stmt.Where("id = ? OR name = ?", find.ID, find.Name)
 	} else if find.ID != 0 {
@@ -32,10 +33,15 @@ func FindUser(find entity.User) *entity.User {
 		return nil
 	}
 
+
+
 	// Find matching record.
 	if err := stmt.First(m).Error; err != nil {
+		log.Error(err)
 		return nil
 	}
+	
+	//print m:
 
 	return m
 
@@ -68,7 +74,7 @@ func FindUserByEmail(email string) *entity.User {
 	u := &entity.User{}
 
 	subquery := db.Db().Table("emails").Select("user_id").Where("email = ?", email)
-	if err := db.Db().Model(u).Preload("Email").Where("id IN (?)", subquery).First(u).Error; err == nil {
+	if err := db.Db().Model(u).Preload("Wallet").Preload("Email").Where("id IN (?)", subquery).First(u).Error; err == nil {
 		return u
 	} else {
 		return nil

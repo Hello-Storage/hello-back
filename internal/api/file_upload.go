@@ -12,6 +12,7 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
+	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/Hello-Storage/hello-back/pkg/token"
@@ -20,6 +21,175 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// CheckFiles checks if files key (cid) exist in s3 "pool"
+//
+// POST /api/file/pool/check
+// - JSON customFileMeta (array) that is passed from frontend
+func CheckFilesExistInPool(router *gin.RouterGroup) {
+	router.POST("/pool/check", func(ctx *gin.Context) {
+		tx := db.Db().Begin()
+		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+		var customFileMetas []form.CustomFileMeta
+		if err := ctx.ShouldBindJSON(&customFileMetas); err != nil {
+			log.Errorf("should bind json: %s", err)
+			AbortBadRequest(ctx)
+			return
+		}
+		log.Infof("customFileMetas: %v", customFileMetas)
+				fmt.Print("CID faound:")
+
+		fmt.Print(customFileMetas)
+
+		// Check if files exist in s3
+		s3Config := aws.Config{
+			Credentials: credentials.NewStaticCredentials(
+				config.Env().WasabiAccessKey,
+				config.Env().WasabiSecretKey,
+				"",
+			),
+			Endpoint:         aws.String(config.Env().WasabiEndpoint),
+			Region:           aws.String(config.Env().WasabiRegion),
+			S3ForcePathStyle: aws.Bool(true),
+		}
+
+		//iterate over customFileMetas and check if the cid exists in s3
+		var filesFoundResponses []form.FileResponse
+
+		root := customFileMetas[0].Root
+
+		var r string
+		if len(root) > 0 {
+			r = root
+		} else {
+			r = "/"
+		}
+
+		var firstRootUID string
+		for _, customFileMeta := range customFileMetas {
+
+			headObject, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
+			if err != nil {
+				//this means that the object doesn't exist at S3, so we can return CID to frontend for later upload of binary and metadata
+				log.Info("CID not found:")
+				log.Info(customFileMeta.CID)
+
+			} else {
+				//this means that the object exists at S3, so we can create a file entry on database for the file
+
+				//cid of file
+				mime := customFileMeta.MimeType
+
+				// create corresponding folders to locate this file at proper path
+				file_path := customFileMeta.Name
+				var f entity.File
+
+
+				if customFileMeta.EncryptionStatus == entity.Public {
+					actual_root, firstCreratedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
+					if err != nil {
+						log.Errorf("get and process file root: %s", err)
+						AbortInternalServerError(ctx)
+						return
+					}
+
+					if firstRootUID == "" {
+						firstRootUID = firstCreratedRoot
+					}
+
+					// create file
+					f = entity.File{
+						Name:                 customFileMeta.Name,
+						Root:                 actual_root,
+						CID:                  customFileMeta.CID,
+						CIDOriginalEncrypted: &customFileMeta.CIDOriginalEncrypted,
+						Mime:                 mime,
+						Size:                 customFileMeta.Size,
+						EncryptionStatus:     entity.Public,
+					}
+
+				} else {
+					file_path = customFileMeta.Path
+					actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Encrypted)
+					if err != nil {
+						log.Errorf("get and process file root: %s", err)
+						AbortInternalServerError(ctx)
+						return
+					}
+
+					if firstRootUID == "" {
+						firstRootUID = firstCreatedRoot
+					}
+					f = entity.File{
+						Name:                 customFileMeta.Name,
+						Root:                 actual_root,
+						CID:                  customFileMeta.CID,
+						CIDOriginalEncrypted: &customFileMeta.CIDOriginalEncrypted,
+						Mime:                 mime,
+						Size:                 customFileMeta.Size,
+						EncryptionStatus:     entity.Encrypted,
+					}
+				}
+
+				if err := f.TxCreate(tx); err != nil {
+					log.Errorf("create file: %s", err)
+					tx.Rollback()
+					AbortInternalServerError(ctx)
+				}
+
+				fResponse := form.FileResponse{
+					ID:              f.ID,
+					Name:            f.Name,
+					UID:             f.UID,
+					Root:            f.Root,
+					CID:             f.CID,
+					Mime:            f.Mime,
+					CIDOriginalEncrypted: f.CIDOriginalEncrypted,
+					Size:            f.Size,
+					EnryptionStatus: f.EncryptionStatus,
+					CreatedAt:       f.CreatedAt.String(),
+					UpdatedAt:       f.UpdatedAt.String(),
+				}
+
+				filesFoundResponses = append(filesFoundResponses, fResponse)
+
+				// create file_user relation
+				f_u := entity.FileUser{
+					FileID:     f.ID,
+					UserID:     authPayload.UserID,
+					Permission: entity.OwnerPermission,
+				}
+				if err := f_u.TxCreate(tx); err != nil {
+					log.Errorf("create file_user relation: %s", err)
+					tx.Rollback()
+					AbortInternalServerError(ctx)
+					return
+				}
+
+				// add user storage quantity
+				user_detail := query.FindUserDetailByUserID(authPayload.UserID)
+
+				if err := user_detail.TxUpdate(tx, "storage_used", user_detail.StorageUsed+uint(customFileMeta.Size)); err != nil {
+					log.Errorf("adding storage_used: %s", err)
+					AbortInternalServerError(ctx)
+					return
+				}
+
+			}
+
+			if headObject == nil {
+				log.Print("headObject is nil")
+			}
+		}
+
+		tx.Commit()
+		ctx.JSON(http.StatusOK, gin.H{
+			"status":     "success",
+			"filesFound": filesFoundResponses,
+			"firstRootUID": firstRootUID,
+		})
+	})
+}
+
 // UploadFiles upload files to wasabi using s3
 //
 // POST /api/file/upload
@@ -27,25 +197,14 @@ import (
 // - files
 // - root
 func PutUploadFiles(router *gin.RouterGroup) {
-	type FileResponse struct {
-		ID              uint                    `json:"id"`
-		Name            string                  `json:"name"`
-		UID             string                  `json:"uid"`
-		Root            string                  `json:"root"`
-		CID             string                  `json:"cid"`
-		CIDOriginalEncrypted *string                  `json:"cid_original_encrypted"`
-		Mime            string                  `json:"mime"`
-		Size            int64                   `json:"size"`
-		EnryptionStatus entity.EncryptionStatus `json:"encryption_status"`
-	}
 
 	router.POST("/upload", func(ctx *gin.Context) {
 		tx := db.Db().Begin()
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
-		var fileResponses []FileResponse
+		var fileResponses []form.FileResponse
 
 		// Multipart form
-		form, err := ctx.MultipartForm()
+		formMultipart, err := ctx.MultipartForm()
 
 		if err != nil {
 			log.Errorf("multipart form: %s", err)
@@ -53,8 +212,8 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			return
 		}
 
-		root := form.Value["root"]
-		files := form.File["files"]
+		root := formMultipart.Value["root"]
+		files := formMultipart.File["files"]
 
 		var r string
 		if len(root) > 0 {
@@ -63,14 +222,15 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			r = "/"
 		}
 
-		encryptedFiles := form.File["encryptedFiles"]
+		encryptedFiles := formMultipart.File["encryptedFiles"]
+		var firstRootUID string
 		// Handle regular files
 		for index, file := range files {
 
 			index := fmt.Sprintf("%d", index)
 
 			//cid of file
-			cid, ok := form.Value["cid["+index+"]"]
+			cid, ok := formMultipart.Value["cid["+index+"]"]
 			if !ok || len(cid) == 0 {
 				log.Warnf("Missing or empty cid for index %s", index)
 				continue
@@ -86,12 +246,16 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 			// create corresponding folders to locate this file at proper path
 			file_path := params["filename"]
-			actual_root, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
+			actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
 
 			if err != nil {
 				log.Errorf("get and process file root: %s", err)
 				AbortInternalServerError(ctx)
 				return
+			}
+
+			if firstRootUID == "" {
+				firstRootUID = firstCreatedRoot
 			}
 
 			// create file
@@ -109,7 +273,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				AbortInternalServerError(ctx)
 			}
 
-			fResponse := FileResponse{
+			fResponse := form.FileResponse{
 				ID:              f.ID,
 				Name:            f.Name,
 				UID:             f.UID,
@@ -164,19 +328,19 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			index := fmt.Sprintf("%d", key)
 
 			//cid of encrypted buffer
-			cid, ok := form.Value["cid["+index+"]"]
+			cid, ok := formMultipart.Value["cid["+index+"]"]
 			if !ok || len(cid) == 0 {
 				log.Warnf("Missing or empty cid for index %s", index)
 				continue
 			}
 
-			cidOriginalEncrypted, ok := form.Value["cidOriginalEncrypted["+index+"]"]
+			cidOriginalEncrypted, ok := formMultipart.Value["cidOriginalEncrypted["+index+"]"]
 			if !ok || len(cidOriginalEncrypted) == 0 {
 				log.Warnf("Missing or empty cidOriginalEncrypted for index %s", index)
 				continue
 			}
 
-			webkitRelativePath, ok := form.Value["webkitRelativePath["+index+"]"]
+			webkitRelativePath, ok := formMultipart.Value["webkitRelativePath["+index+"]"]
 			if !ok || len(webkitRelativePath) == 0 {
 				log.Warnf("Missing or empty webkitRelativePath for index %s", index)
 				continue
@@ -193,11 +357,14 @@ func PutUploadFiles(router *gin.RouterGroup) {
 
 			// create corresponding folders to locate this file at proper path
 			file_path := webkitRelativePath[0]
-			actual_root, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Encrypted)
+			actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Encrypted)
 			if err != nil {
 				log.Errorf("get and process file root: %s", err)
 				AbortInternalServerError(ctx)
 				return
+			}
+			if firstRootUID == "" {
+				firstRootUID = firstCreatedRoot
 			}
 			log.Infof("actual_root: %s", actual_root)
 			//log.Infof("Length of CID: %d", len(cid[0]))
@@ -220,16 +387,16 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				return
 			}
 
-			fResponse := FileResponse{
-				Name:            f.Name,
-				UID:             f.UID,
-				Root:            f.Root,
-				CID:             f.CID,
+			fResponse := form.FileResponse{
+				Name:                 f.Name,
+				UID:                  f.UID,
+				Root:                 f.Root,
+				CID:                  f.CID,
 				CIDOriginalEncrypted: f.CIDOriginalEncrypted,
-				ID:              f.ID,
-				Mime:            f.Mime,
-				Size:            f.Size,
-				EnryptionStatus: f.EncryptionStatus,
+				ID:                   f.ID,
+				Mime:                 f.Mime,
+				Size:                 f.Size,
+				EnryptionStatus:      f.EncryptionStatus,
 			}
 
 			fileResponses = append(fileResponses, fResponse)
@@ -272,6 +439,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 		ctx.JSON(http.StatusOK, gin.H{
 			"status": "success",
 			"files":  fileResponses,
+			"firstRootUID": firstRootUID,
 		})
 
 	})
@@ -297,11 +465,11 @@ func UploadFileToS3(file *multipart.FileHeader, key string) error {
 }
 
 // internal
-// here root => uid format
-func GetAndProcessFileRoot(file_path, root string, user_id uint, encryption_status entity.EncryptionStatus) (string, error) {
+
+func GetAndProcessFileRoot(file_path, root string, user_id uint, encryption_status entity.EncryptionStatus) (currentRoot, firstRoot string, err error) {
 	res := strings.Split(file_path, "/")
 	if len(res) == 1 {
-		return root, nil
+		return root, "", nil
 	}
 
 	sub_file_path := strings.Join(res[1:], "/")
@@ -318,7 +486,7 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, encryption_stat
 		}
 
 		if err := f.Create(); err != nil {
-			return "", errors.New("can't create folder")
+			return "", "", errors.New("can't create folder")
 		}
 		// create folder_user relation
 		f_u := &entity.FolderUser{
@@ -328,9 +496,20 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, encryption_stat
 		}
 
 		if err := f_u.Create(); err != nil {
-			return "", errors.New("can't create folder_user relation")
+			return "", "", errors.New("can't create folder_user relation")
 		}
 	}
 
-	return GetAndProcessFileRoot(sub_file_path, f.UID, user_id, encryption_status)
+	// Recursive call
+	newRoot, firstCreatedRoot, err := GetAndProcessFileRoot(sub_file_path, f.UID, user_id, encryption_status)
+	if err != nil {
+		return "", "", err
+	}
+
+	// If this is the first folder created, keep its UID to return all the way up the recursive calls.
+	if firstCreatedRoot == "" {
+		firstCreatedRoot = f.UID
+	}
+
+	return newRoot, firstCreatedRoot, nil
 }

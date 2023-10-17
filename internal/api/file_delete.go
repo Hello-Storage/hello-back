@@ -34,16 +34,61 @@ func DeleteFile(router *gin.RouterGroup) {
 			return
 		}
 
+		// Check if other users have the file
+		// If not, delete the file from s3
+		usersWithFile, err := query.FindUsersByFileCID(f.CID)
+		if err != nil {
+			AbortInternalServerError(ctx)
+			log.Errorf("error finding users by file CID: %v", err)
+			return
+		}
+
 		f_u := entity.FileUser{
 			FileID: f.ID,
 			UserID: authPayload.UserID,
 		}
 
-		//delete file from s3
+		s3Config := aws.Config{
+			Credentials: credentials.NewStaticCredentials(
+				config.Env().WasabiAccessKey,
+				config.Env().WasabiSecretKey,
+				"",
+			),
+			Endpoint:         aws.String(config.Env().WasabiEndpoint),
+			Region:           aws.String(config.Env().WasabiRegion),
+			S3ForcePathStyle: aws.Bool(true),
+		}
 		keyPath := authPayload.UserUID + "/" + f.UID
-		if err := DeleteFileFromS3(keyPath); err != nil {
+
+		// If more than one user has the file, delete the file from the database
+		if len(usersWithFile) > 1 {
+
+		} else {
+			// Try deleting using the userUID/fileUID keyPath
+			err = DeleteFileFromS3(keyPath, s3Config)
+
+			if err != nil {
+				log.Print("error deleting file from s3: ")
+				log.Print(err)
+				// If not found, try deleting using the CID as the keyPath
+				keyPath = f.CID
+				err = DeleteFileFromS3(keyPath, s3Config)
+			}
+			// remove user storage quantity
+			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
+
+			if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(f.Size)); err != nil {
+				log.Errorf("removing storage_used: %s", err)
+				AbortInternalServerError(ctx)
+				return
+			}
+
+		}
+
+		// Delete file user
+		if err := query.DeleteFileUser(f_u); err != nil {
 			AbortInternalServerError(ctx)
-			log.Errorf("delete file from s3 error: %v", err)
+			log.Errorf("delete file user error: %v", err)
 			return
 		}
 
@@ -54,22 +99,6 @@ func DeleteFile(router *gin.RouterGroup) {
 			return
 		}
 
-		//Delete file user
-		if err := query.DeleteFileUser(f_u); err != nil {
-			AbortInternalServerError(ctx)
-			log.Errorf("delete file user error: %v", err)
-			return
-		}
-
-		// remove user storage quantity
-		user_detail := query.FindUserDetailByUserID(authPayload.UserID)
-
-		if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(f.Size)); err != nil {
-			log.Errorf("removing storage_used: %s", err)
-			AbortInternalServerError(ctx)
-			return
-		}
-
 		ctx.JSON(200, gin.H{
 			"message": "ok",
 		})
@@ -77,25 +106,15 @@ func DeleteFile(router *gin.RouterGroup) {
 }
 
 // internal delete one file
-func DeleteFileFromS3(keyPath string) error {
+func DeleteFileFromS3(keyPath string, s3Config aws.Config) error {
 
 	if keyPath == "" {
 		log.Errorf("DeleteFileFromS3: file uid is empty")
 		return nil
 	}
 
-	s3Config := aws.Config{
-		Credentials: credentials.NewStaticCredentials(
-			config.Env().WasabiAccessKey,
-			config.Env().WasabiSecretKey,
-			"",
-		),
-		Endpoint:         aws.String(config.Env().WasabiEndpoint),
-		Region:           aws.String(config.Env().WasabiRegion),
-		S3ForcePathStyle: aws.Bool(true),
-	}
-
 	//delete file from s3
+
 	if err := s3.DeleteObject(s3Config, config.Env().WasabiBucket, keyPath); err != nil {
 		log.Errorf("DeleteFileFromS3: delete file from s3 error: %v", err)
 		return err
