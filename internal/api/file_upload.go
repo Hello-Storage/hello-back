@@ -36,7 +36,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			return
 		}
 		log.Infof("customFileMetas: %v", customFileMetas)
-				fmt.Print("CID faound:")
+		fmt.Print("CID faound:")
 
 		fmt.Print(customFileMetas)
 
@@ -82,7 +82,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 				// create corresponding folders to locate this file at proper path
 				file_path := customFileMeta.Name
 				var f entity.File
-
 
 				if customFileMeta.EncryptionStatus == entity.Public {
 					actual_root, firstCreratedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
@@ -137,17 +136,17 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 				}
 
 				fResponse := form.FileResponse{
-					ID:              f.ID,
-					Name:            f.Name,
-					UID:             f.UID,
-					Root:            f.Root,
-					CID:             f.CID,
-					Mime:            f.Mime,
+					ID:                   f.ID,
+					Name:                 f.Name,
+					UID:                  f.UID,
+					Root:                 f.Root,
+					CID:                  f.CID,
+					Mime:                 f.Mime,
 					CIDOriginalEncrypted: f.CIDOriginalEncrypted,
-					Size:            f.Size,
-					EnryptionStatus: f.EncryptionStatus,
-					CreatedAt:       f.CreatedAt.String(),
-					UpdatedAt:       f.UpdatedAt.String(),
+					Size:                 f.Size,
+					EnryptionStatus:      f.EncryptionStatus,
+					CreatedAt:            f.CreatedAt.String(),
+					UpdatedAt:            f.UpdatedAt.String(),
 				}
 
 				filesFoundResponses = append(filesFoundResponses, fResponse)
@@ -183,8 +182,8 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 
 		tx.Commit()
 		ctx.JSON(http.StatusOK, gin.H{
-			"status":     "success",
-			"filesFound": filesFoundResponses,
+			"status":       "success",
+			"filesFound":   filesFoundResponses,
 			"firstRootUID": firstRootUID,
 		})
 	})
@@ -437,8 +436,8 @@ func PutUploadFiles(router *gin.RouterGroup) {
 		}
 		tx.Commit()
 		ctx.JSON(http.StatusOK, gin.H{
-			"status": "success",
-			"files":  fileResponses,
+			"status":       "success",
+			"files":        fileResponses,
 			"firstRootUID": firstRootUID,
 		})
 
@@ -463,6 +462,7 @@ func UploadFileToS3(file *multipart.FileHeader, key string) error {
 
 	return err
 }
+
 
 // internal
 
