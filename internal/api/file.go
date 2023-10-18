@@ -60,7 +60,9 @@ func GetFile(router *gin.RouterGroup) {
 	})
 }
 
+
 func GetStatistics(router *gin.RouterGroup) {
+	/*
 	router.GET("/statistics", func(c *gin.Context) {
 		totalusedstorage, err := query.CountTotalUsedStorage()
 		if err != nil {
@@ -162,6 +164,8 @@ func GetStatistics(router *gin.RouterGroup) {
 
 		c.JSON(http.StatusOK, stats)
 	})
+
+	*/
 	router.GET("/statistics/:uid", func(c *gin.Context) {
 
 		uid := c.Param("uid")
