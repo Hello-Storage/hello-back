@@ -29,16 +29,13 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 	router.POST("/pool/check", func(ctx *gin.Context) {
 		tx := db.Db().Begin()
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+
 		var customFileMetas []form.CustomFileMeta
 		if err := ctx.ShouldBindJSON(&customFileMetas); err != nil {
 			log.Errorf("should bind json: %s", err)
 			AbortBadRequest(ctx)
 			return
 		}
-		log.Infof("customFileMetas: %v", customFileMetas)
-		fmt.Print("CID faound:")
-
-		fmt.Print(customFileMetas)
 
 		// Check if files exist in s3
 		s3Config := aws.Config{
@@ -51,6 +48,15 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			Region:           aws.String(config.Env().WasabiRegion),
 			S3ForcePathStyle: aws.Bool(true),
 		}
+
+		
+		//url, err := s3.GeneratePresignedURL(s3Config, config.Env().WasabiBucket, "test")
+
+		//if err != nil {
+		//	log.Errorf("generate presigned url: %s", err)
+		//}
+
+		//log.Infof("presigned url: %s", url)
 
 		//iterate over customFileMetas and check if the cid exists in s3
 		var filesFoundResponses []form.FileResponse
