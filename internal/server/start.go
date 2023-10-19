@@ -54,6 +54,7 @@ func Start(ctx context.Context) {
 			"https://www.space.hello.storage",
 			"https://space.hello.ws",
 			"https://www.space.hello.ws",
+			"http://127.0.0.1:5173",
 		},
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders: []string{

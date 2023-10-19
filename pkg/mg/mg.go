@@ -12,6 +12,7 @@ type Mailgun struct {
 func (m *Mailgun) Init() {
 	// Create an instance of the Mailgun Client
 	mg := mailgun.NewMailgun(m.Domain, m.ApiKey)
+	mg.SetAPIBase(mailgun.APIBaseEU)
 
 	m.mg = mg
 }
