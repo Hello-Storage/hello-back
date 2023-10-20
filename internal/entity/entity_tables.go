@@ -22,6 +22,8 @@ var Entities = Tables{
 	Wallet{}.TableName():       &Wallet{},
 	Github{}.TableName():       &Github{},
 	File{}.TableName():         &File{},
+	FileShareState{}.TableName(): &FileShareState{},
+	PublicFile{}.TableName():   &PublicFile{},
 	Folder{}.TableName():       &Folder{},
 	FileUser{}.TableName():     &FileUser{},
 	FolderUser{}.TableName():   &FolderUser{},

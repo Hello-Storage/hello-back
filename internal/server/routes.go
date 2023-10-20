@@ -55,6 +55,7 @@ func registerRoutes(router *gin.Engine) {
 	api.DownloadFile(FileRoutes)
 	api.UpdateFileRoot(FileRoutes)
 	api.CheckFilesExistInPool(FileRoutes)
+	api.GetShareState(FileRoutes)
 
 	// folder routes
 	api.SearchFolderByRoot(AuthAPIv1)

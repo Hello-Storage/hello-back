@@ -49,7 +49,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			S3ForcePathStyle: aws.Bool(true),
 		}
 
-		
 		//url, err := s3.GeneratePresignedURL(s3Config, config.Env().WasabiBucket, "test")
 
 		//if err != nil {
@@ -75,7 +74,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 
 			headObject, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
 			if err != nil {
-				//this means that the object doesn't exist at S3, so we can return CID to frontend for later upload of binary and metadata
+				//this means that the object doesn't exist at S3
 				log.Info("CID not found:")
 				log.Info(customFileMeta.CID)
 
@@ -170,14 +169,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					return
 				}
 
-				// add user storage quantity
-				user_detail := query.FindUserDetailByUserID(authPayload.UserID)
-
-				if err := user_detail.TxUpdate(tx, "storage_used", user_detail.StorageUsed+uint(customFileMeta.Size)); err != nil {
-					log.Errorf("adding storage_used: %s", err)
-					AbortInternalServerError(ctx)
-					return
-				}
+				// adding user storage quantity is not needed because it already existed at s3
 
 			}
 
@@ -468,7 +460,6 @@ func UploadFileToS3(file *multipart.FileHeader, key string) error {
 
 	return err
 }
-
 
 // internal
 

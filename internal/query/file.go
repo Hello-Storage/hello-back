@@ -75,6 +75,30 @@ func CountTotalUsedStorage() (totalusedstorage int64, err error) {
 	return totalusedstorage, nil
 }
 
+func FindShareStateByFileUID(file_uid string) (file_share_state entity.FileShareState, err error) {
+	if err := db.Db().Where("file_uid = ?", file_uid).First(&file_share_state).Error; err != nil {
+		log.Print(file_share_state)
+
+		return file_share_state, err
+	}
+
+	return file_share_state, nil
+}
+
+func CreateShareState(file *entity.File) (file_share_state entity.FileShareState, err error) {
+	log.Print("creating share state for file with uid:")
+	log.Print(file.UID)
+	file_share_state = entity.FileShareState{
+		FileUID: file.UID,
+	}
+
+	if err := db.Db().Create(&file_share_state).Error; err != nil {
+		return file_share_state, err
+	}
+
+	return file_share_state, nil
+}
+
 // Query daily storage used by all users in the last 24 hours
 // func CountDailyStorage(daystring string) (dailystorage int64, err error) {
 // 	log.Infof("daystring: %s", daystring)

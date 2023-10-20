@@ -2,11 +2,13 @@ package api
 
 import (
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/gin-gonic/gin"
 )
+
 
 type Statistics struct {
 	TotalUsedStorage     int64 `json:"TotalUsedStorage"`
@@ -60,110 +62,148 @@ func GetFile(router *gin.RouterGroup) {
 	})
 }
 
+// GetShareState returns file share state based on file id.
+//
+// GET /api/share/state
+// Params:
+// - file_uid
+func GetShareState(router *gin.RouterGroup) {
+	router.GET("/share/state", func(c *gin.Context) {
+		//get file id from params
+		file_uid := c.Query("file_uid")
+		log.Print("file uid: ")
+		log.Print(file_uid)
+		fileMutex := sync.Mutex{}
+
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
+
+		//check if file exists
+		f, err := query.FindFileByUID(file_uid)
+		if err != nil {
+			log.Errorf("cannot get file: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		//get share state, if doesn't exist, create it
+		share_state, err := query.FindShareStateByFileUID(file_uid)
+		if err != nil {
+			share_state, err = query.CreateShareState(f)
+			if err != nil {
+				log.Errorf("cannot create share state: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
+		}
+
+		c.JSON(http.StatusOK, share_state)
+	})
+}
 
 func GetStatistics(router *gin.RouterGroup) {
 	/*
-	router.GET("/statistics", func(c *gin.Context) {
-		totalusedstorage, err := query.CountTotalUsedStorage()
-		if err != nil {
-			log.Errorf("cannot get total used storage: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+		router.GET("/statistics", func(c *gin.Context) {
+			totalusedstorage, err := query.CountTotalUsedStorage()
+			if err != nil {
+				log.Errorf("cannot get total used storage: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		totalusers, err := query.CountUsers()
-		if err != nil {
-			log.Errorf("cannot get total users: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+			totalusers, err := query.CountUsers()
+			if err != nil {
+				log.Errorf("cannot get total users: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		upfile, err := query.CountFiles()
-		if err != nil {
-			log.Errorf("cannot get total uploaded files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+			upfile, err := query.CountFiles()
+			if err != nil {
+				log.Errorf("cannot get total uploaded files: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		//medium size files
-		msize := totalusedstorage / upfile
+			//medium size files
+			msize := totalusedstorage / upfile
 
-		encryptedfiles, err := query.CountEncryptedFiles()
-		if err != nil {
-			log.Errorf("cannot get total encrypted files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+			encryptedfiles, err := query.CountEncryptedFiles()
+			if err != nil {
+				log.Errorf("cannot get total encrypted files: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		publicfiles, err := query.CountPublicFiles()
-		if err != nil {
-			log.Errorf("cannot get total public files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+			publicfiles, err := query.CountPublicFiles()
+			if err != nil {
+				log.Errorf("cannot get total public files: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		publicfolders, err := query.CountPublicFolders()
-		if err != nil {
-			log.Errorf("cannot get total public folders: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+			publicfolders, err := query.CountPublicFolders()
+			if err != nil {
+				log.Errorf("cannot get total public folders: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		counttxtfiles, err := query.CountTxtFiles()
-		if err != nil {
-			log.Errorf("cannot get total txt files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+			counttxtfiles, err := query.CountTxtFiles()
+			if err != nil {
+				log.Errorf("cannot get total txt files: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		countpngfiles, err := query.CountPngFiles()
-		if err != nil {
-			log.Errorf("cannot get total png fileas: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+			countpngfiles, err := query.CountPngFiles()
+			if err != nil {
+				log.Errorf("cannot get total png fileas: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		countjpgfiles, err := query.CountJpgFiles()
-		if err != nil {
-			log.Errorf("cannot get total jpg files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+			countjpgfiles, err := query.CountJpgFiles()
+			if err != nil {
+				log.Errorf("cannot get total jpg files: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		countpdffiles, err := query.CountPdfFiles()
-		if err != nil {
-			log.Errorf("cannot get total pdf files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+			countpdffiles, err := query.CountPdfFiles()
+			if err != nil {
+				log.Errorf("cannot get total pdf files: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 
-		// temptime := time.Now().Format("2006-01-02 15:04:05")
+			// temptime := time.Now().Format("2006-01-02 15:04:05")
 
-		//To Do: implment .map or .foreach for recursive query
-		// daylystorage, err := query.CountDailyStorage(temptime)
-		// if err != nil {
-		// 	AbortEntityNotFound(c)
-		// 	return
-		// }
+			//To Do: implment .map or .foreach for recursive query
+			// daylystorage, err := query.CountDailyStorage(temptime)
+			// if err != nil {
+			// 	AbortEntityNotFound(c)
+			// 	return
+			// }
 
-		stats := Statistics{
-			TotalUsedStorage:     totalusedstorage,
-			UploadedFile:         upfile,
-			TotalUsers:           totalusers,
-			CountMediumSizeFiles: msize,
-			EncryptedFiles:       encryptedfiles,
-			PublicFiles:          publicfiles,
-			PublicFolders:        publicfolders,
-			CountTxtFiles:        counttxtfiles,
-			CountPngFiles:        countpngfiles,
-			CountJpgFiles:        countjpgfiles,
-			CountPdfFiles:        countpdffiles,
+			stats := Statistics{
+				TotalUsedStorage:     totalusedstorage,
+				UploadedFile:         upfile,
+				TotalUsers:           totalusers,
+				CountMediumSizeFiles: msize,
+				EncryptedFiles:       encryptedfiles,
+				PublicFiles:          publicfiles,
+				PublicFolders:        publicfolders,
+				CountTxtFiles:        counttxtfiles,
+				CountPngFiles:        countpngfiles,
+				CountJpgFiles:        countjpgfiles,
+				CountPdfFiles:        countpdffiles,
 
-			// CountDailyStorage:    daylystorage,
-		}
+				// CountDailyStorage:    daylystorage,
+			}
 
-		c.JSON(http.StatusOK, stats)
-	})
+			c.JSON(http.StatusOK, stats)
+		})
 
 	*/
 	router.GET("/statistics/:uid", func(c *gin.Context) {
