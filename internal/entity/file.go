@@ -24,20 +24,23 @@ const (
 type Files []File
 
 type File struct {
-	ID                   uint             `gorm:"primarykey"                          json:"id"`
-	UID                  string           `gorm:"type:varchar(42);uniqueIndex;"       json:"uid"`
-	CID                  string           `gorm:"type:varchar(64)" json:"cid"`
-	CIDOriginalEncrypted *string          `gorm:"type:varchar(256)" json:"cid_original_encrypted"`
-	Name                 string           `gorm:"type:varchar(1024);"                 json:"name"`
-	Root                 string           `gorm:"type:varchar(1024);index;default:'/';" json:"root"` // parent folder uid
-	Mime                 string           `gorm:"type:varchar(256)"                    json:"mime_type"`
-	Size                 int64            `                                           json:"size"`
-	MediaType            string           `gorm:"type:varchar(16)"                    json:"media_type"`
-	CreatedAt            time.Time        `                                           json:"created_at"`
-	UpdatedAt            time.Time        `                                           json:"updated_at"`
-	DeletedAt            gorm.DeletedAt   `gorm:"index"                               json:"deleted_at"`
-	Path                 string           `gorm:"type:varchar(1024);"                 json:"path"` // full path
-	EncryptionStatus               EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"encryption_status"`
+	ID                   uint           `gorm:"primarykey"                          json:"id"`
+	UID                  string         `gorm:"type:varchar(42);uniqueIndex;"       json:"uid"`
+	CID                  string         `gorm:"type:varchar(64)" json:"cid"`
+	CIDOriginalEncrypted *string        `gorm:"type:varchar(256)" json:"cid_original_encrypted"`
+	Name                 string         `gorm:"type:varchar(1024);"                 json:"name"`
+	Root                 string         `gorm:"type:varchar(1024);index;default:'/';" json:"root"` // parent folder uid
+	Mime                 string         `gorm:"type:varchar(256)"                    json:"mime_type"`
+	Size                 int64          `                                           json:"size"`
+	MediaType            string         `gorm:"type:varchar(16)"                    json:"media_type"`
+	CreatedAt            time.Time      `                                           json:"created_at"`
+	UpdatedAt            time.Time      `                                           json:"updated_at"`
+	DeletedAt            gorm.DeletedAt `gorm:"index"                               json:"deleted_at"`
+	Path                 string         `gorm:"type:varchar(1024);"                 json:"path"` // full path
+	//sharestates are referenced by this file's UID at file share state
+	FileShareState FileShareState `gorm:"foreignKey:FileUID;references:UID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"file_share_state"`
+
+	EncryptionStatus EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"encryption_status"`
 }
 
 // TableName returns the entity table name.
