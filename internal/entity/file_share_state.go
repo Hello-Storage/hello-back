@@ -14,7 +14,7 @@ type FileShareState struct {
 	ID      uint   `gorm:"primarykey"                          json:"id"`
 	FileUID string `gorm:"type:varchar(42);uniqueIndex"              json:"file_uid"`
 
-	PublicFile PublicFile `gorm:"foreignKey:FileUID;references:FileUID"` // explicitly defining foreign key and references
+	PublicFile PublicFile `gorm:"foreignKey:FileUID;references:FileUID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"public_file"`
 	//PublicFileID uint           `gorm:"type:integer" json:"public_file_id"`
 	CreatedAt time.Time `gorm:"index"                               json:"created_at"`
 	UpdatedAt time.Time `gorm:"index"                               json:"updated_at"`
@@ -35,4 +35,11 @@ func (m *FileShareState) Save() error {
 
 func (m *FileShareState) TxCreate(tx *gorm.DB) error {
 	return tx.Create(m).Error
+}
+
+//Delete also deletes the public file
+func (m *FileShareState) Delete() error {
+	//delete public file
+	// Fin
+	return db.Db().Delete(m).Error
 }

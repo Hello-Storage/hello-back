@@ -76,8 +76,7 @@ func CountTotalUsedStorage() (totalusedstorage int64, err error) {
 }
 
 func FindShareStateByFileUID(file_uid string) (file_share_state entity.FileShareState, err error) {
-	if err := db.Db().Where("file_uid = ?", file_uid).First(&file_share_state).Error; err != nil {
-		log.Print(file_share_state)
+	if err := db.Db().Preload("PublicFile").Where("file_uid = ?", file_uid).First(&file_share_state).Error; err != nil {
 
 		return file_share_state, err
 	}
@@ -86,8 +85,6 @@ func FindShareStateByFileUID(file_uid string) (file_share_state entity.FileShare
 }
 
 func CreateShareState(file *entity.File) (file_share_state entity.FileShareState, err error) {
-	log.Print("creating share state for file with uid:")
-	log.Print(file.UID)
 	file_share_state = entity.FileShareState{
 		FileUID: file.UID,
 	}
@@ -156,6 +153,16 @@ func FindUsersByFileCID(cid string) ([]uint, error) {
 func DeleteFileByUID(file_uid string) error {
 	if file_uid == "" {
 		return fmt.Errorf("file uid required")
+	}
+
+	// Get file_shared_state
+	file_share_state, err := FindShareStateByFileUID(file_uid)
+
+	if err == nil {
+		// Delete file_shared_state
+		if err := file_share_state.Delete(); err != nil {
+			return err
+		}
 	}
 
 	return db.Db().Where("uid = ?", file_uid).Delete(&entity.File{}).Error
