@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/entity"
@@ -63,7 +65,7 @@ func DeleteFile(router *gin.RouterGroup) {
 		// If more than one user has the file, delete the file from the database
 
 		if len(usersWithFile) > 1 {
-
+			fmt.Println("Can't delete the file, the owners are: ", usersWithFile)
 		} else {
 			// Try deleting using the userUID/fileUID keyPath
 			err = DeleteFileFromS3(keyPath, s3Config)
