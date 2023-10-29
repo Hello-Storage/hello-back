@@ -37,6 +37,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			return
 		}
 
+
 		// Check if files exist in s3
 		s3Config := aws.Config{
 			Credentials: credentials.NewStaticCredentials(
@@ -69,8 +70,11 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			r = "/"
 		}
 
+		var totalSize uint
 		var firstRootUID string
 		for _, customFileMeta := range customFileMetas {
+
+			totalSize += uint(customFileMeta.Size)
 
 			headObject, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
 			if err != nil {
@@ -85,11 +89,11 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 				mime := customFileMeta.MimeType
 
 				// create corresponding folders to locate this file at proper path
-				file_path := customFileMeta.Name
+				file_path := customFileMeta.Path
 				var f entity.File
 
 				if customFileMeta.EncryptionStatus == entity.Public {
-					actual_root, firstCreratedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
+					actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
 					if err != nil {
 						log.Errorf("get and process file root: %s", err)
 						AbortInternalServerError(ctx)
@@ -97,7 +101,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					}
 
 					if firstRootUID == "" {
-						firstRootUID = firstCreratedRoot
+						firstRootUID = firstCreatedRoot
 					}
 
 					// create file
@@ -112,7 +116,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					}
 
 				} else {
-					file_path = customFileMeta.Path
 					actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Encrypted)
 					if err != nil {
 						log.Errorf("get and process file root: %s", err)
@@ -123,6 +126,8 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					if firstRootUID == "" {
 						firstRootUID = firstCreatedRoot
 					}
+
+					// create file
 					f = entity.File{
 						Name:                 customFileMeta.Name,
 						Root:                 actual_root,
@@ -170,14 +175,20 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 				}
 
 				// adding user storage quantity is not needed because it already existed at s3
-
 			}
-
 			if headObject == nil {
 				log.Print("headObject is nil")
 			}
 		}
 
+		// add user storage quantity
+		user_detail := query.FindUserDetailByUserID(authPayload.UserID)
+
+		if err := user_detail.TxUpdate(tx, "storage_used", user_detail.StorageUsed+totalSize); err != nil {
+			log.Errorf("adding storage_used: %s", err)
+			AbortInternalServerError(ctx)
+			return
+		}
 		tx.Commit()
 		ctx.JSON(http.StatusOK, gin.H{
 			"status":       "success",
@@ -220,11 +231,13 @@ func PutUploadFiles(router *gin.RouterGroup) {
 		}
 
 		encryptedFiles := formMultipart.File["encryptedFiles"]
+		var totalSize uint
 		var firstRootUID string
 		// Handle regular files
 		for index, file := range files {
 
 			index := fmt.Sprintf("%d", index)
+			totalSize += uint(file.Size)
 
 			//cid of file
 			cid, ok := formMultipart.Value["cid["+index+"]"]
@@ -297,8 +310,8 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			}
 
 			keyPath := f.CID
-			// upload file
 
+			// upload file
 			go func(file *multipart.FileHeader, keyPath string) {
 				if err := UploadFileToS3(file, keyPath); err != nil {
 					log.Errorf("uploading file to s3: %s", err)
@@ -308,21 +321,14 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				}
 			}(file, keyPath)
 
-			// add user storage quantity
-			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
-
-			if err := user_detail.TxUpdate(tx, "storage_used", user_detail.StorageUsed+uint(file.Size)); err != nil {
-				log.Errorf("adding storage_used: %s", err)
-				AbortInternalServerError(ctx)
-				return
-			}
-
 		}
 
 		for key, encryptedFile := range encryptedFiles {
 			// Ensure the key exists and has values
 
 			index := fmt.Sprintf("%d", key)
+
+			totalSize += uint(encryptedFile.Size)
 
 			//cid of encrypted buffer
 			cid, ok := formMultipart.Value["cid["+index+"]"]
@@ -421,16 +427,15 @@ func PutUploadFiles(router *gin.RouterGroup) {
 					return
 				}
 			}(encryptedFile, keyPath)
+		}
 
-			// add user storage quantity
-			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
+		// add user storage quantity
+		user_detail := query.FindUserDetailByUserID(authPayload.UserID)
 
-			if err := user_detail.TxUpdate(tx, "storage_used", user_detail.StorageUsed+uint(encryptedFile.Size)); err != nil {
-				log.Errorf("adding storage_used: %s", err)
-				AbortInternalServerError(ctx)
-				return
-			}
-
+		if err := user_detail.TxUpdate(tx, "storage_used", user_detail.StorageUsed+totalSize); err != nil {
+			log.Errorf("adding storage_used: %s", err)
+			AbortInternalServerError(ctx)
+			return
 		}
 		tx.Commit()
 		ctx.JSON(http.StatusOK, gin.H{

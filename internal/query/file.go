@@ -127,7 +127,7 @@ func FindRootFilesByUser(user_id uint) (files entity.Files, err error) {
 
 func FindUsersByFileCID(cid string) ([]uint, error) {
 	var fileUsers []entity.FileUser
-	var users []uint
+	usersMap := make(map[uint]bool)
 
 	// Join File and FileUser tables and find records by CID
 	err := db.Db().
@@ -143,7 +143,15 @@ func FindUsersByFileCID(cid string) ([]uint, error) {
 
 	// Extract user IDs from the result
 	for _, fu := range fileUsers {
-		users = append(users, fu.UserID)
+		if _, ok := usersMap[fu.UserID]; !ok {
+			usersMap[fu.UserID] = true
+		}
+	}
+
+	// Convert unique user IDs to a slice
+	var users []uint
+	for userID := range usersMap {
+		users = append(users, userID)
 	}
 
 	return users, nil

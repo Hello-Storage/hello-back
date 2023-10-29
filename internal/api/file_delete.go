@@ -61,6 +61,7 @@ func DeleteFile(router *gin.RouterGroup) {
 		keyPath := authPayload.UserUID + "/" + f.UID
 
 		// If more than one user has the file, delete the file from the database
+
 		if len(usersWithFile) > 1 {
 
 		} else {
@@ -68,11 +69,15 @@ func DeleteFile(router *gin.RouterGroup) {
 			err = DeleteFileFromS3(keyPath, s3Config)
 
 			if err != nil {
-				log.Print("error deleting file from s3: ")
+				log.Print("error deleting file from s3, trying using the CID. ")
 				log.Print(err)
 				// If not found, try deleting using the CID as the keyPath
 				keyPath = f.CID
 				err = DeleteFileFromS3(keyPath, s3Config)
+				if err != nil {
+					log.Print("error deleting file from s3: ")
+					log.Print(err)
+				}
 			}
 			// remove user storage quantity
 			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
