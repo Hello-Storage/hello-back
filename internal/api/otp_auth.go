@@ -35,7 +35,7 @@ func StartOTP(router *gin.RouterGroup) {
 		}
 
 		key, err := totp.Generate(totp.GenerateOpts{
-			Issuer:      "joinhello.app",
+			Issuer:      "hello.app",
 			AccountName: f.Email,
 			Period:      30 * 60,
 		})
@@ -171,13 +171,13 @@ func StartOTP(router *gin.RouterGroup) {
 		}
 
 		mg := mg.Mailgun{
-			Domain: "joinhello.app",
+			Domain: "hello.app",
 			ApiKey: config.Env().MailGunApiKey,
 		}
 
 		mg.Init()
 		id, err := mg.SendEmail(
-			"noreply@joinhello.app",
+			"noreply@hello.app",
 			f.Email,
 			"Login to hello.app",
 			"magic-code",

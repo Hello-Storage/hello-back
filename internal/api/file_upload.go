@@ -29,15 +29,14 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 	router.POST("/pool/check", func(ctx *gin.Context) {
 		tx := db.Db().Begin()
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+
 		var customFileMetas []form.CustomFileMeta
 		if err := ctx.ShouldBindJSON(&customFileMetas); err != nil {
 			log.Errorf("should bind json: %s", err)
 			AbortBadRequest(ctx)
 			return
 		}
-		log.Infof("customFileMetas: %v", customFileMetas)
-		// fmt.Print("CID faound:")
-		// fmt.Print(customFileMetas)
+
 
 		// Check if files exist in s3
 		s3Config := aws.Config{
@@ -50,6 +49,14 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			Region:           aws.String(config.Env().WasabiRegion),
 			S3ForcePathStyle: aws.Bool(true),
 		}
+
+		//url, err := s3.GeneratePresignedURL(s3Config, config.Env().WasabiBucket, "test")
+
+		//if err != nil {
+		//	log.Errorf("generate presigned url: %s", err)
+		//}
+
+		//log.Infof("presigned url: %s", url)
 
 		//iterate over customFileMetas and check if the cid exists in s3
 		var filesFoundResponses []form.FileResponse
@@ -71,7 +78,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 
 			headObject, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
 			if err != nil {
-				//this means that the object doesn't exist at S3, so we can return CID to frontend for later upload of binary and metadata
+				//this means that the object doesn't exist at S3
 				log.Info("CID not found:")
 				log.Info(customFileMeta.CID)
 
@@ -166,6 +173,8 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					AbortInternalServerError(ctx)
 					return
 				}
+
+				// adding user storage quantity is not needed because it already existed at s3
 			}
 			if headObject == nil {
 				log.Print("headObject is nil")

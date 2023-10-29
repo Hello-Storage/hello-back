@@ -1,7 +1,3 @@
-/*
-Package s3 provides AWS s3 functions
-*/
-
 package s3
 
 import (
@@ -10,8 +6,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-// creates a new Filebase bucket
-func CreateBucket(s3Config aws.Config, bucket string) error {
+// GeneratePresignedURL function will generate a presigned URL for client to upload directly to S3
+
+func GeneratePresignedURL(s3Config aws.Config, bucket, key string) (string, error) {
 
 	goSession, err := session.NewSessionWithOptions(session.Options{
 		Config:  s3Config,
@@ -20,27 +17,22 @@ func CreateBucket(s3Config aws.Config, bucket string) error {
 
 	// check if the session was created correctly.
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// create a s3 client session
 	s3Client := s3.New(goSession)
 
-	
-
-	
-
-	// set parameter for bucket name
-	b := aws.String(bucket)
-
-	// create a bucket
-	_, err = s3Client.CreateBucket(&s3.CreateBucketInput{
-		Bucket: b,
+	req, _ := s3Client.PutObjectRequest(&s3.PutObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
 	})
 
+	urlStr, err := req.Presign(15 * 60) // 15 minutes
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+
+	return urlStr, nil
 }
