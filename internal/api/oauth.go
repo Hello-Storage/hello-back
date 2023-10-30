@@ -50,7 +50,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			var req struct {
 				WalletAddress string `json:"wallet_address" binding:"required"`
 				PrivateKey    string `json:"private_key" binding:"required"`
-				ReferralCode  string `json:"referral_code" binding:"required"`
+				ReferralCode  string `json:"referrer_code" binding:"required"`
 			}
 
 			req.WalletAddress = ctx.Query("wallet_address")
@@ -102,7 +102,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			// check if referral code is valid
 			if req.ReferralCode == "ns" {
 				referral := entity.ReferredUser{
-					ReferredID: u.ID,
+					ReferredID:  new.ID,
 					Referrer:   req.ReferralCode,
 				}
 				if err := referral.TxCreate(tx); err != nil {

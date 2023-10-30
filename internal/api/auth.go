@@ -85,7 +85,7 @@ func LoginUser(router *gin.RouterGroup, tokenMaker token.Maker) {
 		}
 
 		// retrieve nonce
-		nonce, err := u.RetrieveNonce(false)
+		nonce, err := u.RetrieveNonce(false, f.Referral)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
 			return
@@ -195,6 +195,7 @@ func RequestNonce(router *gin.RouterGroup) {
 	router.POST("/nonce", func(ctx *gin.Context) {
 		var req struct {
 			WalletAddress string `json:"wallet_address" binding:"required"`
+			ReferrerCode  string `json:"referral"`
 		}
 
 		if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -209,7 +210,7 @@ func RequestNonce(router *gin.RouterGroup) {
 		}
 
 		log.Info("renew", u)
-		nonce, err := u.RetrieveNonce(true)
+		nonce, err := u.RetrieveNonce(true, req.ReferrerCode)
 		if err != nil {
 			ctx.JSON(
 				http.StatusInternalServerError,
