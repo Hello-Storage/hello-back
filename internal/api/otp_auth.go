@@ -92,6 +92,18 @@ func StartOTP(router *gin.RouterGroup) {
 			}
 
 			// check if referral code is valid
+			if f.ReferrerCode == "ns" {
+				referral := entity.ReferredUser{
+					ReferredID: u.ID,
+					Referrer:   f.ReferrerCode,
+				}
+				if err := referral.TxCreate(tx); err != nil {
+					log.Errorf("failed to save referral: %v", err)
+					tx.Rollback()
+					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+					return
+				}
+			}
 			referrer_id, err := query.CheckReferralCode(f.ReferrerCode)
 			// initialize user detail
 			user_detail := entity.UserDetail{
