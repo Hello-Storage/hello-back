@@ -75,6 +75,27 @@ func CountTotalUsedStorage() (totalusedstorage int64, err error) {
 	return totalusedstorage, nil
 }
 
+func FindShareStateByFileUID(file_uid string) (file_share_state entity.FileShareState, err error) {
+	if err := db.Db().Preload("PublicFile").Where("file_uid = ?", file_uid).First(&file_share_state).Error; err != nil {
+
+		return file_share_state, err
+	}
+
+	return file_share_state, nil
+}
+
+func CreateShareState(file *entity.File) (file_share_state entity.FileShareState, err error) {
+	file_share_state = entity.FileShareState{
+		FileUID: file.UID,
+	}
+
+	if err := db.Db().Create(&file_share_state).Error; err != nil {
+		return file_share_state, err
+	}
+
+	return file_share_state, nil
+}
+
 // Query daily storage used by all users in the last 24 hours
 // func CountDailyStorage(daystring string) (dailystorage int64, err error) {
 // 	log.Infof("daystring: %s", daystring)
@@ -106,7 +127,7 @@ func FindRootFilesByUser(user_id uint) (files entity.Files, err error) {
 
 func FindUsersByFileCID(cid string) ([]uint, error) {
 	var fileUsers []entity.FileUser
-	var users []uint
+	usersMap := make(map[uint]bool)
 
 	// Join File and FileUser tables and find records by CID
 	err := db.Db().
@@ -122,7 +143,15 @@ func FindUsersByFileCID(cid string) ([]uint, error) {
 
 	// Extract user IDs from the result
 	for _, fu := range fileUsers {
-		users = append(users, fu.UserID)
+		if _, ok := usersMap[fu.UserID]; !ok {
+			usersMap[fu.UserID] = true
+		}
+	}
+
+	// Convert unique user IDs to a slice
+	var users []uint
+	for userID := range usersMap {
+		users = append(users, userID)
 	}
 
 	return users, nil
@@ -132,6 +161,16 @@ func FindUsersByFileCID(cid string) ([]uint, error) {
 func DeleteFileByUID(file_uid string) error {
 	if file_uid == "" {
 		return fmt.Errorf("file uid required")
+	}
+
+	// Get file_shared_state
+	file_share_state, err := FindShareStateByFileUID(file_uid)
+
+	if err == nil {
+		// Delete file_shared_state
+		if err := file_share_state.Delete(); err != nil {
+			return err
+		}
 	}
 
 	return db.Db().Where("uid = ?", file_uid).Delete(&entity.File{}).Error
@@ -226,15 +265,14 @@ func CountTotalFilesUser(user_uid string) (upfile int64, err error) {
 // 	return dailystorage, nil
 // }
 
-// Query daily storaged used by user in the last 24 hours
-func CountDailyStorageUser(daystring1 string, daystring2 string, user_uid string) (dailystorage int64, err error) {
-
+// Query daily storage used by user up to a specific day
+func CountDailyStorageUser(daystring string, user_uid string) (dailystorage int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(SUM(files.size), 0)").
+		Select("COALESCE(SUM(CASE WHEN (files.deleted_at IS NULL OR DATE(files.deleted_at) >= DATE(?)) THEN files.size ELSE -files.size END), 0)", daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
-		Where("users.uid = ? AND (files.created_at >= DATE_TRUNC('DAY', ?::timestamp) AND files.created_at < DATE_TRUNC('DAY', ?::timestamp)) AND files.deleted_at IS NULL ", user_uid, daystring1, daystring2)
+		Where("users.uid = ? AND DATE(files.created_at) <= DATE(?)", user_uid, daystring)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailystorage).Error; err != nil {
@@ -244,15 +282,14 @@ func CountDailyStorageUser(daystring1 string, daystring2 string, user_uid string
 	return dailystorage, nil
 }
 
-// query daily total files used by user in the last 24 hours
-func CountDailyFilesUser(daystring1 string, daystring2 string, user_uid string) (dailyfiles int64, err error) {
-
+// Query daily total files used by user up to a specific day
+func CountDailyFilesUser(daystring string, user_uid string) (dailyfiles int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(COUNT(files.id), 0)").
+		Select("COALESCE(COUNT(CASE WHEN (files.deleted_at IS NULL OR DATE(files.deleted_at) >= DATE(?)) THEN 1 END), 0)", daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
-		Where("users.uid = ? AND (files.created_at >= DATE_TRUNC('DAY', ?::timestamp) AND files.created_at < DATE_TRUNC('DAY', ?::timestamp)) AND files.deleted_at IS NULL ", user_uid, daystring1, daystring2)
+		Where("users.uid = ? AND DATE(files.created_at) <= DATE(?)", user_uid, daystring)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailyfiles).Error; err != nil {
@@ -262,15 +299,14 @@ func CountDailyFilesUser(daystring1 string, daystring2 string, user_uid string) 
 	return dailyfiles, nil
 }
 
-// query daily public files used by user in the last 24 hours
-func CountDailyPublicFilesUser(daystring1 string, daystring2 string, user_uid string, status string) (dailypublicfiles int64, err error) {
-
+// Query daily public files used by user up to a specific day
+func CountDailyFilesUserByStatus(daystring string, user_uid string, status string) (dailypublicfiles int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(COUNT(files.id), 0)").
+		Select("COALESCE(COUNT(CASE WHEN (files.deleted_at IS NULL OR DATE(files.deleted_at) >= DATE(?)) THEN 1 END), 0)", daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
-		Where("users.uid = ? AND (files.created_at >= DATE_TRUNC('DAY', ?::timestamp) AND files.created_at < DATE_TRUNC('DAY', ?::timestamp)) AND files.deleted_at IS NULL AND files.encryption_status = ?", user_uid, daystring1, daystring2, status)
+		Where("users.uid = ? AND DATE(files.created_at) <= DATE(?) AND files.encryption_status = ?", user_uid, daystring, status)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailypublicfiles).Error; err != nil {

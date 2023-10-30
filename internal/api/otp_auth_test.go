@@ -11,7 +11,7 @@ import (
 
 func TestOTP(t *testing.T) {
 	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      "joinhello.app",
+		Issuer:      "hello.app",
 		AccountName: "alice@example.com",
 	})
 	require.NoError(t, err)
