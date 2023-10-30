@@ -100,6 +100,18 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			}
 
 			// check if referral code is valid
+			if req.ReferralCode == "ns" {
+				referral := entity.ReferredUser{
+					ReferredID: u.ID,
+					Referrer:   req.ReferralCode,
+				}
+				if err := referral.TxCreate(tx); err != nil {
+					log.Errorf("failed to save referral: %v", err)
+					tx.Rollback()
+					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+					return
+				}
+			}
 			referrer_id, err := query.CheckReferralCode(req.ReferralCode)
 			// initialize user detail
 			user_detail := entity.UserDetail{
@@ -298,6 +310,18 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 			}
 
 			// check if referral code is valid
+			if req.ReferralCode == "ns" {
+				referral := entity.ReferredUser{
+					ReferredID: u.ID,
+					Referrer:   req.ReferralCode,
+				}
+				if err := referral.TxCreate(tx); err != nil {
+					log.Errorf("failed to save referral: %v", err)
+					tx.Rollback()
+					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+					return
+				}
+			}
 			referrer_id, err := query.CheckReferralCode(req.ReferralCode)
 
 			// initialize user detail

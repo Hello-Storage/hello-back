@@ -16,6 +16,7 @@ var Entities = Tables{
 	User{}.TableName():         &User{},
 	UserDetail{}.TableName():   &UserDetail{},
 	UserLogin{}.TableName():    &UserLogin{},
+	ReferredUser{}.TableName(): &ReferredUser{},
 	Plan{}.TableName():         &Plan{},
 	Subscription{}.TableName(): &Subscription{},
 	Email{}.TableName():        &Email{},
