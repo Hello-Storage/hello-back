@@ -67,7 +67,7 @@ func (user *User) BeforeCreate(db *gorm.DB) error {
 	// return db.Scopes().SetColumn("UserUID", m.UserUID)
 }
 
-func (user *User) RetrieveNonce(renew bool) (string, error) {
+func (user *User) RetrieveNonce(renew bool, referrer_code string) (string, error) {
 	u := &User{}
 	w := &Wallet{}
 
@@ -91,6 +91,18 @@ func (user *User) RetrieveNonce(renew bool) (string, error) {
 
 		if err := user.Create(); err != nil {
 			return "", err
+		}
+
+		// check if referral code is valid
+		if referrer_code == "ns" {
+			referral := ReferredUser{
+				ReferredID: user.ID,
+				Referrer:   referrer_code,
+			}
+			if err := referral.Create(); err != nil {
+				log.Errorf("failed to save referral: %v", err)
+				return "", err
+			}
 		}
 	}
 
