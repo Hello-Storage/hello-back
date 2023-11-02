@@ -8,8 +8,9 @@ import (
 type permission string
 
 const (
-	OwnerPermission  permission = "owner"
-	SharedPermission permission = "shared"
+	OwnerPermission   permission = "owner"
+	SharedPermission  permission = "shared"
+	DeletedPermission permission = "deleted"
 )
 
 // FileUser represents a one-to-many relation between File and User.
@@ -34,7 +35,7 @@ func (m *FileUser) TxCreate(tx *gorm.DB) error {
 	return tx.Create(m).Error
 }
 
-//update
+// update
 func (m *FileUser) Update() error {
 	return db.Db().Model(m).Updates(m).Error
 }

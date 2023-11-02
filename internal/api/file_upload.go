@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
@@ -60,7 +61,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			r = "/"
 		}
 
-		var totalSize uint
 		var firstRootUID string
 		for _, customFileMeta := range customFileMetas {
 
@@ -72,7 +72,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 
 			} else {
 				//this means that the object exists at S3, so we can create a file entry on database for the file
-				totalSize += uint(customFileMeta.Size)
 
 				//cid of file
 				mime := customFileMeta.MimeType
@@ -81,51 +80,33 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 				file_path := customFileMeta.Path
 				var f entity.File
 
+				encryptionStatus := entity.Encrypted
 				if customFileMeta.EncryptionStatus == entity.Public {
-					actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
-					if err != nil {
-						log.Errorf("get and process file root: %s", err)
-						AbortInternalServerError(ctx)
-						return
-					}
+					encryptionStatus = entity.Public
+				}
 
-					if firstRootUID == "" {
-						firstRootUID = firstCreatedRoot
-					}
+				actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, encryptionStatus)
+				if err != nil {
+					log.Errorf("get and process file root: %s", err)
+					AbortInternalServerError(ctx)
+					return
+				}
 
-					// create file
-					f = entity.File{
-						Name:                 customFileMeta.Name,
-						Root:                 actual_root,
-						CID:                  customFileMeta.CID,
-						CIDOriginalEncrypted: &customFileMeta.CIDOriginalEncrypted,
-						Mime:                 mime,
-						Size:                 customFileMeta.Size,
-						EncryptionStatus:     entity.Public,
-					}
+				if firstRootUID == "" {
+					firstRootUID = firstCreatedRoot
+				}
 
-				} else {
-					actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Encrypted)
-					if err != nil {
-						log.Errorf("get and process file root: %s", err)
-						AbortInternalServerError(ctx)
-						return
-					}
-
-					if firstRootUID == "" {
-						firstRootUID = firstCreatedRoot
-					}
-
-					// create file
-					f = entity.File{
-						Name:                 customFileMeta.Name,
-						Root:                 actual_root,
-						CID:                  customFileMeta.CID,
-						CIDOriginalEncrypted: &customFileMeta.CIDOriginalEncrypted,
-						Mime:                 mime,
-						Size:                 customFileMeta.Size,
-						EncryptionStatus:     entity.Encrypted,
-					}
+				// create file
+				f = entity.File{
+					Name:                 customFileMeta.Name,
+					Root:                 actual_root,
+					CID:                  customFileMeta.CID,
+					CIDOriginalEncrypted: &customFileMeta.CIDOriginalEncrypted,
+					Mime:                 mime,
+					Size:                 customFileMeta.Size,
+					EncryptionStatus:     encryptionStatus,
+					CreatedAt:            time.Now(),
+					UpdatedAt:            time.Now(),
 				}
 
 				if err := f.TxCreate(tx); err != nil {
@@ -150,11 +131,11 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 
 				filesFoundResponses = append(filesFoundResponses, fResponse)
 
-				// create file_user relation
+				// create file_user relation with the shared permision
 				f_u := entity.FileUser{
 					FileID:     f.ID,
 					UserID:     authPayload.UserID,
-					Permission: entity.OwnerPermission,
+					Permission: entity.SharedPermission,
 				}
 				if err := f_u.TxCreate(tx); err != nil {
 					log.Errorf("create file_user relation: %s", err)
@@ -167,14 +148,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			if headObject == nil {
 				log.Print("headObject is nil")
 			}
-		}
-		// add user storage quantity
-		user_detail := query.FindUserDetailByUserID(authPayload.UserID)
-
-		if err := user_detail.TxUpdate(tx, "storage_used", user_detail.StorageUsed+totalSize); err != nil {
-			log.Errorf("adding storage_used: %s", err)
-			AbortInternalServerError(ctx)
-			return
 		}
 
 		tx.Commit()
@@ -264,6 +237,8 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				Mime:             mime,
 				Size:             file.Size,
 				EncryptionStatus: entity.Public,
+				CreatedAt:        time.Now(),
+				UpdatedAt:        time.Now(),
 			}
 			if err := f.TxCreate(tx); err != nil {
 				log.Errorf("create file: %s", err)
@@ -280,6 +255,8 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				Mime:            f.Mime,
 				Size:            f.Size,
 				EnryptionStatus: f.EncryptionStatus,
+				CreatedAt:       f.CreatedAt.String(),
+				UpdatedAt:       f.UpdatedAt.String(),
 			}
 
 			fileResponses = append(fileResponses, fResponse)
@@ -336,14 +313,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				log.Warnf("Missing or empty webkitRelativePath for index %s", index)
 				continue
 			}
-			/*
-				_, params, err := mime.ParseMediaType(encryptedFile.Header.Get("Content-Disposition"))
-				if err != nil {
-					log.Errorf("parse media type: %s", err)
-					AbortInternalServerError(ctx)
-					return
-				}
-			*/
+
 			mime := encryptedFile.Header.Get("Content-Type")
 
 			// create corresponding folders to locate this file at proper path
@@ -367,6 +337,8 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				Mime:                 mime,
 				Size:                 encryptedFile.Size,
 				EncryptionStatus:     entity.Encrypted,
+				CreatedAt:            time.Now(),
+				UpdatedAt:            time.Now(),
 			}
 
 			if err := f.TxCreate(tx); err != nil {
@@ -386,6 +358,8 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				Mime:                 f.Mime,
 				Size:                 f.Size,
 				EnryptionStatus:      f.EncryptionStatus,
+				CreatedAt:            f.CreatedAt.String(),
+				UpdatedAt:            f.UpdatedAt.String(),
 			}
 
 			fileResponses = append(fileResponses, fResponse)

@@ -117,7 +117,7 @@ func FindRootFilesByUser(user_id uint) (files entity.Files, err error) {
 	if err := db.Db().
 		Table("files").
 		Joins("LEFT JOIN files_users on files_users.file_id = files.id").
-		Where("files.root = '/' AND files_users.permission = 'owner' AND files_users.user_id = ?", user_id).
+		Where("files.root = '/' AND files_users.permission <> 'deleted' AND files_users.user_id = ? AND files.deleted_at IS NULL", user_id).
 		Find(&files).Error; err != nil {
 		return files, err
 	}
@@ -134,7 +134,7 @@ func FindUsersByFileCID(cid string) ([]uint, error) {
 		Table("files_users").
 		Select("files_users.user_id").
 		Joins("JOIN files ON files.id = files_users.file_id").
-		Where("files.c_id = ?", cid).
+		Where("files.c_id = ? AND files.deleted_at IS NULL", cid).
 		Find(&fileUsers).Error
 
 	if err != nil {
@@ -248,28 +248,11 @@ func CountTotalFilesUser(user_uid string) (upfile int64, err error) {
 	return upfile, nil
 }
 
-// Query daily storage used by all users in the last 24 hours
-// func CountDailyStorage(daystring string) (dailystorage int64, err error) {
-// 	log.Infof("daystring: %s", daystring)
-
-// 	query := db.Db().Table("files").Select("SUM(size)")
-
-// 	// Apply the date range filter
-// 	query = query.Where("created_at >= DATE_TRUNC('DAY', TIMESTAMP ?) AND created_at < DATE_TRUNC('DAY', TIMESTAMP ?) + INTERVAL '1 DAY'", daystring, "2023-09-14 17:52:29")
-
-// 	// Execute and scan the result
-// 	if err := query.Scan(&dailystorage).Error; err != nil {
-// 		return dailystorage, err
-// 	}
-
-// 	return dailystorage, nil
-// }
-
-// Query daily storage used by user up to a specific day
-func CountDailyStorageUser(daystring string, user_uid string) (dailystorage int64, err error) {
+// Query storage used by user up to a specific date
+func CountStorageUsed(daystring string, user_uid string) (dailystorage int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(SUM(CASE WHEN (files.deleted_at IS NULL OR DATE(files.deleted_at) >= DATE(?)) THEN files.size ELSE -files.size END), 0)", daystring).
+		Select("COALESCE(SUM(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN files.size WHEN files_users.permission != 'shared' AND (files.deleted_at IS NOT NULL AND DATE(files.deleted_at) < DATE(?)) THEN -files.size ELSE 0 END), 0)", daystring, daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("users.uid = ? AND DATE(files.created_at) <= DATE(?)", user_uid, daystring)
@@ -282,11 +265,11 @@ func CountDailyStorageUser(daystring string, user_uid string) (dailystorage int6
 	return dailystorage, nil
 }
 
-// Query daily total files used by user up to a specific day
-func CountDailyFilesUser(daystring string, user_uid string) (dailyfiles int64, err error) {
+// Query total files used by user up to a specific date
+func CountFilesUsed(daystring string, user_uid string) (dailyfiles int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(COUNT(CASE WHEN (files.deleted_at IS NULL OR DATE(files.deleted_at) >= DATE(?)) THEN 1 END), 0)", daystring).
+		Select("COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN 1 END), 0)", daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("users.uid = ? AND DATE(files.created_at) <= DATE(?)", user_uid, daystring)
@@ -299,11 +282,11 @@ func CountDailyFilesUser(daystring string, user_uid string) (dailyfiles int64, e
 	return dailyfiles, nil
 }
 
-// Query daily public files used by user up to a specific day
-func CountDailyFilesUserByStatus(daystring string, user_uid string, status string) (dailypublicfiles int64, err error) {
+// Query public files used by user up to a specific date
+func CountFilesUsedByStatus(daystring string, user_uid string, status string) (dailypublicfiles int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(COUNT(CASE WHEN (files.deleted_at IS NULL OR DATE(files.deleted_at) >= DATE(?)) THEN 1 END), 0)", daystring).
+		Select("COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN 1 END), 0)", daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("users.uid = ? AND DATE(files.created_at) <= DATE(?) AND files.encryption_status = ?", user_uid, daystring, status)
