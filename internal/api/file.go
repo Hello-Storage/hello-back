@@ -435,30 +435,136 @@ func GetStatistics(router *gin.RouterGroup) {
 
 		for i := 0; i < len(countdailystorageuser); i++ {
 			err := error(nil)
-			temptime := time.Now().AddDate(0, 0, -i+1).Format("2006-01-02")
+			temptime := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
 
-			countdailystorageuser[i], err = query.CountDailyStorageUser(temptime, uid)
+			countdailystorageuser[i], err = query.CountStorageUsed(temptime, uid)
 
 			if err != nil {
 				log.Errorf("cannot get total used storage for user %s: %s", uid, err)
 				AbortEntityNotFound(c)
 				return
 			}
-			countdailyfileuser[i], err = query.CountDailyFilesUser(temptime, uid)
+			countdailyfileuser[i], err = query.CountFilesUsed(temptime, uid)
 
 			if err != nil {
 				log.Errorf("cannot get total used files for user %s: %s", uid, err)
 				AbortEntityNotFound(c)
 				return
 			}
-			countdailypublicfilesuser[i], err = query.CountDailyFilesUserByStatus(temptime, uid, "public")
+			countdailypublicfilesuser[i], err = query.CountFilesUsedByStatus(temptime, uid, "public")
 
 			if err != nil {
 				log.Errorf("cannot get total used public files for user %s: %s", uid, err)
 				AbortEntityNotFound(c)
 				return
 			}
-			countdailyencryptedfilesuser[i], err = query.CountDailyFilesUserByStatus(temptime, uid, "encrypted")
+			countdailyencryptedfilesuser[i], err = query.CountFilesUsedByStatus(temptime, uid, "encrypted")
+
+			if err != nil {
+				log.Errorf("cannot get total used encrypted files for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			log.Info(countdailystorageuser[i])
+		}
+
+		stats := UserDailyStatistics{
+			CountDailyStorageUser:        countdailystorageuser,
+			CountDailyFilesUser:          countdailyfileuser,
+			CountDailyPublicFilesUser:    countdailypublicfilesuser,
+			CountDailyEncryptedFilesUser: countdailyencryptedfilesuser,
+		}
+
+		c.JSON(http.StatusOK, stats)
+	})
+
+	router.GET("/statistics/:uid/week", func(c *gin.Context) {
+		uid := c.Param("uid")
+
+		var countdailystorageuser [7]int64
+		var countdailyfileuser [7]int64
+		var countdailypublicfilesuser [7]int64
+		var countdailyencryptedfilesuser [7]int64
+
+		for i := 0; i < len(countdailystorageuser); i++ {
+			err := error(nil)
+			temptime := time.Now().AddDate(0, 0, -7*i).Format("2006-01-02")
+
+			countdailystorageuser[i], err = query.CountStorageUsed(temptime, uid)
+
+			if err != nil {
+				log.Errorf("cannot get total used storage for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			countdailyfileuser[i], err = query.CountFilesUsed(temptime, uid)
+
+			if err != nil {
+				log.Errorf("cannot get total used files for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			countdailypublicfilesuser[i], err = query.CountFilesUsedByStatus(temptime, uid, "public")
+
+			if err != nil {
+				log.Errorf("cannot get total used public files for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			countdailyencryptedfilesuser[i], err = query.CountFilesUsedByStatus(temptime, uid, "encrypted")
+
+			if err != nil {
+				log.Errorf("cannot get total used encrypted files for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			log.Info(countdailystorageuser[i])
+		}
+
+		stats := UserDailyStatistics{
+			CountDailyStorageUser:        countdailystorageuser,
+			CountDailyFilesUser:          countdailyfileuser,
+			CountDailyPublicFilesUser:    countdailypublicfilesuser,
+			CountDailyEncryptedFilesUser: countdailyencryptedfilesuser,
+		}
+
+		c.JSON(http.StatusOK, stats)
+	})
+
+	router.GET("/statistics/:uid/month", func(c *gin.Context) {
+		uid := c.Param("uid")
+
+		var countdailystorageuser [7]int64
+		var countdailyfileuser [7]int64
+		var countdailypublicfilesuser [7]int64
+		var countdailyencryptedfilesuser [7]int64
+
+		for i := 0; i < len(countdailystorageuser); i++ {
+			err := error(nil)
+			temptime := time.Now().AddDate(0, -i, 0).Format("2006-01-02")
+
+			countdailystorageuser[i], err = query.CountStorageUsed(temptime, uid)
+
+			if err != nil {
+				log.Errorf("cannot get total used storage for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			countdailyfileuser[i], err = query.CountFilesUsed(temptime, uid)
+
+			if err != nil {
+				log.Errorf("cannot get total used files for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			countdailypublicfilesuser[i], err = query.CountFilesUsedByStatus(temptime, uid, "public")
+
+			if err != nil {
+				log.Errorf("cannot get total used public files for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			countdailyencryptedfilesuser[i], err = query.CountFilesUsedByStatus(temptime, uid, "encrypted")
 
 			if err != nil {
 				log.Errorf("cannot get total used encrypted files for user %s: %s", uid, err)
