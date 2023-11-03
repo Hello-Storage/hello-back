@@ -49,10 +49,12 @@ func (File) TableName() string {
 }
 
 func (m *File) Create() error {
+	m.CreatedAt = time.Now()
 	return db.Db().Create(m).Error
 }
 
 func (m *File) TxCreate(tx *gorm.DB) error {
+	m.CreatedAt = time.Now()
 	return tx.Create(m).Error
 }
 
@@ -96,11 +98,11 @@ func (m *File) UpdateRootOnly() error {
 	return db.Db().Model(m).Where("UID = ?", m.UID).Update("Root", m.Root).Error
 }
 
-// IsFolderOwner checks if a user is the owner of a folder
-func IsFileOwner(folderID uint, userID uint) (bool, error) {
+// checks if a user is the owner of a file
+func IsFileOwner(fileID uint, userID uint) (bool, error) {
 	var count int64
 	err := db.Db().Table("files_users").
-		Where("file_id = ? AND user_id = ? AND permission = ?", folderID, userID, OwnerPermission).
+		Where("file_id = ? AND user_id = ? AND permission = ?", fileID, userID, OwnerPermission).
 		Count(&count).Error
 
 	if err != nil {
