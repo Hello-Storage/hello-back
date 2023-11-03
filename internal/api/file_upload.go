@@ -96,6 +96,10 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					firstRootUID = firstCreatedRoot
 				}
 
+				var isInPool bool
+
+				isInPool = true
+
 				// create file
 				f = entity.File{
 					Name:                 customFileMeta.Name,
@@ -106,6 +110,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					Size:                 customFileMeta.Size,
 					EncryptionStatus:     encryptionStatus,
 					CreatedAt:            time.Now(),
+					IsInPool:             &isInPool,
 					UpdatedAt:            time.Now(),
 				}
 
@@ -124,6 +129,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					Mime:                 f.Mime,
 					CIDOriginalEncrypted: f.CIDOriginalEncrypted,
 					Size:                 f.Size,
+					IsInPool:             &isInPool,
 					EnryptionStatus:      f.EncryptionStatus,
 					CreatedAt:            f.CreatedAt.String(),
 					UpdatedAt:            f.UpdatedAt.String(),
