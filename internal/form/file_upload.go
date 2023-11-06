@@ -3,12 +3,12 @@ package form
 import "github.com/Hello-Storage/hello-back/internal/entity"
 
 type BaseMeta struct {
-	ID               int              `json:"id"`
-	CreatedAt        string           `json:"created_at"`
-	DeletedAt        *string          `json:"deleted_at,omitempty"`
-	UpdatedAt        string           `json:"updated_at"`
+	ID               int                     `json:"id"`
+	CreatedAt        string                  `json:"created_at"`
+	DeletedAt        *string                 `json:"deleted_at,omitempty"`
+	UpdatedAt        string                  `json:"updated_at"`
 	EncryptionStatus entity.EncryptionStatus `json:"encryption_status"`
-	Decrypted        *bool            `json:"decrypted,omitempty"`
+	Decrypted        *bool                   `json:"decrypted,omitempty"`
 }
 
 type CustomFileMeta struct {
@@ -36,6 +36,7 @@ type FileResponse struct {
 	Mime                 string                  `json:"mime"`
 	Size                 int64                   `json:"size"`
 	EnryptionStatus      entity.EncryptionStatus `json:"encryption_status"`
-	CreatedAt			string                  `json:"created_at"`
-	UpdatedAt			string                  `json:"updated_at"`
+	IsInPool             *bool                   `json:"is_in_pool"`
+	CreatedAt            string                  `json:"created_at"`
+	UpdatedAt            string                  `json:"updated_at"`
 }
