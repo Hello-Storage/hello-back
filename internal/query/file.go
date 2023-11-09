@@ -298,3 +298,54 @@ func CountFilesUsedByStatus(daystring string, user_uid string, status string) (d
 
 	return dailypublicfiles, nil
 }
+
+// Query storage used by user up to a specific date & hour
+func CountStorageUsedH(daystring string, user_uid string) (dailystorage int64, err error) {
+	query := db.Db().
+		Table("files").
+		Select("COALESCE(SUM(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR (files.deleted_at) > (?)) THEN files.size WHEN files_users.permission != 'shared' AND (files.deleted_at IS NOT NULL AND DATE(files.deleted_at) < DATE(?)) THEN -files.size ELSE 0 END), 0)", daystring, daystring).
+		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
+		Joins("INNER JOIN users ON users.id = files_users.user_id").
+		Where("users.uid = ? AND (files.created_at) <= (?)", user_uid, daystring)
+
+	// Execute and scan the result
+	if err := query.Scan(&dailystorage).Error; err != nil {
+		return dailystorage, err
+	}
+
+	return dailystorage, nil
+}
+
+// Query total files used by user up to a specific date & hour
+func CountFilesUsedH(daystring string, user_uid string) (dailyfiles int64, err error) {
+	query := db.Db().
+		Table("files").
+		Select("COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR (files.deleted_at) > (?)) THEN 1 END), 0)", daystring).
+		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
+		Joins("INNER JOIN users ON users.id = files_users.user_id").
+		Where("users.uid = ? AND (files.created_at) <= (?)", user_uid, daystring)
+
+	// Execute and scan the result
+	if err := query.Scan(&dailyfiles).Error; err != nil {
+		return dailyfiles, err
+	}
+
+	return dailyfiles, nil
+}
+
+// Query public files used by user up to a specific date & hour
+func CountFilesUsedByStatusH(daystring string, user_uid string, status string) (dailypublicfiles int64, err error) {
+	query := db.Db().
+		Table("files").
+		Select("COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR (files.deleted_at) > (?)) THEN 1 END), 0)", daystring).
+		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
+		Joins("INNER JOIN users ON users.id = files_users.user_id").
+		Where("users.uid = ? AND (files.created_at) <= (?) AND files.encryption_status = ?", user_uid, daystring, status)
+
+	// Execute and scan the result
+	if err := query.Scan(&dailypublicfiles).Error; err != nil {
+		return dailypublicfiles, err
+	}
+
+	return dailypublicfiles, nil
+}

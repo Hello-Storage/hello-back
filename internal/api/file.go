@@ -35,10 +35,24 @@ type UserStatistics struct {
 }
 
 type UserDailyStatistics struct {
+	CountDailyStorageUser        [12]int64 `json:"CountDailyStorageUser"`
+	CountDailyFilesUser          [12]int64 `json:"CountDailyFilesUser"`
+	CountDailyPublicFilesUser    [12]int64 `json:"CountDailyPublicFilesUser"`
+	CountDailyEncryptedFilesUser [12]int64 `json:"CountDailyEncryptedFilesUser"`
+}
+
+type UserWeeklyStatistics struct {
 	CountDailyStorageUser        [7]int64 `json:"CountDailyStorageUser"`
 	CountDailyFilesUser          [7]int64 `json:"CountDailyFilesUser"`
 	CountDailyPublicFilesUser    [7]int64 `json:"CountDailyPublicFilesUser"`
 	CountDailyEncryptedFilesUser [7]int64 `json:"CountDailyEncryptedFilesUser"`
+}
+
+type UserMonthlyStatistics struct {
+	CountDailyStorageUser        [30]int64 `json:"CountDailyStorageUser"`
+	CountDailyFilesUser          [30]int64 `json:"CountDailyFilesUser"`
+	CountDailyPublicFilesUser    [30]int64 `json:"CountDailyPublicFilesUser"`
+	CountDailyEncryptedFilesUser [30]int64 `json:"CountDailyEncryptedFilesUser"`
 }
 
 // GetFile returns file details as JSON.
@@ -428,6 +442,59 @@ func GetStatistics(router *gin.RouterGroup) {
 	router.GET("/statistics/:uid/day", func(c *gin.Context) {
 		uid := c.Param("uid")
 
+		var countdailystorageuser [12]int64
+		var countdailyfileuser [12]int64
+		var countdailypublicfilesuser [12]int64
+		var countdailyencryptedfilesuser [12]int64
+
+		for i := 0; i < len(countdailystorageuser); i++ {
+			err := error(nil)
+			temptime := time.Now().Add(-time.Duration(i*2) * time.Hour).Format("2006-01-02 15:04:05")
+
+			countdailystorageuser[i], err = query.CountStorageUsedH(temptime, uid)
+
+			if err != nil {
+				log.Errorf("cannot get total used storage for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			countdailyfileuser[i], err = query.CountFilesUsedH(temptime, uid)
+
+			if err != nil {
+				log.Errorf("cannot get total used files for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			countdailypublicfilesuser[i], err = query.CountFilesUsedByStatusH(temptime, uid, "public")
+
+			if err != nil {
+				log.Errorf("cannot get total used public files for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			countdailyencryptedfilesuser[i], err = query.CountFilesUsedByStatusH(temptime, uid, "encrypted")
+
+			if err != nil {
+				log.Errorf("cannot get total used encrypted files for user %s: %s", uid, err)
+				AbortEntityNotFound(c)
+				return
+			}
+			log.Info(countdailystorageuser[i])
+		}
+
+		stats := UserDailyStatistics{
+			CountDailyStorageUser:        countdailystorageuser,
+			CountDailyFilesUser:          countdailyfileuser,
+			CountDailyPublicFilesUser:    countdailypublicfilesuser,
+			CountDailyEncryptedFilesUser: countdailyencryptedfilesuser,
+		}
+
+		c.JSON(http.StatusOK, stats)
+	})
+
+	router.GET("/statistics/:uid/week", func(c *gin.Context) {
+		uid := c.Param("uid")
+
 		var countdailystorageuser [7]int64
 		var countdailyfileuser [7]int64
 		var countdailypublicfilesuser [7]int64
@@ -468,60 +535,7 @@ func GetStatistics(router *gin.RouterGroup) {
 			log.Info(countdailystorageuser[i])
 		}
 
-		stats := UserDailyStatistics{
-			CountDailyStorageUser:        countdailystorageuser,
-			CountDailyFilesUser:          countdailyfileuser,
-			CountDailyPublicFilesUser:    countdailypublicfilesuser,
-			CountDailyEncryptedFilesUser: countdailyencryptedfilesuser,
-		}
-
-		c.JSON(http.StatusOK, stats)
-	})
-
-	router.GET("/statistics/:uid/week", func(c *gin.Context) {
-		uid := c.Param("uid")
-
-		var countdailystorageuser [7]int64
-		var countdailyfileuser [7]int64
-		var countdailypublicfilesuser [7]int64
-		var countdailyencryptedfilesuser [7]int64
-
-		for i := 0; i < len(countdailystorageuser); i++ {
-			err := error(nil)
-			temptime := time.Now().AddDate(0, 0, -7*i).Format("2006-01-02")
-
-			countdailystorageuser[i], err = query.CountStorageUsed(temptime, uid)
-
-			if err != nil {
-				log.Errorf("cannot get total used storage for user %s: %s", uid, err)
-				AbortEntityNotFound(c)
-				return
-			}
-			countdailyfileuser[i], err = query.CountFilesUsed(temptime, uid)
-
-			if err != nil {
-				log.Errorf("cannot get total used files for user %s: %s", uid, err)
-				AbortEntityNotFound(c)
-				return
-			}
-			countdailypublicfilesuser[i], err = query.CountFilesUsedByStatus(temptime, uid, "public")
-
-			if err != nil {
-				log.Errorf("cannot get total used public files for user %s: %s", uid, err)
-				AbortEntityNotFound(c)
-				return
-			}
-			countdailyencryptedfilesuser[i], err = query.CountFilesUsedByStatus(temptime, uid, "encrypted")
-
-			if err != nil {
-				log.Errorf("cannot get total used encrypted files for user %s: %s", uid, err)
-				AbortEntityNotFound(c)
-				return
-			}
-			log.Info(countdailystorageuser[i])
-		}
-
-		stats := UserDailyStatistics{
+		stats := UserWeeklyStatistics{
 			CountDailyStorageUser:        countdailystorageuser,
 			CountDailyFilesUser:          countdailyfileuser,
 			CountDailyPublicFilesUser:    countdailypublicfilesuser,
@@ -534,14 +548,14 @@ func GetStatistics(router *gin.RouterGroup) {
 	router.GET("/statistics/:uid/month", func(c *gin.Context) {
 		uid := c.Param("uid")
 
-		var countdailystorageuser [7]int64
-		var countdailyfileuser [7]int64
-		var countdailypublicfilesuser [7]int64
-		var countdailyencryptedfilesuser [7]int64
+		var countdailystorageuser [30]int64
+		var countdailyfileuser [30]int64
+		var countdailypublicfilesuser [30]int64
+		var countdailyencryptedfilesuser [30]int64
 
 		for i := 0; i < len(countdailystorageuser); i++ {
 			err := error(nil)
-			temptime := time.Now().AddDate(0, -i, 0).Format("2006-01-02")
+			temptime := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
 
 			countdailystorageuser[i], err = query.CountStorageUsed(temptime, uid)
 
@@ -574,7 +588,7 @@ func GetStatistics(router *gin.RouterGroup) {
 			log.Info(countdailystorageuser[i])
 		}
 
-		stats := UserDailyStatistics{
+		stats := UserMonthlyStatistics{
 			CountDailyStorageUser:        countdailystorageuser,
 			CountDailyFilesUser:          countdailyfileuser,
 			CountDailyPublicFilesUser:    countdailypublicfilesuser,
