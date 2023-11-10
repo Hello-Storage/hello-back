@@ -21,16 +21,16 @@ func FindFileByUID(uid string) (*entity.File, error) {
 }
 
 // FileByUID returns file for the given UID.
-func FindFileByID(id uint) (*entity.File, error) {
+func FindFileByID(id uint) (entity.File, error) {
 	f := entity.File{}
 
 	if id < 0 {
-		return nil, fmt.Errorf("invalid id")
+		return f, fmt.Errorf("invalid id")
 	}
 
 	err := db.Db().Where("id = ?", id).First(&f).Error
 
-	return &f, err
+	return f, err
 }
 
 // FilesByRoot return files in a given folder root.

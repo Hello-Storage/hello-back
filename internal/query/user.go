@@ -114,7 +114,7 @@ func FindUserByGithub(github_id uint) *entity.User {
 func GetFilesUserFromUser(user_id uint) ([]entity.FileUser, error) {
 	var filesUsers []entity.FileUser
 
-	if err := db.Db().Where("user_id = ?", user_id).Find(&filesUsers).Error; err != nil {
+	if err := db.Db().Where("user_id = ? AND permission != ?", user_id, entity.DeletedPermission).Find(&filesUsers).Error; err != nil {
 		return nil, err
 	}
 
