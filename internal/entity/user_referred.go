@@ -29,3 +29,9 @@ func (m *ReferredUser) Create() error {
 func (m *ReferredUser) TxCreate(tx *gorm.DB) error {
 	return tx.Create(m).Error
 }
+
+func (m *ReferredUser) Count() (int64, error) {
+	var count int64
+	err := db.Db().Model(&ReferredUser{}).Count(&count).Error
+	return count, err
+}

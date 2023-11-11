@@ -25,11 +25,14 @@ func registerRoutes(router *gin.Engine) {
 		panic(err)
 	}
 
+
+
 	AuthAPIv1 := router.Group("/api")
 	AuthAPIv1.Use(middlewares.AuthMiddleware(tokenMaker))
 	// routes
 	api.Ping(APIv1)
 	api.FetchReferredUsers(APIv1)
+	api.GetUserCount(APIv1)
 
 	//statistics routes
 	api.GetStatistics(APIv1)

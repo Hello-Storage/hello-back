@@ -67,6 +67,16 @@ func (user *User) BeforeCreate(db *gorm.DB) error {
 	// return db.Scopes().SetColumn("UserUID", m.UserUID)
 }
 
+func (user *User) Count() (int64, error) {
+	var count int64
+
+	if err := db.Db().Model(&User{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (user *User) RetrieveNonce(renew bool, referrer_code string) (string, error) {
 	u := &User{}
 	w := &Wallet{}
