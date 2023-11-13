@@ -23,7 +23,7 @@ func FindUser(find entity.User) *entity.User {
 
 	stmt := db.Db().Preload("Wallet")
 
-	//INFO[2023-10-17T13:01:30Z] user id: 4                                   
+	//INFO[2023-10-17T13:01:30Z] user id: 4
 	if find.ID != 0 && find.Name != "" {
 		stmt = stmt.Where("id = ? OR name = ?", find.ID, find.Name)
 	} else if find.ID != 0 {
@@ -36,14 +36,12 @@ func FindUser(find entity.User) *entity.User {
 		return nil
 	}
 
-
-
 	// Find matching record.
 	if err := stmt.First(m).Error; err != nil {
 		log.Error(err)
 		return nil
 	}
-	
+
 	//print m:
 
 	return m
@@ -154,4 +152,14 @@ func GetStartAndEndUserDatesPublic() (time.Time, time.Time, error) {
 	}
 
 	return minDate, maxDate, nil
+}
+// Query get user files by user id
+func GetFilesUserFromUser(user_id uint) ([]entity.FileUser, error) {
+	var filesUsers []entity.FileUser
+
+	if err := db.Db().Where("user_id = ? AND permission != ?", user_id, entity.DeletedPermission).Find(&filesUsers).Error; err != nil {
+		return nil, err
+	}
+
+	return filesUsers, nil
 }
