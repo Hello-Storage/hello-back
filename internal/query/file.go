@@ -1,7 +1,9 @@
 package query
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
@@ -265,6 +267,23 @@ func CountStorageUsed(daystring string, user_uid string) (dailystorage int64, er
 	return dailystorage, nil
 }
 
+// Query storage used up to a specific date
+func CountPublicStorageUsed(daystring string) (dailystorage int64, err error) {
+	query := db.Db().
+		Table("files").
+		Select("COALESCE(SUM(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN files.size WHEN files_users.permission != 'shared' AND (files.deleted_at IS NOT NULL AND DATE(files.deleted_at) < DATE(?)) THEN -files.size ELSE 0 END), 0)", daystring, daystring).
+		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
+		Joins("INNER JOIN users ON users.id = files_users.user_id").
+		Where("DATE(files.created_at) <= DATE(?)", daystring)
+
+	// Execute and scan the result
+	if err := query.Scan(&dailystorage).Error; err != nil {
+		return dailystorage, err
+	}
+
+	return dailystorage, nil
+}
+
 // Query total files used by user up to a specific date
 func CountFilesUsed(daystring string, user_uid string) (dailyfiles int64, err error) {
 	query := db.Db().
@@ -348,4 +367,50 @@ func CountFilesUsedByStatusH(daystring string, user_uid string, status string) (
 	}
 
 	return dailypublicfiles, nil
+}
+
+func GetStartAndEndFileDatesPublic() (time.Time, time.Time, error) {
+	var minDate, maxDate time.Time
+
+	// Query for the earliest creation date
+	err := db.Db().
+		Table("files").
+		Select("MIN(files.created_at)").
+		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
+		Joins("INNER JOIN users ON users.id = files_users.user_id").
+		Scan(&minDate).Error
+	if err != nil {
+		return minDate, maxDate, err
+	}
+
+	// Query for the latest creation date
+	err = db.Db().
+		Table("files").
+		Select("MAX(files.created_at)").
+		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
+		Joins("INNER JOIN users ON users.id = files_users.user_id").
+		Scan(&maxDate).Error
+	if err != nil {
+		return minDate, maxDate, err
+	}
+
+	if minDate.IsZero() || maxDate.IsZero() { // Handle the case where there are no public files
+		// This could be returning an error or default dates
+		return time.Time{}, time.Time{}, errors.New("no public files found")
+	}
+
+	return minDate, maxDate, nil
+}
+
+func CountTotalFiles(encryptionType string, daystring string) (totalFiles int64, err error) {
+	query := db.Db().
+		Table("files").
+		Select("COALESCE(COUNT(*), 0)").
+		Where("files.encryption_status = ? AND DATE(files.created_at) <= DATE(?)", encryptionType, daystring)
+
+	if err := query.Scan(&totalFiles).Error; err != nil {
+		return totalFiles, err
+	}
+
+	return totalFiles, nil
 }

@@ -1,6 +1,9 @@
 package query
 
 import (
+	"errors"
+	"time"
+
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/pkg/rnd"
@@ -110,4 +113,45 @@ func FindUserByGithub(github_id uint) *entity.User {
 	} else {
 		return nil
 	}
+}
+
+func CountTotalUsers(daystring string) (totalUsers int, err error) {
+	query := db.Db().
+		Table("users").
+		Select("COALESCE(COUNT(*), 0)").
+		Where("DATE(users.created_at) <= DATE(?)", daystring)
+	if err := query.Scan(&totalUsers).Error; err != nil {
+		return 0, err
+	}
+
+	return totalUsers, nil
+}
+
+func GetStartAndEndUserDatesPublic() (time.Time, time.Time, error) {
+	var minDate, maxDate time.Time
+
+	// Query for the earliest creation date
+	err := db.Db().
+		Table("users").
+		Select("MIN(users.created_at)").
+		Scan(&minDate).Error
+	if err != nil {
+		return minDate, maxDate, err
+	}
+
+	// Query for the latest creation date
+	err = db.Db().
+		Table("users").
+		Select("MAX(users.created_at)").
+		Scan(&maxDate).Error
+	if err != nil {
+		return minDate, maxDate, err
+	}
+
+	if minDate.IsZero() || maxDate.IsZero() { // Handle the case where there are no public files
+		// This could be returning an error or default dates
+		return time.Time{}, time.Time{}, errors.New("no users found")
+	}
+
+	return minDate, maxDate, nil
 }
