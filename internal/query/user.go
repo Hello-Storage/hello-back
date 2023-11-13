@@ -1,6 +1,9 @@
 package query
 
 import (
+	"errors"
+	"time"
+
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/pkg/rnd"
@@ -20,7 +23,7 @@ func FindUser(find entity.User) *entity.User {
 
 	stmt := db.Db().Preload("Wallet")
 
-	//INFO[2023-10-17T13:01:30Z] user id: 4                                   
+	//INFO[2023-10-17T13:01:30Z] user id: 4
 	if find.ID != 0 && find.Name != "" {
 		stmt = stmt.Where("id = ? OR name = ?", find.ID, find.Name)
 	} else if find.ID != 0 {
@@ -33,14 +36,12 @@ func FindUser(find entity.User) *entity.User {
 		return nil
 	}
 
-
-
 	// Find matching record.
 	if err := stmt.First(m).Error; err != nil {
 		log.Error(err)
 		return nil
 	}
-	
+
 	//print m:
 
 	return m
@@ -110,4 +111,55 @@ func FindUserByGithub(github_id uint) *entity.User {
 	} else {
 		return nil
 	}
+}
+
+func CountTotalUsers(daystring string) (totalUsers int, err error) {
+	query := db.Db().
+		Table("users").
+		Select("COALESCE(COUNT(*), 0)").
+		Where("DATE(users.created_at) <= DATE(?)", daystring)
+	if err := query.Scan(&totalUsers).Error; err != nil {
+		return 0, err
+	}
+
+	return totalUsers, nil
+}
+
+func GetStartAndEndUserDatesPublic() (time.Time, time.Time, error) {
+	var minDate, maxDate time.Time
+
+	// Query for the earliest creation date
+	err := db.Db().
+		Table("users").
+		Select("MIN(users.created_at)").
+		Scan(&minDate).Error
+	if err != nil {
+		return minDate, maxDate, err
+	}
+
+	// Query for the latest creation date
+	err = db.Db().
+		Table("users").
+		Select("MAX(users.created_at)").
+		Scan(&maxDate).Error
+	if err != nil {
+		return minDate, maxDate, err
+	}
+
+	if minDate.IsZero() || maxDate.IsZero() { // Handle the case where there are no public files
+		// This could be returning an error or default dates
+		return time.Time{}, time.Time{}, errors.New("no users found")
+	}
+
+	return minDate, maxDate, nil
+}
+// Query get user files by user id
+func GetFilesUserFromUser(user_id uint) ([]entity.FileUser, error) {
+	var filesUsers []entity.FileUser
+
+	if err := db.Db().Where("user_id = ? AND permission != ?", user_id, entity.DeletedPermission).Find(&filesUsers).Error; err != nil {
+		return nil, err
+	}
+
+	return filesUsers, nil
 }
