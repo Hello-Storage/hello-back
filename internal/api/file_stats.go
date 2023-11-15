@@ -1,7 +1,9 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/query"
@@ -50,14 +52,6 @@ type UserMonthlyStatistics struct {
 	CountDailyFilesUser          [30]int64 `json:"CountDailyFilesUser"`
 	CountDailyPublicFilesUser    [30]int64 `json:"CountDailyPublicFilesUser"`
 	CountDailyEncryptedFilesUser [30]int64 `json:"CountDailyEncryptedFilesUser"`
-}
-
-type WeeklyStats struct {
-	Week        string `json:"week"`
-	UsedStorage int64  `json:"usedStorage"`
-	Total       int64  `json:"total"`
-	Public      int64  `json:"public"`
-	Encrypted   int64  `json:"encrypted"`
 }
 
 func GetStatistics(router *gin.RouterGroup) {
@@ -386,58 +380,140 @@ func getStartAndEndFileDates() (time.Time, time.Time) {
 	return startDate, endDate
 }
 
+type WeeklyStats struct {
+	Week        string `json:"week"`
+	UsedStorage int64  `json:"usedStorage"`
+	Total       int64  `json:"total"`
+	Public      int64  `json:"public"`
+	Encrypted   int64  `json:"encrypted"`
+}
+
+type SharedData struct {
+	WeeklyStatistics []WeeklyStats
+	timer            *time.Timer
+}
+
+var (
+	instance *SharedData
+	once     sync.Once
+	mutex    sync.Mutex
+)
+
+func GetInstance() *SharedData {
+	once.Do(func() {
+		instance = &SharedData{}
+		instance.startBackgroundJob()
+	})
+	return instance
+}
+
+func (s *SharedData) calculateWeeklyStats() ([]WeeklyStats, error) {
+
+	// Logic to determine the start and end dates for the weekly intervals
+
+	// CHANGES TO DO:
+	// Same logic as before but without Gin context and AbortEntityNotFound
+	// Return the result instead of modifying the shared data directly
+	// Log errors instead of aborting the request
+	startDate, endDate := getStartAndEndFileDates()
+
+	var weeklyStats []WeeklyStats
+
+	for weekStartDate := startDate; weekStartDate.Before(endDate); weekStartDate = weekStartDate.AddDate(0, 0, 7) {
+		weekEndDate := weekStartDate.AddDate(0, 0, 7)
+		if weekEndDate.After(endDate) {
+			weekEndDate = endDate
+		}
+
+		// You need to implement the logic for calculating statistics for the week
+		// This can involce aggregating data from your database queries
+		usedStorage, err := query.CountPublicStorageUsed(weekStartDate.Format("2006-01-02"))
+		if err != nil {
+			log.Errorf("cannot get total public used storage: %s", err)
+			return nil, fmt.Errorf("cannot get total public used storage: %s", err)
+		}
+
+		publicFiles, err := query.CountTotalFiles("public", weekStartDate.Format("2006-01-02"))
+		if err != nil {
+			log.Errorf("cannot get total public files: %s", err)
+			return nil, fmt.Errorf("cannot get total public files: %s", err)
+		}
+
+		encryptedFiles, err := query.CountTotalFiles("encrypted", weekStartDate.Format("2006-01-02"))
+		if err != nil {
+			log.Errorf("cannot get total encrypted files: %s", err)
+			return nil, fmt.Errorf("cannot get total encrypted files: %s", err)
+		}
+
+		totalFiles := publicFiles + encryptedFiles
+
+		weeklyStats = append(weeklyStats, WeeklyStats{
+			Week:        weekStartDate.Format("2006-01-02"),
+			UsedStorage: usedStorage,
+			Total:       totalFiles,
+			Public:      publicFiles,
+			Encrypted:   encryptedFiles,
+		})
+
+	}
+
+	mutex.Lock()
+	s.WeeklyStatistics = weeklyStats
+	mutex.Unlock()
+
+	return weeklyStats, nil
+}
+
+func (s *SharedData) stopBackgroundJob() {
+	// Perform any necessary cleanup here
+	// Reset the instance to allow for a fresh start on the next request
+	instance = nil
+	once = sync.Once{}
+}
+
+func (s *SharedData) startBackgroundJob() {
+	// Stop any existing timer
+	if s.timer != nil {
+		s.timer.Stop()
+	}
+
+	// Start or restart the timer
+	s.timer = time.AfterFunc(1*time.Minute, func() {
+		mutex.Lock()
+		defer mutex.Unlock()
+		s.stopBackgroundJob()
+	})
+
+	go func() {
+		for {
+			select {
+			case <-s.timer.C:
+				return // Exit the goroutine when timer expires
+			default:
+				newStats, err := s.calculateWeeklyStats()
+				if err != nil {
+					log.Errorf("cannot calculate weekly stats: %s", err)
+					return
+				}
+				mutex.Lock()
+				s.WeeklyStatistics = newStats
+				mutex.Unlock()
+				time.Sleep(1 * time.Second) // Example delay
+			}
+		}
+	}()
+}
+
 func GetWeeklyPublicStats(router *gin.RouterGroup) {
 	router.GET("/statistics/files/weekly-stats", func(c *gin.Context) {
 
-		// Logic to determine the start and end dates for the weekly intervals
-		// This depends on how you store and can retrieve the creation dates of the files
-		// For now, let's assume we have a function that gives us these dates
-		startDate, endDate := getStartAndEndFileDates()
+		sharedData := GetInstance()
+		mutex.Lock()
+		statsCopy := make([]WeeklyStats, len(sharedData.WeeklyStatistics))
+		copy(statsCopy, sharedData.WeeklyStatistics)
+		mutex.Unlock()
 
-		var weeklyStats []WeeklyStats
-
-		for weekStartDate := startDate; weekStartDate.Before(endDate); weekStartDate = weekStartDate.AddDate(0, 0, 7) {
-			weekEndDate := weekStartDate.AddDate(0, 0, 7)
-			if weekEndDate.After(endDate) {
-				weekEndDate = endDate
-			}
-
-			// You need to implement the logic for calculating statistics for the week
-			// This can involce aggregating data from your database queries
-			usedStorage, err := query.CountPublicStorageUsed(weekStartDate.Format("2006-01-02"))
-			if err != nil {
-				log.Errorf("cannot get total public used storage: %s", err)
-				AbortEntityNotFound(c)
-				return
-			}
-
-			publicFiles, err := query.CountTotalFiles("public", weekStartDate.Format("2006-01-02"))
-			if err != nil {
-				log.Errorf("cannot get total public files: %s", err)
-				AbortEntityNotFound(c)
-				return
-			}
-
-			encryptedFiles, err := query.CountTotalFiles("encrypted", weekStartDate.Format("2006-01-02"))
-			if err != nil {
-				log.Errorf("cannot get total encrypted files: %s", err)
-				AbortEntityNotFound(c)
-				return
-			}
-
-			totalFiles := publicFiles + encryptedFiles
-
-			weeklyStats = append(weeklyStats, WeeklyStats{
-				Week:        weekStartDate.Format("2006-01-02"),
-				UsedStorage: usedStorage,
-				Total:       totalFiles,
-				Public:      publicFiles,
-				Encrypted:   encryptedFiles,
-			})
-
-		}
-
-		c.JSON(http.StatusOK, weeklyStats)
+		c.JSON(http.StatusOK, sharedData.WeeklyStatistics)
 	})
 
 }
