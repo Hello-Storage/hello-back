@@ -394,14 +394,10 @@ func GetWeeklyPublicStats(router *gin.RouterGroup) {
 		// For now, let's assume we have a function that gives us these dates
 		startDate, endDate := getStartAndEndFileDates()
 
-		currentDate := time.Now()
 		var weeklyStats []WeeklyStats
 
 		for weekStartDate := startDate; weekStartDate.Before(endDate); weekStartDate = weekStartDate.AddDate(0, 0, 7) {
-			weekEndDate := weekStartDate.AddDate(0, 0, 6)
-			if weekEndDate.After(currentDate) {
-				continue
-			}
+			weekEndDate := weekStartDate.AddDate(0, 0, 7)
 			if weekEndDate.After(endDate) {
 				weekEndDate = endDate
 			}

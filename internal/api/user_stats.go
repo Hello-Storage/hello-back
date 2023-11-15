@@ -31,13 +31,9 @@ func GetWeeklyUserStats(router *gin.RouterGroup) {
 		startDate, endDate := getStartAndEndUserDates()
 
 		var weeklyStats []WeeklyUserStats
-		currentDate := time.Now();
 
 		for weekStartDate := startDate; weekStartDate.Before(endDate); weekStartDate = weekStartDate.AddDate(0, 0, 7) {
-			weekEndDate := weekStartDate.AddDate(0, 0, 6)
-			if weekEndDate.After(currentDate) {
-				continue
-			}
+			weekEndDate := weekStartDate.AddDate(0, 0, 7)
 
 			if weekEndDate.After(endDate) {
 				weekEndDate = endDate
