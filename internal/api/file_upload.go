@@ -96,9 +96,8 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 					firstRootUID = firstCreatedRoot
 				}
 
-				var isInPool bool
+				var isInPool bool = true
 
-				isInPool = true
 
 				// create file
 				f = entity.File{

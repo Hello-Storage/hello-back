@@ -31,15 +31,19 @@ func GetWeeklyUserStats(router *gin.RouterGroup) {
 		startDate, endDate := getStartAndEndUserDates()
 
 		var weeklyStats []WeeklyUserStats
+		currentDate := time.Now();
 
 		for weekStartDate := startDate; weekStartDate.Before(endDate); weekStartDate = weekStartDate.AddDate(0, 0, 7) {
-			weekEndDate := weekStartDate.AddDate(0, 0, 7)
+			weekEndDate := weekStartDate.AddDate(0, 0, 6)
+			if weekEndDate.After(currentDate) {
+				continue
+			}
 
 			if weekEndDate.After(endDate) {
 				weekEndDate = endDate
 			}
 
-			totalUsers, err := query.CountTotalUsers(weekEndDate.Format("2006-01-02"))
+			totalUsers, err := query.CountTotalUsers(weekStartDate.Format("2006-01-02"))
 			if err != nil {
 				log.Errorf("cannot get total users: %s", err)
 				AbortInternalServerError(c)
