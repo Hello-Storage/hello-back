@@ -39,7 +39,7 @@ func GetWeeklyUserStats(router *gin.RouterGroup) {
 				weekEndDate = endDate
 			}
 
-			totalUsers, err := query.CountTotalUsers(weekEndDate.Format("2006-01-02"))
+			totalUsers, err := query.CountTotalUsers(weekStartDate.Format("2006-01-02"))
 			if err != nil {
 				log.Errorf("cannot get total users: %s", err)
 				AbortInternalServerError(c)

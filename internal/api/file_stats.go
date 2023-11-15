@@ -404,21 +404,21 @@ func GetWeeklyPublicStats(router *gin.RouterGroup) {
 
 			// You need to implement the logic for calculating statistics for the week
 			// This can involce aggregating data from your database queries
-			usedStorage, err := query.CountPublicStorageUsed(weekEndDate.Format("2006-01-02"))
+			usedStorage, err := query.CountPublicStorageUsed(weekStartDate.Format("2006-01-02"))
 			if err != nil {
 				log.Errorf("cannot get total public used storage: %s", err)
 				AbortEntityNotFound(c)
 				return
 			}
 
-			publicFiles, err := query.CountTotalFiles("public", weekEndDate.Format("2006-01-02"))
+			publicFiles, err := query.CountTotalFiles("public", weekStartDate.Format("2006-01-02"))
 			if err != nil {
 				log.Errorf("cannot get total public files: %s", err)
 				AbortEntityNotFound(c)
 				return
 			}
 
-			encryptedFiles, err := query.CountTotalFiles("encrypted", weekEndDate.Format("2006-01-02"))
+			encryptedFiles, err := query.CountTotalFiles("encrypted", weekStartDate.Format("2006-01-02"))
 			if err != nil {
 				log.Errorf("cannot get total encrypted files: %s", err)
 				AbortEntityNotFound(c)
