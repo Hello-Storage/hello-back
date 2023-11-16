@@ -100,7 +100,7 @@ func (s *SharedStatistics) startStatisticsBackgroundJob() {
 				statisticsMutex.Lock()
 				s.Statistics = newStats
 				statisticsMutex.Unlock()
-				time.Sleep(1 * time.Second) // Example delay
+				time.Sleep(15 * time.Second) // Example delay
 			}
 		}
 	}()
