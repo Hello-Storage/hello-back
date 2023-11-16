@@ -1,16 +1,107 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/gin-gonic/gin"
 )
 
-type WeeklyUserStats struct {
+type WeeklyUsersStats struct {
 	Week       string `json:"week"`
 	TotalUsers int    `json:"total_users"`
+}
+
+type SharedUsersData struct {
+	WeeklyStatistics []WeeklyUsersStats
+	timer            *time.Timer
+}
+
+var (
+	usersInstance *SharedUsersData
+	usersOnce     sync.Once
+	usersMutex    sync.Mutex
+)
+
+func GetUsersInstance() *SharedUsersData {
+	usersOnce.Do(func() {
+		usersInstance = &SharedUsersData{}
+		usersInstance.startUsersBackgroundJob()
+	})
+	return usersInstance
+}
+
+func (s *SharedUsersData) calculateWeeklyStats() ([]WeeklyUsersStats, error) {
+	startDate, endDate := getStartAndEndUserDates()
+
+	var weeklyStats []WeeklyUsersStats
+
+	for weekStartDate := startDate; weekStartDate.Before(endDate); weekStartDate = weekStartDate.AddDate(0, 0, 7) {
+		weekEndDate := weekStartDate.AddDate(0, 0, 7)
+
+		if weekEndDate.After(endDate) {
+			weekEndDate = endDate
+		}
+
+		totalUsers, err := query.CountTotalUsers(weekStartDate.Format("2006-01-02"))
+		if err != nil {
+			return nil, fmt.Errorf("cannot get total users: %s", err)
+		}
+
+		weeklyStats = append(weeklyStats, WeeklyUsersStats{
+			Week:       weekStartDate.Format("2006-01-02"),
+			TotalUsers: totalUsers,
+		})
+	}
+
+	usersMutex.Lock()
+	s.WeeklyStatistics = weeklyStats
+	usersMutex.Unlock()
+
+	return weeklyStats, nil
+}
+
+func (s *SharedUsersData) startUsersBackgroundJob() {
+	// Stop any existing timer
+	if s.timer != nil {
+		s.timer.Stop()
+	}
+
+	// Start or restart the timer
+	s.timer = time.AfterFunc(1*time.Minute, func() {
+		usersMutex.Lock()
+		defer usersMutex.Unlock()
+		s.stopUsersBackgroundJob()
+	})
+
+	go func() {
+		for {
+			select {
+			case <-s.timer.C:
+				return // Exit the goroutine when timer expires
+			default:
+				newStats, err := s.calculateWeeklyStats()
+				if err != nil {
+					log.Errorf("cannot calculate weekly stats: %s", err)
+					return
+				}
+				usersMutex.Lock()
+				s.WeeklyStatistics = newStats
+				usersMutex.Unlock()
+				time.Sleep(1 * time.Second) // Example delay
+			}
+		}
+	}()
+}
+
+func (s *SharedUsersData) stopUsersBackgroundJob() {
+	// Perform any necessary cleanup here
+	// Reset the instance to allow for a fresh start on the next request
+	usersInstance = nil
+	usersOnce = sync.Once{}
 }
 
 func getStartAndEndUserDates() (time.Time, time.Time) {
@@ -28,30 +119,12 @@ func getStartAndEndUserDates() (time.Time, time.Time) {
 
 func GetWeeklyUserStats(router *gin.RouterGroup) {
 	router.GET("/statistics/users/weekly-stats", func(c *gin.Context) {
-		startDate, endDate := getStartAndEndUserDates()
+		sharedData := GetUsersInstance()
+		usersMutex.Lock()
+		statsCopy := make([]WeeklyUsersStats, len(sharedData.WeeklyStatistics))
+		copy(statsCopy, sharedData.WeeklyStatistics)
+		usersMutex.Unlock()
 
-		var weeklyStats []WeeklyUserStats
-
-		for weekStartDate := startDate; weekStartDate.Before(endDate); weekStartDate = weekStartDate.AddDate(0, 0, 7) {
-			weekEndDate := weekStartDate.AddDate(0, 0, 7)
-
-			if weekEndDate.After(endDate) {
-				weekEndDate = endDate
-			}
-
-			totalUsers, err := query.CountTotalUsers(weekStartDate.Format("2006-01-02"))
-			if err != nil {
-				log.Errorf("cannot get total users: %s", err)
-				AbortInternalServerError(c)
-				return
-			}
-
-			weeklyStats = append(weeklyStats, WeeklyUserStats{
-				Week:       weekStartDate.Format("2006-01-02"),
-				TotalUsers: totalUsers,
-			})
-		}
-
-		c.JSON(http.StatusOK, weeklyStats)
+		c.JSON(http.StatusOK, sharedData.WeeklyStatistics)
 	})
 }

@@ -25,6 +25,25 @@ type Statistics struct {
 	// CountDailyStorage    int64 `json:"CountDailyStorage"`
 }
 
+type SharedStatistics struct {
+	Statistics Statistics
+	timer      *time.Timer
+}
+
+var (
+	statisticsInstance *SharedStatistics
+	statisticsOnce     sync.Once
+	statisticsMutex    sync.Mutex
+)
+
+func GetStatisticsInstance() *SharedStatistics {
+	statisticsOnce.Do(func() {
+		statisticsInstance = &SharedStatistics{}
+		statisticsInstance.startStatisticsBackgroundJob()
+	})
+	return statisticsInstance
+}
+
 type UserStatistics struct {
 	CountTotalUsedStorageUser    int64 `json:"CountTotalUsedStorageUser"`
 	CountTotalEncryptedFilesUser int64 `json:"CountTotalEncryptedFilesUser"`
@@ -54,108 +73,115 @@ type UserMonthlyStatistics struct {
 	CountDailyEncryptedFilesUser [30]int64 `json:"CountDailyEncryptedFilesUser"`
 }
 
+func (s *SharedStatistics) startStatisticsBackgroundJob() {
+	// Stop any existing timer
+	if s.timer != nil {
+		s.timer.Stop()
+	}
+
+	// Start or restart the timer
+	s.timer = time.AfterFunc(1*time.Minute, func() {
+		statisticsMutex.Lock()
+		defer statisticsMutex.Unlock()
+		s.stopStatisticsBackgroundJob()
+	})
+
+	go func() {
+		for {
+			select {
+			case <-s.timer.C:
+				return // Exit the goroutine when timer expires
+			default:
+				newStats, err := s.calculateStatistics()
+				if err != nil {
+					log.Errorf("cannot calculate weekly stats: %s", err)
+					return
+				}
+				statisticsMutex.Lock()
+				s.Statistics = newStats
+				statisticsMutex.Unlock()
+				time.Sleep(1 * time.Second) // Example delay
+			}
+		}
+	}()
+}
+
+func (s *SharedStatistics) stopStatisticsBackgroundJob() {
+	// Perform any necessary cleanup here
+	// Reset the instance to allow for a fresh start on the next request
+	statisticsInstance = nil
+	statisticsOnce = sync.Once{}
+}
+
+func (s *SharedStatistics) calculateStatistics() (Statistics, error) {
+	totalusedstorage, err := query.CountTotalUsedStorage()
+	if err != nil {
+		return Statistics{}, fmt.Errorf("cannot get total used storage: %s", err)
+	}
+
+	totalusers, err := query.CountUsers()
+	if err != nil {
+		return Statistics{}, fmt.Errorf("cannot get total users: %s", err)
+	}
+
+	upfile, err := query.CountFiles()
+	if err != nil {
+		return Statistics{}, fmt.Errorf("cannot get total uploaded files: %s", err)
+	}
+
+	//medium size files
+	msize := totalusedstorage / upfile
+
+	encryptedfiles, err := query.CountEncryptedFiles()
+	if err != nil {
+		return Statistics{}, fmt.Errorf("cannot get total encrypted files: %s", err)
+	}
+
+	publicfiles, err := query.CountPublicFiles()
+	if err != nil {
+		return Statistics{}, fmt.Errorf("cannot get total public files: %s", err)
+	}
+
+	publicfolders, err := query.CountPublicFolders()
+	if err != nil {
+		return Statistics{}, fmt.Errorf("cannot get total public folders: %s", err)
+	}
+
+	// temptime := time.Now().Format("2006-01-02 15:04:05")
+
+	//To Do: implment .map or .foreach for recursive query
+	// daylystorage, err := query.CountDailyStorage(temptime)
+	// if err != nil {
+	// 	AbortEntityNotFound(c)
+	// 	return
+	// }
+
+	stats := Statistics{
+		TotalUsedStorage:     totalusedstorage,
+		UploadedFile:         upfile,
+		TotalUsers:           totalusers,
+		CountMediumSizeFiles: msize,
+		EncryptedFiles:       encryptedfiles,
+		PublicFiles:          publicfiles,
+		PublicFolders:        publicfolders,
+		// CountDailyStorage:    daylystorage,
+	}
+
+	statisticsMutex.Lock()
+	s.Statistics = stats
+	statisticsMutex.Unlock()
+
+	return stats, nil
+}
+
 func GetStatistics(router *gin.RouterGroup) {
 
 	router.GET("/statistics", func(c *gin.Context) {
-		totalusedstorage, err := query.CountTotalUsedStorage()
-		if err != nil {
-			log.Errorf("cannot get total used storage: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
+		sharedData := GetStatisticsInstance()
+		statisticsMutex.Lock()
+		defer statisticsMutex.Unlock()
 
-		totalusers, err := query.CountUsers()
-		if err != nil {
-			log.Errorf("cannot get total users: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		upfile, err := query.CountFiles()
-		if err != nil {
-			log.Errorf("cannot get total uploaded files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		//medium size files
-		msize := totalusedstorage / upfile
-
-		encryptedfiles, err := query.CountEncryptedFiles()
-		if err != nil {
-			log.Errorf("cannot get total encrypted files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		publicfiles, err := query.CountPublicFiles()
-		if err != nil {
-			log.Errorf("cannot get total public files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		publicfolders, err := query.CountPublicFolders()
-		if err != nil {
-			log.Errorf("cannot get total public folders: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		counttxtfiles, err := query.CountTxtFiles()
-		if err != nil {
-			log.Errorf("cannot get total txt files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		countpngfiles, err := query.CountPngFiles()
-		if err != nil {
-			log.Errorf("cannot get total png fileas: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		countjpgfiles, err := query.CountJpgFiles()
-		if err != nil {
-			log.Errorf("cannot get total jpg files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		countpdffiles, err := query.CountPdfFiles()
-		if err != nil {
-			log.Errorf("cannot get total pdf files: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		// temptime := time.Now().Format("2006-01-02 15:04:05")
-
-		//To Do: implment .map or .foreach for recursive query
-		// daylystorage, err := query.CountDailyStorage(temptime)
-		// if err != nil {
-		// 	AbortEntityNotFound(c)
-		// 	return
-		// }
-
-		stats := Statistics{
-			TotalUsedStorage:     totalusedstorage,
-			UploadedFile:         upfile,
-			TotalUsers:           totalusers,
-			CountMediumSizeFiles: msize,
-			EncryptedFiles:       encryptedfiles,
-			PublicFiles:          publicfiles,
-			PublicFolders:        publicfolders,
-			CountTxtFiles:        counttxtfiles,
-			CountPngFiles:        countpngfiles,
-			CountJpgFiles:        countjpgfiles,
-			CountPdfFiles:        countpdffiles,
-
-			// CountDailyStorage:    daylystorage,
-		}
-
-		c.JSON(http.StatusOK, stats)
+		c.JSON(http.StatusOK, sharedData.Statistics)
 	})
 
 	router.GET("/statistics/:uid", func(c *gin.Context) {
@@ -380,34 +406,31 @@ func getStartAndEndFileDates() (time.Time, time.Time) {
 	return startDate, endDate
 }
 
-type WeeklyStats struct {
+type WeeklyStorageStats struct {
 	Week        string `json:"week"`
 	UsedStorage int64  `json:"usedStorage"`
-	Total       int64  `json:"total"`
-	Public      int64  `json:"public"`
-	Encrypted   int64  `json:"encrypted"`
 }
 
-type SharedData struct {
-	WeeklyStatistics []WeeklyStats
+type SharedStorageData struct {
+	WeeklyStatistics []WeeklyStorageStats
 	timer            *time.Timer
 }
 
 var (
-	instance *SharedData
-	once     sync.Once
-	mutex    sync.Mutex
+	storageInstance *SharedStorageData
+	storageOnce     sync.Once
+	storageMutex    sync.Mutex
 )
 
-func GetInstance() *SharedData {
-	once.Do(func() {
-		instance = &SharedData{}
-		instance.startBackgroundJob()
+func GetStorageInstance() *SharedStorageData {
+	storageOnce.Do(func() {
+		storageInstance = &SharedStorageData{}
+		storageInstance.startStorageBackgroundJob()
 	})
-	return instance
+	return storageInstance
 }
 
-func (s *SharedData) calculateWeeklyStats() ([]WeeklyStats, error) {
+func (s *SharedStorageData) calculateWeeklyStats() ([]WeeklyStorageStats, error) {
 
 	// Logic to determine the start and end dates for the weekly intervals
 
@@ -417,7 +440,7 @@ func (s *SharedData) calculateWeeklyStats() ([]WeeklyStats, error) {
 	// Log errors instead of aborting the request
 	startDate, endDate := getStartAndEndFileDates()
 
-	var weeklyStats []WeeklyStats
+	var weeklyStats []WeeklyStorageStats
 
 	for weekStartDate := startDate; weekStartDate.Before(endDate); weekStartDate = weekStartDate.AddDate(0, 0, 7) {
 		weekEndDate := weekStartDate.AddDate(0, 0, 7)
@@ -433,45 +456,28 @@ func (s *SharedData) calculateWeeklyStats() ([]WeeklyStats, error) {
 			return nil, fmt.Errorf("cannot get total public used storage: %s", err)
 		}
 
-		publicFiles, err := query.CountTotalFiles("public", weekStartDate.Format("2006-01-02"))
-		if err != nil {
-			log.Errorf("cannot get total public files: %s", err)
-			return nil, fmt.Errorf("cannot get total public files: %s", err)
-		}
-
-		encryptedFiles, err := query.CountTotalFiles("encrypted", weekStartDate.Format("2006-01-02"))
-		if err != nil {
-			log.Errorf("cannot get total encrypted files: %s", err)
-			return nil, fmt.Errorf("cannot get total encrypted files: %s", err)
-		}
-
-		totalFiles := publicFiles + encryptedFiles
-
-		weeklyStats = append(weeklyStats, WeeklyStats{
+		weeklyStats = append(weeklyStats, WeeklyStorageStats{
 			Week:        weekStartDate.Format("2006-01-02"),
 			UsedStorage: usedStorage,
-			Total:       totalFiles,
-			Public:      publicFiles,
-			Encrypted:   encryptedFiles,
 		})
 
 	}
 
-	mutex.Lock()
+	storageMutex.Lock()
 	s.WeeklyStatistics = weeklyStats
-	mutex.Unlock()
+	storageMutex.Unlock()
 
 	return weeklyStats, nil
 }
 
-func (s *SharedData) stopBackgroundJob() {
+func (s *SharedStorageData) stopStorageBackgroundJob() {
 	// Perform any necessary cleanup here
 	// Reset the instance to allow for a fresh start on the next request
-	instance = nil
-	once = sync.Once{}
+	storageInstance = nil
+	storageOnce = sync.Once{}
 }
 
-func (s *SharedData) startBackgroundJob() {
+func (s *SharedStorageData) startStorageBackgroundJob() {
 	// Stop any existing timer
 	if s.timer != nil {
 		s.timer.Stop()
@@ -479,9 +485,9 @@ func (s *SharedData) startBackgroundJob() {
 
 	// Start or restart the timer
 	s.timer = time.AfterFunc(1*time.Minute, func() {
-		mutex.Lock()
-		defer mutex.Unlock()
-		s.stopBackgroundJob()
+		storageMutex.Lock()
+		defer storageMutex.Unlock()
+		s.stopStorageBackgroundJob()
 	})
 
 	go func() {
@@ -495,10 +501,10 @@ func (s *SharedData) startBackgroundJob() {
 					log.Errorf("cannot calculate weekly stats: %s", err)
 					return
 				}
-				mutex.Lock()
+				storageMutex.Lock()
 				s.WeeklyStatistics = newStats
-				mutex.Unlock()
-				time.Sleep(1 * time.Second) // Example delay
+				storageMutex.Unlock()
+				time.Sleep(15 * time.Second) // Example delay
 			}
 		}
 	}()
@@ -507,11 +513,11 @@ func (s *SharedData) startBackgroundJob() {
 func GetWeeklyPublicStats(router *gin.RouterGroup) {
 	router.GET("/statistics/files/weekly-stats", func(c *gin.Context) {
 
-		sharedData := GetInstance()
-		mutex.Lock()
-		statsCopy := make([]WeeklyStats, len(sharedData.WeeklyStatistics))
+		sharedData := GetStorageInstance()
+		storageMutex.Lock()
+		statsCopy := make([]WeeklyStorageStats, len(sharedData.WeeklyStatistics))
 		copy(statsCopy, sharedData.WeeklyStatistics)
-		mutex.Unlock()
+		storageMutex.Unlock()
 
 		c.JSON(http.StatusOK, sharedData.WeeklyStatistics)
 	})
