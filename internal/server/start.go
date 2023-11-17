@@ -97,19 +97,22 @@ func Start(ctx context.Context) {
 
 	initialUsersStats, err := usersData.CalculateWeeklyUsersStats()
 	if err != nil {
-		log.Errorf("cannot calculate initial weekly stats: %s", err)
+		log.Errorf("cannot calculate initial weekly user stats: %s", err)
 	} else {
 		usersData.WeeklyStatistics = initialUsersStats
+		log.Println("Calculated initial weekly user stats")
 	}
 	initialStorageStats, err := storageData.CalculateWeeklyStorageStats()
 	if err != nil {
-		log.Errorf("cannot calculate initial weekly stats: %s", err)
+		log.Errorf("cannot calculate initial weekly storage stats: %s", err)
 	} else {
 		storageData.WeeklyStatistics = initialStorageStats
+		log.Println("Calculated initial weekly storage stats")
 	}
 	initialStatistics, err := statisticsData.CalculateStatistics()
 	if err != nil {
 		log.Errorf("cannot calculate initial weekly stats: %s", err)
+		log.Println("Calculated initial stats")
 	} else {
 		statisticsData.Statistics = initialStatistics
 	}
