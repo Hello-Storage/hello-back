@@ -70,39 +70,26 @@ func (s *SharedUsersData) startUsersBackgroundJob() {
 		s.timer.Stop()
 	}
 
-	// Start or restart the timer
-	s.timer = time.AfterFunc(1*time.Minute, func() {
-		usersMutex.Lock()
-		defer usersMutex.Unlock()
-		s.stopUsersBackgroundJob()
-	})
+	s.timer = time.NewTimer(1 * time.Minute)
 
 	go func() {
 		for {
-			select {
-			case <-s.timer.C:
-				return // Exit the goroutine when timer expires
-			default:
-				newStats, err := s.CalculateWeeklyUsersStats()
-				if err != nil {
-					log.Errorf("cannot calculate weekly stats: %s", err)
-					return
-				}
-				usersMutex.Lock()
-				s.WeeklyStatistics = newStats
-				usersMutex.Unlock()
-				time.Sleep(30 * time.Second) // Example delay
+			<-s.timer.C // Wait for the timer to expire
+			newStats, err := s.CalculateWeeklyUsersStats()
+			if err != nil {
+				log.Errorf("cannot calculate weekly stats: %s", err)
+				return
 			}
+
+			usersMutex.Lock()
+			s.WeeklyStatistics = newStats
+			usersMutex.Unlock()
+
+			s.timer.Reset(1 * time.Minute) // Reset the timer for the next interval
 		}
 	}()
 }
 
-func (s *SharedUsersData) stopUsersBackgroundJob() {
-	// Perform any necessary cleanup here
-	// Reset the instance to allow for a fresh start on the next request
-	usersInstance = nil
-	usersOnce = sync.Once{}
-}
 
 func getStartAndEndUserDates() (time.Time, time.Time) {
 	// You need to implement the logic for calculating the start and end dates for the weekly intervals
