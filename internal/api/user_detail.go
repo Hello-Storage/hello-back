@@ -80,7 +80,7 @@ func GetUserDetail(router *gin.RouterGroup) {
 		for _, fileUser := range filesUser {
 			file, err := query.FindFileByID(fileUser.FileID)
 			if err != nil {
-				ctx.JSON(http.StatusNotFound, "file not found")
+				//ctx.JSON(http.StatusNotFound, "file not found")
 				return
 			}
 
@@ -91,7 +91,7 @@ func GetUserDetail(router *gin.RouterGroup) {
 				// Check if other users have the file
 				usersWithFile, err := query.FindUsersByFileCID(file.CID)
 				if err != nil {
-					ctx.JSON(http.StatusNotFound, "file not found")
+					//ctx.JSON(http.StatusNotFound, "file not found")
 					return
 				}
 				if fileUser.Permission == entity.OwnerPermission {
