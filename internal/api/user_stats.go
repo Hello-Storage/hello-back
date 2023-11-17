@@ -91,7 +91,7 @@ func (s *SharedUsersData) startUsersBackgroundJob() {
 				usersMutex.Lock()
 				s.WeeklyStatistics = newStats
 				usersMutex.Unlock()
-				time.Sleep(15 * time.Second) // Example delay
+				time.Sleep(30 * time.Second) // Example delay
 			}
 		}
 	}()
