@@ -112,9 +112,9 @@ func Start(ctx context.Context) {
 	initialStatistics, err := statisticsData.CalculateStatistics()
 	if err != nil {
 		log.Errorf("cannot calculate initial weekly stats: %s", err)
-		log.Println("Calculated initial stats")
 	} else {
 		statisticsData.Statistics = initialStatistics
+		log.Println("Calculated initial stats")
 	}
 
 	

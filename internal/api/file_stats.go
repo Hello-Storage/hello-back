@@ -80,28 +80,20 @@ func (s *SharedStatistics) startStatisticsBackgroundJob() {
 	}
 
 	// Start or restart the timer
-	s.timer = time.AfterFunc(1*time.Minute, func() {
-		statisticsMutex.Lock()
-		defer statisticsMutex.Unlock()
-		s.stopStatisticsBackgroundJob()
-	})
+	s.timer = time.NewTimer(1 * time.Minute)
 
 	go func() {
 		for {
-			select {
-			case <-s.timer.C:
-				return // Exit the goroutine when timer expires
-			default:
-				newStats, err := s.CalculateStatistics()
-				if err != nil {
-					log.Errorf("cannot calculate weekly stats: %s", err)
-					return
-				}
-				statisticsMutex.Lock()
-				s.Statistics = newStats
-				statisticsMutex.Unlock()
-				time.Sleep(30 * time.Second) // Example delay
+			<-s.timer.C
+			newStats, err := s.CalculateStatistics()
+			if err != nil {
+				log.Errorf("cannot calculate weekly stats: %s", err)
+				return
 			}
+			statisticsMutex.Lock()
+			s.Statistics = newStats
+			statisticsMutex.Unlock()
+			s.timer.Reset(1 * time.Minute) // Reset the timer for the next interval
 		}
 	}()
 }
@@ -109,7 +101,10 @@ func (s *SharedStatistics) startStatisticsBackgroundJob() {
 func (s *SharedStatistics) stopStatisticsBackgroundJob() {
 	// Perform any necessary cleanup here
 	// Reset the instance to allow for a fresh start on the next request
-	statisticsInstance = nil
+	if s.timer != nil {
+		s.timer.Stop()
+		s.timer = nil
+	}
 	statisticsOnce = sync.Once{}
 }
 
@@ -470,12 +465,7 @@ func (s *SharedStorageData) CalculateWeeklyStorageStats() ([]WeeklyStorageStats,
 	return weeklyStats, nil
 }
 
-func (s *SharedStorageData) stopStorageBackgroundJob() {
-	// Perform any necessary cleanup here
-	// Reset the instance to allow for a fresh start on the next request
-	storageInstance = nil
-	storageOnce = sync.Once{}
-}
+
 
 func (s *SharedStorageData) startStorageBackgroundJob() {
 	// Stop any existing timer
@@ -483,29 +473,21 @@ func (s *SharedStorageData) startStorageBackgroundJob() {
 		s.timer.Stop()
 	}
 
-	// Start or restart the timer
-	s.timer = time.AfterFunc(1*time.Minute, func() {
-		storageMutex.Lock()
-		defer storageMutex.Unlock()
-		s.stopStorageBackgroundJob()
-	})
+	s.timer = time.NewTimer(1 * time.Minute)
 
 	go func() {
 		for {
-			select {
-			case <-s.timer.C:
-				return // Exit the goroutine when timer expires
-			default:
-				newStats, err := s.CalculateWeeklyStorageStats()
-				if err != nil {
-					log.Errorf("cannot calculate weekly stats: %s", err)
-					return
-				}
-				storageMutex.Lock()
-				s.WeeklyStatistics = newStats
-				storageMutex.Unlock()
-				time.Sleep(30 * time.Second) // Example delay
+			<-s.timer.C
+			newStats, err := s.CalculateWeeklyStorageStats()
+			if err != nil {
+				log.Errorf("cannot calculate weekly stats: %s", err)
+				return
 			}
+			storageMutex.Lock()
+			s.WeeklyStatistics = newStats
+			storageMutex.Unlock()
+			log.Print("getting file stats")
+			s.timer.Reset(1 * time.Minute) // Reset the timer for the next interval
 		}
 	}()
 }
