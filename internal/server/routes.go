@@ -35,9 +35,9 @@ func registerRoutes(router *gin.Engine) {
 	api.GetUserCount(APIv1)
 
 	//statistics routes
-	//api.GetStatistics(APIv1)
-	//api.GetWeeklyPublicStats(APIv1)
-	//api.GetWeeklyUserStats(APIv1)
+	api.GetStatistics(APIv1)
+	api.GetWeeklyPublicStats(APIv1)
+	api.GetWeeklyUserStats(APIv1)
 
 	// auth routes
 	api.LoginUser(APIv1, tokenMaker)
