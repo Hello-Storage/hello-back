@@ -92,7 +92,7 @@ func (s *SharedStatistics) startStatisticsBackgroundJob() {
 			case <-s.timer.C:
 				return // Exit the goroutine when timer expires
 			default:
-				newStats, err := s.calculateStatistics()
+				newStats, err := s.CalculateStatistics()
 				if err != nil {
 					log.Errorf("cannot calculate weekly stats: %s", err)
 					return
@@ -100,7 +100,7 @@ func (s *SharedStatistics) startStatisticsBackgroundJob() {
 				statisticsMutex.Lock()
 				s.Statistics = newStats
 				statisticsMutex.Unlock()
-				time.Sleep(15 * time.Second) // Example delay
+				time.Sleep(30 * time.Second) // Example delay
 			}
 		}
 	}()
@@ -113,7 +113,7 @@ func (s *SharedStatistics) stopStatisticsBackgroundJob() {
 	statisticsOnce = sync.Once{}
 }
 
-func (s *SharedStatistics) calculateStatistics() (Statistics, error) {
+func (s *SharedStatistics) CalculateStatistics() (Statistics, error) {
 	totalusedstorage, err := query.CountTotalUsedStorage()
 	if err != nil {
 		return Statistics{}, fmt.Errorf("cannot get total used storage: %s", err)
@@ -430,7 +430,7 @@ func GetStorageInstance() *SharedStorageData {
 	return storageInstance
 }
 
-func (s *SharedStorageData) calculateWeeklyStats() ([]WeeklyStorageStats, error) {
+func (s *SharedStorageData) CalculateWeeklyStorageStats() ([]WeeklyStorageStats, error) {
 
 	// Logic to determine the start and end dates for the weekly intervals
 
@@ -496,7 +496,7 @@ func (s *SharedStorageData) startStorageBackgroundJob() {
 			case <-s.timer.C:
 				return // Exit the goroutine when timer expires
 			default:
-				newStats, err := s.calculateWeeklyStats()
+				newStats, err := s.CalculateWeeklyStorageStats()
 				if err != nil {
 					log.Errorf("cannot calculate weekly stats: %s", err)
 					return
@@ -504,7 +504,7 @@ func (s *SharedStorageData) startStorageBackgroundJob() {
 				storageMutex.Lock()
 				s.WeeklyStatistics = newStats
 				storageMutex.Unlock()
-				time.Sleep(15 * time.Second) // Example delay
+				time.Sleep(30 * time.Second) // Example delay
 			}
 		}
 	}()

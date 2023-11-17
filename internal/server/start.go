@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Hello-Storage/hello-back/internal/api"
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/middlewares"
 	"github.com/gin-contrib/cors"
@@ -90,10 +91,35 @@ func Start(ctx context.Context) {
 	log.Infof("server: listening on %s [%s]", server.Addr, time.Since(start))
 	go StartHttp(server)
 
+	usersData := api.GetUsersInstance()
+	storageData := api.GetStorageInstance()
+	statisticsData := api.GetStatisticsInstance()
+
+	initialUsersStats, err := usersData.CalculateWeeklyUsersStats()
+	if err != nil {
+		log.Errorf("cannot calculate initial weekly stats: %s", err)
+	} else {
+		usersData.WeeklyStatistics = initialUsersStats
+	}
+	initialStorageStats, err := storageData.CalculateWeeklyStorageStats()
+	if err != nil {
+		log.Errorf("cannot calculate initial weekly stats: %s", err)
+	} else {
+		storageData.WeeklyStatistics = initialStorageStats
+	}
+	initialStatistics, err := statisticsData.CalculateStatistics()
+	if err != nil {
+		log.Errorf("cannot calculate initial weekly stats: %s", err)
+	} else {
+		statisticsData.Statistics = initialStatistics
+	}
+
+	
+
 	// Graceful HTTP server shutdown.
 	<-ctx.Done()
 	log.Info("server: shutting down")
-	err := server.Close()
+	err = server.Close()
 	if err != nil {
 		log.Errorf("server: shutdown failed (%s)", err)
 	}
