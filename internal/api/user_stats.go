@@ -34,7 +34,7 @@ func GetUsersInstance() *SharedUsersData {
 	return usersInstance
 }
 
-func (s *SharedUsersData) calculateWeeklyStats() ([]WeeklyUsersStats, error) {
+func (s *SharedUsersData) CalculateWeeklyUsersStats() ([]WeeklyUsersStats, error) {
 	startDate, endDate := getStartAndEndUserDates()
 
 	var weeklyStats []WeeklyUsersStats
@@ -83,7 +83,7 @@ func (s *SharedUsersData) startUsersBackgroundJob() {
 			case <-s.timer.C:
 				return // Exit the goroutine when timer expires
 			default:
-				newStats, err := s.calculateWeeklyStats()
+				newStats, err := s.CalculateWeeklyUsersStats()
 				if err != nil {
 					log.Errorf("cannot calculate weekly stats: %s", err)
 					return
