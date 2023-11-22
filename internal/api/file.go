@@ -1,14 +1,17 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
+
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/gin-gonic/gin"
 )
+
 // GetFile returns file details as JSON.
 //
 // GET /api/file/info/:uid
@@ -66,6 +69,51 @@ func GetShareState(router *gin.RouterGroup) {
 		}
 
 		c.JSON(http.StatusOK, share_state)
+	})
+
+	router.GET("/share/states", func(c *gin.Context) {
+		// Get file UIDs from query params
+		fileUIDs := c.QueryArray("file_uids")
+
+		// Print for debugging
+		fmt.Println("Received file UIDs:", fileUIDs)
+
+		if len(fileUIDs) == 0 {
+			fmt.Println("No file UIDs received")
+			AbortEntityNotFound(c)
+		}
+		var shareStates []entity.FileShareState
+
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
+
+		// Iterate through file UIDs
+		for _, fileUID := range fileUIDs {
+			// check if file exists
+			f, err := query.FindFileByUID(fileUID)
+			if err != nil {
+				log.Errorf("cannot get file: %s", err)
+				// skip this file if it doesn't exist
+				continue
+			}
+
+			// get share state, if doesn't exist, create it
+			shareState, err := query.FindShareStateByFileUID(fileUID)
+			if err != nil {
+				log.Errorf("Error finding share state: %s", err)
+				shareState, err = query.CreateShareState(f)
+				if err != nil {
+					log.Errorf("cannot create share state: %s", err)
+					// skip this file if share state creation fails
+					continue
+				}
+			}
+
+			shareStates = append(shareStates, shareState)
+		}
+
+		c.JSON(http.StatusOK, shareStates)
 	})
 }
 
