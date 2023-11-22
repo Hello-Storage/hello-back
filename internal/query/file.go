@@ -7,6 +7,7 @@ import (
 
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
+	"gorm.io/gorm"
 )
 
 // FileByUID returns file for the given UID.
@@ -23,16 +24,20 @@ func FindFileByUID(uid string) (*entity.File, error) {
 }
 
 // FileByUID returns file for the given UID.
-func FindFileByID(id uint) (entity.File, error) {
-	f := entity.File{}
+func FindFileByID(id uint) (*entity.File, error) {
+	f := &entity.File{}
 
 	if id < 0 {
-		return f, fmt.Errorf("invalid id")
+		return nil, fmt.Errorf("invalid id")
 	}
 
-	err := db.Db().Where("id = ?", id).First(&f).Error
+	err := db.Db().Where("id = ?", id).First(f).Error
 
-	return f, err
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return f, nil
 }
 
 // FilesByRoot return files in a given folder root.
