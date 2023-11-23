@@ -63,6 +63,7 @@ func DeleteFile(router *gin.RouterGroup) {
 			log.Errorf("error finding users by file CID: %v", err)
 			return
 		}
+		fmt.Println("Users with the file: ", usersWithFile)
 		// Delete the file from s3 if there is more than one user
 		if len(usersWithFile) > 1 {
 			// If more than one user has the file, delete the file from the user and give the owner to the next user shared
