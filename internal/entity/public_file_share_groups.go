@@ -6,9 +6,9 @@ import (
 )
 
 type PublicFileShareGroup struct {
-	ID           uint `gorm:"primarykey"                   json:"id"`
-	ShareGroupID uint `json:"share_group_id"`
-	PublicFileID uint `json:"public_file_id"`
+	ID           uint   `gorm:"primarykey"                   json:"id"`
+	ShareGroupID uint   `json:"share_group_id"`
+	ShareHash    string `json:"share_hash"`
 }
 
 func (PublicFileShareGroup) TableName() string {

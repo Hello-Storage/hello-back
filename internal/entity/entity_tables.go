@@ -30,6 +30,7 @@ var Entities = Tables{
 	FolderUser{}.TableName():           &FolderUser{},
 	Referral{}.TableName():             &Referral{},
 	PublicFileShareGroup{}.TableName(): &PublicFileShareGroup{},
+	ShareGroup{}.TableName():           &ShareGroup{},
 }
 
 // WaitForMigration waits for the database migration to be successful.

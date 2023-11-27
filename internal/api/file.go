@@ -177,57 +177,39 @@ func PublishFile(router *gin.RouterGroup) {
 	})
 
 	router.POST("/share/group", func(c *gin.Context) {
-		//get files
-		var selectedShareFile form.CustomFileMeta
-		err := c.BindJSON(&selectedShareFile)
-		if err != nil {
-			log.Errorf("cannot bind json: %s", err)
-			AbortEntityNotFound(c)
+		var request struct {
+			ShareHashes []string `json:"share_hashes" binding:"required"`
+		}
+
+		// Bind JSON request body to the request struct
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid JSON format"})
 			return
 		}
 
-		//check if file exists
-		f, err := query.FindFileByUID(selectedShareFile.UID)
-		if err != nil {
-			log.Errorf("cannot get file: %s", err)
-			AbortEntityNotFound(c)
+		// Create a new share group
+		shareGroup := entity.ShareGroup{}
+		if err := shareGroup.Create(); err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create share group"})
 			return
 		}
 
-		//get share state, if doesn't exist, create it
-		share_state, err := query.FindShareStateByFileUID(selectedShareFile.UID)
-		if err != nil {
-			share_state, err = query.CreateShareState(f)
-			if err != nil {
-				log.Errorf("cannot create share state: %s", err)
-				AbortEntityNotFound(c)
+		// Associate each share_hash with the newly created share group
+		for _, shareHash := range request.ShareHashes {
+			publicFileShareGroup := entity.PublicFileShareGroup{
+				ShareGroupID: shareGroup.ID,
+				ShareHash:    shareHash,
+			}
+
+			if err := publicFileShareGroup.Create(); err != nil {
+				c.JSON(500, gin.H{"error": "Failed to associate share_hash with share group"})
 				return
 			}
 		}
 
-		//update share state
-
-		public_file, err := query.PublishFile(share_state, selectedShareFile)
-		if err != nil {
-			log.Errorf("cannot update share state: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		share_state.PublicFile = *public_file
-
-		share_state.UpdatedAt = time.Now()
-
-		err = share_state.Save()
-
-		if err != nil {
-			log.Errorf("cannot update share state: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		c.JSON(http.StatusOK, share_state)
+		c.JSON(200, gin.H{"share_group": shareGroup.ID})
 	})
+
 }
 
 // UnpublishFile unpublishes a file.
