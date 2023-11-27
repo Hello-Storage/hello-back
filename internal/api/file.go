@@ -175,6 +175,59 @@ func PublishFile(router *gin.RouterGroup) {
 
 		c.JSON(http.StatusOK, share_state)
 	})
+
+	router.POST("/share/group", func(c *gin.Context) {
+		//get files
+		var selectedShareFile form.CustomFileMeta
+		err := c.BindJSON(&selectedShareFile)
+		if err != nil {
+			log.Errorf("cannot bind json: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		//check if file exists
+		f, err := query.FindFileByUID(selectedShareFile.UID)
+		if err != nil {
+			log.Errorf("cannot get file: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		//get share state, if doesn't exist, create it
+		share_state, err := query.FindShareStateByFileUID(selectedShareFile.UID)
+		if err != nil {
+			share_state, err = query.CreateShareState(f)
+			if err != nil {
+				log.Errorf("cannot create share state: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
+		}
+
+		//update share state
+
+		public_file, err := query.PublishFile(share_state, selectedShareFile)
+		if err != nil {
+			log.Errorf("cannot update share state: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		share_state.PublicFile = *public_file
+
+		share_state.UpdatedAt = time.Now()
+
+		err = share_state.Save()
+
+		if err != nil {
+			log.Errorf("cannot update share state: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		c.JSON(http.StatusOK, share_state)
+	})
 }
 
 // UnpublishFile unpublishes a file.

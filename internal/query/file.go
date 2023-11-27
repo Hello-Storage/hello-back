@@ -10,26 +10,28 @@ import (
 	"gorm.io/gorm"
 )
 
-// FileByUID returns file for the given UID.
+// FindFileByUID returns file for the given UID.
 func FindFileByUID(uid string) (*entity.File, error) {
-	f := entity.File{}
-
 	if uid == "" {
 		return nil, fmt.Errorf("file uid required")
 	}
 
-	err := db.Db().Where("uid = ?", uid).First(&f).Error
+	var file entity.File
+	err := db.Db().Where("uid = ?", uid).First(&file).Error
 
-	return &f, err
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("file not found for UID: %s", uid)
+		}
+		return nil, fmt.Errorf("failed to find file: %v", err)
+	}
+
+	return &file, nil
 }
 
 // FileByUID returns file for the given UID.
 func FindFileByID(id uint) (*entity.File, error) {
 	f := &entity.File{}
-
-	if id < 0 {
-		return nil, fmt.Errorf("invalid id")
-	}
 
 	err := db.Db().Where("id = ?", id).First(f).Error
 

@@ -51,10 +51,19 @@ func (s *SharedUsersData) CalculateWeeklyUsersStats() ([]WeeklyUsersStats, error
 			return nil, fmt.Errorf("cannot get total users: %s", err)
 		}
 
-		weeklyStats = append(weeklyStats, WeeklyUsersStats{
-			Week:       weekStartDate.Format("2006-01-02"),
-			TotalUsers: totalUsers,
-		})
+		// Agregar información al registro
+		log.Infof("Total users for week %s: %d", weekStartDate.Format("2006-01-02"), totalUsers)
+
+		// Verificar si totalUsers es cero antes de hacer la división
+		if totalUsers != 0 {
+			weeklyStats = append(weeklyStats, WeeklyUsersStats{
+				Week:       weekStartDate.Format("2006-01-02"),
+				TotalUsers: totalUsers,
+			})
+		} else {
+			log.Warn("Total users is zero, skipping entry for week:", weekStartDate.Format("2006-01-02"))
+		}
+
 	}
 
 	usersMutex.Lock()
@@ -90,14 +99,13 @@ func (s *SharedUsersData) startUsersBackgroundJob() {
 	}()
 }
 
-
 func getStartAndEndUserDates() (time.Time, time.Time) {
 	// You need to implement the logic for calculating the start and end dates for the weekly intervals
 	// This can involve querying your database for the earliest and latest creation dates of files
 	// For now, let's assume we have a function that gives us these dates
 	startDate, endDate, err := query.GetStartAndEndUserDatesPublic()
 	if err != nil {
-		log.Errorf("cannot get start and end dates for files: %s", err)
+		log.Errorf("cannot get start and end dates for user: %s", err)
 		return time.Time{}, time.Time{}
 	}
 
