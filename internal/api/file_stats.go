@@ -486,7 +486,6 @@ func (s *SharedStorageData) startStorageBackgroundJob() {
 			storageMutex.Lock()
 			s.WeeklyStatistics = newStats
 			storageMutex.Unlock()
-			log.Print("getting file stats")
 			s.timer.Reset(1 * time.Minute) // Reset the timer for the next interval
 		}
 	}()

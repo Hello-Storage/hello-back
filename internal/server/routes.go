@@ -34,6 +34,7 @@ func registerRoutes(router *gin.Engine) {
 	api.FetchReferredUsers(APIv1)
 	api.GetUserCount(APIv1)
 
+
 	//statistics routes
 	api.GetStatistics(APIv1)
 	api.GetWeeklyPublicStats(APIv1)
@@ -58,12 +59,15 @@ func registerRoutes(router *gin.Engine) {
 	api.PutUploadFiles(FileRoutes)
 	api.DeleteFile(FileRoutes)
 	api.DownloadFile(FileRoutes)
+	api.DownloadMultipartFile(FileRoutes)
 	api.UpdateFileRoot(FileRoutes)
 	api.CheckFilesExistInPool(FileRoutes)
 	api.GetShareState(FileRoutes)
 	api.PublishFile(FileRoutes)
 	api.UnpublishFile(FileRoutes)
 	api.GetPublishedFile(FileRoutes)
+	api.EncryptFile(FileRoutes)
+	api.UploadFileMultipart(FileRoutes)
 
 
 	api.GetPublishedFileName(router.Group("/api/file"))

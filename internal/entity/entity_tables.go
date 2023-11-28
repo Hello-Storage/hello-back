@@ -22,9 +22,9 @@ var Entities = Tables{
 	Email{}.TableName():        &Email{},
 	Wallet{}.TableName():       &Wallet{},
 	Github{}.TableName():       &Github{},
-	File{}.TableName():         &File{},
-	FileShareState{}.TableName(): &FileShareState{},
-	PublicFile{}.TableName():   &PublicFile{},
+	//File{}.TableName():         &File{},
+	//FileShareState{}.TableName(): &FileShareState{},
+	//PublicFile{}.TableName():   &PublicFile{},
 	Folder{}.TableName():       &Folder{},
 	FileUser{}.TableName():     &FileUser{},
 	FolderUser{}.TableName():   &FolderUser{},
@@ -97,6 +97,7 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 	// Run ORM auto migrations.
 	if opt.AutoMigrate {
 		for name, entity = range list {
+			log.Infof("migrate: migrating %s", name)
 			if err := db.AutoMigrate(entity); err != nil {
 				log.Debugf("migrate: %s (waiting 1s)", err)
 

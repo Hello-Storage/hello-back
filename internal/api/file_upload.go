@@ -63,7 +63,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 
 		var firstRootUID string
 		for _, customFileMeta := range customFileMetas {
-
+			
 			headObject, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
 			if err != nil {
 				//this means that the object doesn't exist at S3, so we can return CID to frontend for later upload of binary and metadata
@@ -282,6 +282,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			keyPath := f.CID
 
 			// upload file
+			
 			go func(file *multipart.FileHeader, keyPath string) {
 				if err := UploadFileToS3(file, keyPath); err != nil {
 					log.Errorf("uploading file to s3: %s", err)
@@ -425,8 +426,10 @@ func UploadFileToS3(file *multipart.FileHeader, key string) error {
 		Region:           aws.String(config.Env().WasabiRegion),
 		S3ForcePathStyle: aws.Bool(true),
 	}
+	
 
 	err := s3.UploadObject(s3Config, file, config.Env().WasabiBucket, key)
+
 
 	return err
 }
