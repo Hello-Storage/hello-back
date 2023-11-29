@@ -426,3 +426,20 @@ func CountTotalFiles(encryptionType string, daystring string) (totalFiles int64,
 
 	return totalFiles, nil
 }
+
+func QueryShareGroup(shareGroupID string) ([]string, error) {
+	var publicFileShareGroups []entity.PublicFileShareGroup
+
+	// Query the database to fetch records of PublicFileShareGroup associated with the shareGroupID
+	if err := db.Db().Where("share_group_id = ?", shareGroupID).Find(&publicFileShareGroups).Error; err != nil {
+		return nil, err
+	}
+
+	// Extract share hashes from PublicFileShareGroup records
+	var shareHashes []string
+	for _, publicFileShareGroup := range publicFileShareGroups {
+		shareHashes = append(shareHashes, publicFileShareGroup.ShareHash)
+	}
+
+	return shareHashes, nil
+}

@@ -187,6 +187,15 @@ func PublishFile(router *gin.RouterGroup) {
 			return
 		}
 
+		// Print for debugging
+		fmt.Println("Received share hashes:", request.ShareHashes)
+
+		if len(request.ShareHashes) == 0 {
+			fmt.Println("No share hashes received")
+			c.JSON(400, gin.H{"error": "No share hashes received"})
+			return
+		}
+
 		// Create a new share group
 		shareGroup := entity.ShareGroup{}
 		if err := shareGroup.Create(); err != nil {
@@ -208,6 +217,26 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		c.JSON(200, gin.H{"share_group": shareGroup.ID})
+	})
+
+	router.GET("/share/group/:shareGroupID", func(c *gin.Context) {
+		shareGroupID := c.Param("shareGroupID")
+
+		// Check if the share group ID is provided and valid
+		if shareGroupID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No share group ID provided"})
+			return
+		}
+
+		// Perform the query using the queryShareGroup function
+		shareHashes, err := query.QueryShareGroup(shareGroupID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve share hashes"})
+			return
+		}
+
+		// Respond with the list of share hashes
+		c.JSON(http.StatusOK, gin.H{"share_hashes": shareHashes})
 	})
 
 }

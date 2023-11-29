@@ -21,7 +21,7 @@ type PublicFile struct {
 	UpdatedAt            time.Time      `gorm:"index"                        json:"updated_at"`
 	DeletedAt            gorm.DeletedAt `gorm:"index"                        json:"deleted_at"`
 	HasBeenOpened        bool           `gorm:"default:false"               json:"has_been_opened"`
-	ExpireAt             time.Time      `gorm:"index"                        json:"expire_at"`
+	ExpireAt             *time.Time     `gorm:"index" json:"expire_at"`
 }
 
 func (PublicFile) TableName() string {
