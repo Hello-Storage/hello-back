@@ -427,11 +427,11 @@ func CountTotalFiles(encryptionType string, daystring string) (totalFiles int64,
 	return totalFiles, nil
 }
 
-func QueryShareGroup(shareGroupID string) ([]string, error) {
+func QueryShareGroupByHash(shareGroupHash string) ([]string, error) {
 	var publicFileShareGroups []entity.PublicFileShareGroup
 
-	// Query the database to fetch records of PublicFileShareGroup associated with the shareGroupID
-	if err := db.Db().Where("share_group_id = ?", shareGroupID).Find(&publicFileShareGroups).Error; err != nil {
+	// Query the database to fetch records of PublicFileShareGroup associated with the shareGroupHash
+	if err := db.Db().Where("share_group_hash = ?", shareGroupHash).Find(&publicFileShareGroups).Error; err != nil {
 		return nil, err
 	}
 
@@ -442,4 +442,30 @@ func QueryShareGroup(shareGroupID string) ([]string, error) {
 	}
 
 	return shareHashes, nil
+}
+
+// DeletePublicFileShareGroupByShareHash deletes the record in publicFileShareGroups
+// based on the sharing hash.
+func DeletePublicFileShareGroupByShareHash(shareHash string) error {
+	var publicFileShareGroup entity.PublicFileShareGroup
+
+	// Find the record based on the sharing hash
+	result := db.Db().Where("share_hash = ?", shareHash).First(&publicFileShareGroup)
+
+	// Check for errors during the query
+	if err := result.Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Record not found, return without error
+			return nil
+		}
+		// Other error occurred
+		return err
+	}
+
+	// Delete the record
+	if err := db.Db().Delete(&publicFileShareGroup).Error; err != nil {
+		return err
+	}
+
+	return nil
 }
