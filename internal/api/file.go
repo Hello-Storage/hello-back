@@ -395,12 +395,12 @@ func createNewFileFromMetadata(originalFile *entity.File, metadata form.CustomFi
 
 	return &entity.File{
 		Name:                 metadata.Name,
-		Root:                 metadata.Root,
+		Root:                 "/",
 		CID:                  metadata.CID,
 		CIDOriginalEncrypted: nil,
 		Mime:                 metadata.MimeType,
 		Size:                 metadata.Size,
-		EncryptionStatus:     originalFile.EncryptionStatus,
+		EncryptionStatus:     entity.Public,
 		CreatedAt:            time.Now(),
 		IsInPool:             &isInPool,
 		UpdatedAt:            time.Now(),
