@@ -469,3 +469,20 @@ func DeletePublicFileShareGroupByShareHash(shareHash string) error {
 
 	return nil
 }
+
+func DeleteFileShareStatesByFileUID(fileUID string) error {
+	return db.Db().Where("file_uid = ?", fileUID).Delete(&entity.FileShareState{}).Error
+}
+
+func DeleteEmptyShareGroup(shareGroupHash string) error {
+	var count int64
+	if err := db.Db().Model(&entity.PublicFileShareGroup{}).Where("share_group_hash = ?", shareGroupHash).Count(&count).Error; err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return db.Db().Unscoped().Where("hash = ?", shareGroupHash).Delete(&entity.ShareGroup{}).Error
+	}
+
+	return nil
+}

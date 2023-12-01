@@ -79,17 +79,15 @@ func DeleteFile(router *gin.RouterGroup) {
 				// get the user details
 				user_detail := query.FindUserDetailByUserID(authPayload.UserID)
 				// Removes storage_used from the database.
-				updatedStorageUsed := int64(user_detail.StorageUsed) - int64(f.Size)
-				if updatedStorageUsed < 0 {
-					updatedStorageUsed = 0
+				updatedStorageUsed := uint(0)
+				if uint(f.Size) < (user_detail.StorageUsed) {
+					updatedStorageUsed = user_detail.StorageUsed - uint(f.Size)
 				}
 
 				log.Infof("Updating storage_used: Old Value=%d, Size to Remove=%d, New Value=%d", user_detail.StorageUsed, f.Size, updatedStorageUsed)
 
 				if err := user_detail.Update("storage_used", updatedStorageUsed); err != nil {
 					log.Errorf("Error updating storage_used: %s", err)
-					AbortInternalServerError(ctx)
-					return
 				}
 
 				// update the "deleted_at column" for this user
@@ -158,10 +156,15 @@ func DeleteFile(router *gin.RouterGroup) {
 			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
 
 			// removes storage_used from the database.
-			if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(f.Size)); err != nil {
-				log.Errorf("removing storage_used: %s", err)
-				AbortInternalServerError(ctx)
-				return
+			updatedStorageUsed := uint(0)
+			if uint(f.Size) < (user_detail.StorageUsed) {
+				updatedStorageUsed = user_detail.StorageUsed - uint(f.Size)
+			}
+
+			log.Infof("Updating storage_used: Old Value=%d, Size to Remove=%d, New Value=%d", user_detail.StorageUsed, f.Size, updatedStorageUsed)
+
+			if err := user_detail.Update("storage_used", updatedStorageUsed); err != nil {
+				log.Errorf("Error updating storage_used: %s", err)
 			}
 
 			// update the "deleted_at column" for this user
