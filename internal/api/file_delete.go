@@ -78,10 +78,16 @@ func DeleteFile(router *gin.RouterGroup) {
 			if isOwner {
 				// get the user details
 				user_detail := query.FindUserDetailByUserID(authPayload.UserID)
+				// Removes storage_used from the database.
+				updatedStorageUsed := int64(user_detail.StorageUsed) - int64(f.Size)
+				if updatedStorageUsed < 0 {
+					updatedStorageUsed = 0
+				}
 
-				// removes storage_used from the database.
-				if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(f.Size)); err != nil {
-					log.Errorf("removing storage_used: %s", err)
+				log.Infof("Updating storage_used: Old Value=%d, Size to Remove=%d, New Value=%d", user_detail.StorageUsed, f.Size, updatedStorageUsed)
+
+				if err := user_detail.Update("storage_used", updatedStorageUsed); err != nil {
+					log.Errorf("Error updating storage_used: %s", err)
 					AbortInternalServerError(ctx)
 					return
 				}

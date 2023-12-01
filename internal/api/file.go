@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
@@ -269,14 +270,141 @@ func PublishFile(router *gin.RouterGroup) {
 
 		c.JSON(http.StatusOK, shareState)
 	})
+	router.POST("/share/email/:user", func(ctx *gin.Context) {
+		// Get the email from the parameters
+		shareWithEmail := ctx.Param("user")
 
-	router.POST("/share/email", func(c *gin.Context) {
+		tx := db.Db().Begin()
 
+		// Get the file metadata from the request body
+		var selectedShareFile form.CustomFileMeta
+		if err := ctx.BindJSON(&selectedShareFile); err != nil {
+			log.Errorf("failed to bind JSON: %s", err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to bind JSON"})
+			return
+		}
+
+		// Check if the file exists
+		f, err := query.FindFileByUID(selectedShareFile.UID)
+		if err != nil {
+			log.Errorf("failed to get file: %s", err)
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+			return
+		}
+
+		// Get the user by email
+		shareWithUser := query.FindUserByEmail(shareWithEmail)
+		if shareWithUser == nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+
+		// Create a new file with the same metadata
+		newFile := createNewFileFromMetadata(f, selectedShareFile)
+		if err := newFile.TxCreate(tx); err != nil {
+			log.Errorf("create file: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+		}
+
+		// Create a FilesUsers entry to share the file with the specified user
+
+		fileUser := &entity.FileUser{
+			FileID:     newFile.ID,
+			UserID:     shareWithUser.ID,
+			Permission: entity.SharedPermission,
+		}
+
+		if err := fileUser.TxCreate(tx); err != nil {
+			log.Errorf("create file_user relation: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+			return
+		}
+
+		fmt.Printf("Sharing file:\nshareType: %s\nfile UID: %s\nshared with: %s\n", entity.SharedPermission, selectedShareFile.UID, shareWithEmail)
+
+		tx.Commit()
+
+		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully"})
 	})
 
-	router.POST("/share/wallet", func(c *gin.Context) {
+	router.POST("/share/wallet/:user", func(ctx *gin.Context) {
+		// Get the wallet from the parameters
+		wallet := ctx.Param("user")
 
+		tx := db.Db().Begin()
+
+		// Get the file metadata from the request body
+		var selectedShareFile form.CustomFileMeta
+		if err := ctx.BindJSON(&selectedShareFile); err != nil {
+			log.Errorf("failed to bind JSON: %s", err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to bind JSON"})
+			return
+		}
+
+		// Check if the file exists
+		f, err := query.FindFileByUID(selectedShareFile.UID)
+		if err != nil {
+			log.Errorf("failed to get file: %s", err)
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+			return
+		}
+
+		// Get the user by wallet address
+		shareWithUser := query.FindUserByWalletAddress(wallet)
+		if shareWithUser == nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+
+		// Create a new file with the same metadata
+		newFile := createNewFileFromMetadata(f, selectedShareFile)
+		if err := newFile.TxCreate(tx); err != nil {
+			log.Errorf("create file: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+		}
+
+		// Create a FilesUsers entry to share the file with the specified user
+
+		fileUser := &entity.FileUser{
+			FileID:     newFile.ID,
+			UserID:     shareWithUser.ID,
+			Permission: entity.SharedPermission,
+		}
+
+		if err := fileUser.TxCreate(tx); err != nil {
+			log.Errorf("create file_user relation: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+			return
+		}
+
+		fmt.Printf("Sharing file:\nshareType: %s\nfile UID: %s\nshared with: %s\n", entity.SharedPermission, selectedShareFile.UID, wallet)
+
+		tx.Commit()
+
+		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully"})
 	})
+
+}
+
+func createNewFileFromMetadata(originalFile *entity.File, metadata form.CustomFileMeta) *entity.File {
+	var isInPool bool = true
+
+	return &entity.File{
+		Name:                 metadata.Name,
+		Root:                 metadata.Root,
+		CID:                  metadata.CID,
+		CIDOriginalEncrypted: nil,
+		Mime:                 metadata.MimeType,
+		Size:                 metadata.Size,
+		EncryptionStatus:     originalFile.EncryptionStatus,
+		CreatedAt:            time.Now(),
+		IsInPool:             &isInPool,
+		UpdatedAt:            time.Now(),
+	}
 }
 
 // UnpublishFile unpublishes a file.
