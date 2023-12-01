@@ -461,6 +461,14 @@ func UnpublishFile(router *gin.RouterGroup) {
 				AbortEntityNotFound(c)
 				return
 			}
+
+			// Check if the ShareGroup is empty after deleting the PublicFile
+			err = query.DeleteEmptyShareGroup(shareState.PublicFile.ShareHash)
+			if err != nil {
+				log.Errorf("cannot delete empty share group: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
 		} else {
 			log.Info("No existing public file to delete.")
 		}
