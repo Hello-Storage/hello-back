@@ -73,9 +73,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			} else {
 				//this means that the object exists at S3, so we can create a file entry on database for the file
 
-				//cid of file
-				mime := customFileMeta.MimeType
-
 				// create corresponding folders to locate this file at proper path
 				file_path := customFileMeta.Path
 				var f entity.File
@@ -98,14 +95,13 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 
 				var isInPool bool = true
 
-
 				// create file
 				f = entity.File{
 					Name:                 customFileMeta.Name,
 					Root:                 actual_root,
 					CID:                  customFileMeta.CID,
 					CIDOriginalEncrypted: &customFileMeta.CIDOriginalEncrypted,
-					Mime:                 mime,
+					Mime:                 customFileMeta.MimeType,
 					Size:                 customFileMeta.Size,
 					EncryptionStatus:     encryptionStatus,
 					CreatedAt:            time.Now(),
