@@ -29,6 +29,7 @@ func DeleteFile(router *gin.RouterGroup) {
 		// TO-DO check user auth & add user uid
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 		file_uid := ctx.Param("uid")
+		log.Printf("file uid: %v", file_uid)
 		f, err := query.FindFileByUID(file_uid)
 
 		// AbortEntityNotFound if file not found.
@@ -53,7 +54,7 @@ func DeleteFile(router *gin.RouterGroup) {
 			Region:           aws.String(config.Env().WasabiRegion),
 			S3ForcePathStyle: aws.Bool(true),
 		}
-		keyPath := authPayload.UserUID + "/" + f.UID
+		keyPath := f.CID
 
 		// Check if other users have the file
 		usersWithFile, err := query.FindUsersByFileCID(f.CID)
@@ -80,10 +81,15 @@ func DeleteFile(router *gin.RouterGroup) {
 				user_detail := query.FindUserDetailByUserID(authPayload.UserID)
 
 				// removes storage_used from the database.
-				if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(f.Size)); err != nil {
+				newStorageUsed := user_detail.StorageUsed
+				if uint(f.Size) <= user_detail.StorageUsed {
+					newStorageUsed -= uint(f.Size)
+				} else {
+					log.Warnf("File size (%d) is larger than current storage used (%d), setting storage_used to 0", f.Size, user_detail.StorageUsed)
+					newStorageUsed = 0
+				}
+				if err := user_detail.Update("storage_used", newStorageUsed); err != nil {
 					log.Errorf("removing storage_used: %s", err)
-					AbortInternalServerError(ctx)
-					return
 				}
 
 				// update the "deleted_at column" for this user
@@ -103,21 +109,17 @@ func DeleteFile(router *gin.RouterGroup) {
 				//get id of the next owner
 				nextOwner, err := query.GetNextOwner(f_u.UserID, f_u.FileID)
 				if err != nil {
-					AbortInternalServerError(ctx)
 					log.Errorf("get next owner error: %v", err)
-					return
-				}
+				} else {
+					//give the owner
+					query.SetOwnerPermision(nextOwner.UserID, nextOwner.FileID)
+					// get the user details
+					user_detail_next := query.FindUserDetailByUserID(nextOwner.UserID)
 
-				//give the owner
-				query.SetOwnerPermision(nextOwner.UserID, nextOwner.FileID)
-				// get the user details
-				user_detail_next := query.FindUserDetailByUserID(nextOwner.UserID)
-
-				// sums storage_used from the database.
-				if err := user_detail_next.Update("storage_used", user_detail_next.StorageUsed+uint(f.Size)); err != nil {
-					log.Errorf("adding storage_used: %s", err)
-					AbortInternalServerError(ctx)
-					return
+					// sums storage_used from the database.
+					if err := user_detail_next.Update("storage_used", user_detail_next.StorageUsed+uint(f.Size)); err != nil {
+						log.Errorf("adding storage_used: %s", err)
+					}
 				}
 
 			} else {
@@ -139,13 +141,15 @@ func DeleteFile(router *gin.RouterGroup) {
 		} else {
 			// If not, delete the file from s3
 			err = DeleteFileFromS3(keyPath, s3Config)
+			log.Printf("deleting from s3")
 
 			// Delete the file from s3 if it exists
 			if err != nil {
 				log.Print("error deleting file from s3, trying using the CID. ")
 				log.Print(err)
+				log.Printf("deleting again")
 				// If not found, try deleting using the CID as the keyPath
-				keyPath = f.CID
+				keyPath = authPayload.UserUID + "/" + f.UID
 				err = DeleteFileFromS3(keyPath, s3Config)
 				if err != nil {
 					log.Print("error deleting file from s3: ")
@@ -156,10 +160,15 @@ func DeleteFile(router *gin.RouterGroup) {
 			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
 
 			// removes storage_used from the database.
-			if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(f.Size)); err != nil {
+			newStorageUsed := user_detail.StorageUsed
+			if uint(f.Size) <= user_detail.StorageUsed {
+				newStorageUsed -= uint(f.Size)
+			} else {
+				log.Warnf("File size (%d) is larger than current storage used (%d), setting storage_used to 0", f.Size, user_detail.StorageUsed)
+				newStorageUsed = 0
+			}
+			if err := user_detail.Update("storage_used", newStorageUsed); err != nil {
 				log.Errorf("removing storage_used: %s", err)
-				AbortInternalServerError(ctx)
-				return
 			}
 
 			// update the "deleted_at column" for this user

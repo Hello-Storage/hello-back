@@ -97,6 +97,9 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 	// Run ORM auto migrations.
 	if opt.AutoMigrate {
 		for name, entity = range list {
+			if (name == "users" || name == "wallets" || name == "githubs") {
+				continue
+			}
 			log.Infof("migrate: migrating %s", name)
 			if err := db.AutoMigrate(entity); err != nil {
 				log.Debugf("migrate: %s (waiting 1s)", err)

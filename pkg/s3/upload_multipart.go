@@ -55,7 +55,7 @@ func UploadMultipart(
 	fileType := http.DetectContentType(buffer)
 	src.Read(buffer)
 
-	path := "/multipart/" + cid
+	path := cid
 	input := &s3.CreateMultipartUploadInput{
 		Bucket:      aws.String(awsBucketName),
 		Key:         aws.String(path),

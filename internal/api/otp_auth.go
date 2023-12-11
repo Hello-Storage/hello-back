@@ -123,6 +123,9 @@ func StartOTP(router *gin.RouterGroup) {
 			}
 
 			if err == nil {
+				log.Printf("referrer id: %d", referrer_id)
+				log.Printf("referred id: %d", u.ID)
+				log.Printf("user detail id: %d", user_detail.ID)
 				referral := entity.Referral{
 					ReferrerID:   referrer_id,
 					ReferredID:   u.ID,

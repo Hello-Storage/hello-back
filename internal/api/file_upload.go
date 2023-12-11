@@ -37,6 +37,8 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			return
 		}
 
+		log.Printf("customFileMeta2: %v", customFileMetas)
+
 		// Check if files exist in s3
 		s3Config := aws.Config{
 			Credentials: credentials.NewStaticCredentials(
@@ -62,97 +64,104 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 		}
 
 		var firstRootUID string
-		for _, customFileMeta := range customFileMetas {
-			
-			headObject, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
-			if err != nil {
-				//this means that the object doesn't exist at S3, so we can return CID to frontend for later upload of binary and metadata
-				log.Info("CID not found:")
-				log.Info(customFileMeta.CID)
+		if len(customFileMetas) > 0 {
+			for _, customFileMeta := range customFileMetas {
 
-			} else {
-				//this means that the object exists at S3, so we can create a file entry on database for the file
-
-				//cid of file
-				mime := customFileMeta.MimeType
-
-				// create corresponding folders to locate this file at proper path
-				file_path := customFileMeta.Path
-				var f entity.File
-
-				encryptionStatus := entity.Encrypted
-				if customFileMeta.EncryptionStatus == entity.Public {
-					encryptionStatus = entity.Public
-				}
-
-				actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, encryptionStatus)
+				
+				headObject, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
+				log.Printf("headObject: %v", headObject)
 				if err != nil {
-					log.Errorf("get and process file root: %s", err)
-					AbortInternalServerError(ctx)
-					return
+					//this means that the object doesn't exist at S3, so we can return CID to frontend for later upload of binary and metadata
+					log.Info("headobject for fololwing cid is nil:")
+					log.Info(customFileMeta.CID)
+
+				} else {
+					//this means that the object exists at S3, so we can create a file entry on database for the file
+
+					//cid of file
+					mime := customFileMeta.MimeType
+
+					// create corresponding folders to locate this file at proper path
+					file_path := customFileMeta.Path
+					var f entity.File
+
+					encryptionStatus := entity.Encrypted
+					if customFileMeta.EncryptionStatus == entity.Public {
+						encryptionStatus = entity.Public
+					}
+
+					log.Printf("file path: %s", file_path)
+					actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, encryptionStatus)
+					if err != nil {
+						log.Errorf("get and process file root: %s", err)
+						AbortInternalServerError(ctx)
+						return
+					}
+
+					if firstRootUID == "" {
+						firstRootUID = firstCreatedRoot
+					}
+
+					var isInPool bool = true
+					log.Print(isInPool)
+
+					// create file
+					f = entity.File{
+						Name:                 customFileMeta.Name,
+						Root:                 actual_root,
+						CID:                  customFileMeta.CID,
+						CIDOriginalEncrypted: &customFileMeta.CIDOriginalEncrypted,
+						Mime:                 mime,
+						Size:                 customFileMeta.Size,
+						EncryptionStatus:     encryptionStatus,
+						CreatedAt:            time.Now(),
+						IsInPool:             &isInPool,
+						UpdatedAt:            time.Now(),
+					}
+
+					if err := f.TxCreate(tx); err != nil {
+						log.Errorf("create file: %s", err)
+						tx.Rollback()
+						AbortInternalServerError(ctx)
+					}
+
+					fResponse := form.FileResponse{
+						ID:                   f.ID,
+						Name:                 f.Name,
+						UID:                  f.UID,
+						Root:                 f.Root,
+						CID:                  f.CID,
+						Mime:                 f.Mime,
+						CIDOriginalEncrypted: f.CIDOriginalEncrypted,
+						Size:                 f.Size,
+						IsInPool:             &isInPool,
+						EnryptionStatus:      f.EncryptionStatus,
+						CreatedAt:            f.CreatedAt.String(),
+						UpdatedAt:            f.UpdatedAt.String(),
+					}
+
+					filesFoundResponses = append(filesFoundResponses, fResponse)
+
+					// create file_user relation with the shared permision
+					f_u := entity.FileUser{
+						FileID:     f.ID,
+						UserID:     authPayload.UserID,
+						Permission: entity.SharedPermission,
+					}
+					if err := f_u.TxCreate(tx); err != nil {
+						log.Errorf("create file_user relation: %s", err)
+						tx.Rollback()
+						AbortInternalServerError(ctx)
+						return
+					}
 				}
 
-				if firstRootUID == "" {
-					firstRootUID = firstCreatedRoot
-				}
-
-				var isInPool bool = true
-
-
-				// create file
-				f = entity.File{
-					Name:                 customFileMeta.Name,
-					Root:                 actual_root,
-					CID:                  customFileMeta.CID,
-					CIDOriginalEncrypted: &customFileMeta.CIDOriginalEncrypted,
-					Mime:                 mime,
-					Size:                 customFileMeta.Size,
-					EncryptionStatus:     encryptionStatus,
-					CreatedAt:            time.Now(),
-					IsInPool:             &isInPool,
-					UpdatedAt:            time.Now(),
-				}
-
-				if err := f.TxCreate(tx); err != nil {
-					log.Errorf("create file: %s", err)
-					tx.Rollback()
-					AbortInternalServerError(ctx)
-				}
-
-				fResponse := form.FileResponse{
-					ID:                   f.ID,
-					Name:                 f.Name,
-					UID:                  f.UID,
-					Root:                 f.Root,
-					CID:                  f.CID,
-					Mime:                 f.Mime,
-					CIDOriginalEncrypted: f.CIDOriginalEncrypted,
-					Size:                 f.Size,
-					IsInPool:             &isInPool,
-					EnryptionStatus:      f.EncryptionStatus,
-					CreatedAt:            f.CreatedAt.String(),
-					UpdatedAt:            f.UpdatedAt.String(),
-				}
-
-				filesFoundResponses = append(filesFoundResponses, fResponse)
-
-				// create file_user relation with the shared permision
-				f_u := entity.FileUser{
-					FileID:     f.ID,
-					UserID:     authPayload.UserID,
-					Permission: entity.SharedPermission,
-				}
-				if err := f_u.TxCreate(tx); err != nil {
-					log.Errorf("create file_user relation: %s", err)
-					tx.Rollback()
-					AbortInternalServerError(ctx)
-					return
+				if headObject == nil {
+					log.Print("headObject is nil")
 				}
 			}
-
-			if headObject == nil {
-				log.Print("headObject is nil")
-			}
+		} else {
+			log.Print("customFileMetas is empty")
 		}
 
 		tx.Commit()
@@ -282,7 +291,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			keyPath := f.CID
 
 			// upload file
-			
+
 			go func(file *multipart.FileHeader, keyPath string) {
 				if err := UploadFileToS3(file, keyPath); err != nil {
 					log.Errorf("uploading file to s3: %s", err)
@@ -426,10 +435,8 @@ func UploadFileToS3(file *multipart.FileHeader, key string) error {
 		Region:           aws.String(config.Env().WasabiRegion),
 		S3ForcePathStyle: aws.Bool(true),
 	}
-	
 
 	err := s3.UploadObject(s3Config, file, config.Env().WasabiBucket, key)
-
 
 	return err
 }

@@ -136,7 +136,6 @@ func DeleteAllFilesInFolder(folderUID, userUID string) error {
 
 		if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(file.Size)); err != nil {
 			log.Errorf("adding storage_used: %s", err)
-			return err
 		}
 	}
 	return nil

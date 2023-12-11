@@ -2,20 +2,19 @@ package api
 
 import (
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
-
 	"github.com/Hello-Storage/hello-back/internal/config"
+	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/gin-gonic/gin"
+	"io"
+	"net/http"
 )
 
 const ChunkSize = 5 * 1024 * 1024 // 5MB
 
 // DownloadFile downloads file from filebase using s3
 //
-// GET /api/file/download/:uid
+// GET /api/file/download/multipart/:uid
 // @param uid path string true "file uid"
 // @return 200 {string} string "ok"
 func DownloadMultipartFile(router *gin.RouterGroup) {
@@ -27,7 +26,17 @@ func DownloadMultipartFile(router *gin.RouterGroup) {
 
 		// Multipart form
 		//keyPath := authPayload.UserUID + "/" + file_uid
-		keyPath := "/multipart/" + file_uid
+		log.Println("file uid: ", file_uid)
+		f, err := query.FindFileByUID(file_uid)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+
+		keyPath := f.CID
+		log.Println("file cid: ", keyPath)
 
 		// Open a stream to the S3 object
 		s3Service := *s3.NewS3Service(
@@ -44,10 +53,12 @@ func DownloadMultipartFile(router *gin.RouterGroup) {
 		}
 		defer reader.Close()
 
+		log.Printf("Content-Length: %d", contentLength)
 		// Set headers
 		ctx.Header("Content-Type", contentType)
 		ctx.Header("Content-Length", fmt.Sprintf("%d", contentLength))
 		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", file_uid))
+		log.Printf("Content-Type: %s", contentType)
 
 		// Stream the file in chunks
 		buffer := make([]byte, ChunkSize)
@@ -73,9 +84,6 @@ func DownloadMultipartFile(router *gin.RouterGroup) {
 }
 
 func handleError(ctx *gin.Context, err error) {
-	if strings.Contains(err.Error(), "NoSuchKey") {
-		ctx.JSON(http.StatusNotFound, gin.H{"message": "File not found"})
-	} else {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Internal server error"})
-	}
+	log.Errorf("download file: %s", err)
+	ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Internal server error"})
 }

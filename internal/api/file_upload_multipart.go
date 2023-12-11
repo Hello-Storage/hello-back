@@ -29,7 +29,7 @@ type multipartUploadState struct {
 func UploadFileMultipart(router *gin.RouterGroup) {
 	router.POST("/upload/multipart", func(c *gin.Context) {
 		//parse multipart form
-		err := c.Request.ParseMultipartForm(1 << 20) // Max 1MB memory used
+		err := c.Request.ParseMultipartForm(10 << 20) // Max 10MB memory used
 		if err != nil {
 			log.Errorf("cannot parse multipart form: %s", err)
 			c.JSON(500, gin.H{
@@ -130,7 +130,7 @@ func initiateMultipartUpload(svc *s3.S3, cid string) (*multipartUploadState, err
 	var awsBucketName = config.Env().WasabiBucket
 	input := &s3.CreateMultipartUploadInput{
 		Bucket: aws.String(awsBucketName),
-		Key:    aws.String("/multipart/" + cid),
+		Key:    aws.String(cid),
 	}
 
 	resp, err := svc.CreateMultipartUpload(input)
@@ -158,7 +158,7 @@ func uploadPart(svc *s3.S3, state *multipartUploadState, file multipart.File, fi
 	partInput := &s3.UploadPartInput{
 		Body:       bytes.NewReader(buffer),
 		Bucket:     aws.String(awsBucketName),
-		Key:        aws.String("/multipart/" + cid), // cid should be passed or derived
+		Key:        aws.String(cid), // cid should be passed or derived
 		PartNumber: aws.Int64(int64(state.PartNumber)),
 		UploadId:   aws.String(state.UploadID),
 	}
@@ -191,7 +191,7 @@ func completeMultipartUpload(svc *s3.S3, state *multipartUploadState, cid string
 	var awsBucketName = config.Env().WasabiBucket
 	completeInput := &s3.CompleteMultipartUploadInput{
 		Bucket:   aws.String(awsBucketName),
-		Key:      aws.String("/multipart/" + cid), // cid should be passed or derived
+		Key:      aws.String(cid), // cid should be passed or derived
 		UploadId: aws.String(state.UploadID),
 		MultipartUpload: &s3.CompletedMultipartUpload{
 			Parts: state.CompletedParts,
@@ -219,7 +219,7 @@ func abortMultipartUploadAsync(svc *s3.S3, cid string) {
 		// Prepare the input for the multipart upload abort
 		abortInput := &s3.AbortMultipartUploadInput{
 			Bucket:   aws.String(config.Env().WasabiBucket),
-			Key:      aws.String("/multipart/" + cid),
+			Key:      aws.String(cid),
 			UploadId: aws.String(state.UploadID),
 		}
 
