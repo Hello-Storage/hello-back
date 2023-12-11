@@ -153,6 +153,7 @@ func GetStartAndEndUserDatesPublic() (time.Time, time.Time, error) {
 
 	return minDate, maxDate, nil
 }
+
 // Query get user files by user id
 func GetFilesUserFromUser(user_id uint) ([]entity.FileUser, error) {
 	var filesUsers []entity.FileUser
@@ -163,3 +164,8 @@ func GetFilesUserFromUser(user_id uint) ([]entity.FileUser, error) {
 
 	return filesUsers, nil
 }
+
+// 2023-11-27 13:18:35 backend   | time="2023-11-27T18:18:35Z" level=info msg="Calculated initial weekly user stats"
+// 2023-11-27 13:18:35 backend   | time="2023-11-27T18:18:35Z" level=info msg="Calculated initial weekly storage stats"
+// 2023-11-27 13:18:35 backend   | time="2023-11-27T18:18:35Z" level=error msg="runtime error: integer divide by zero"
+// backend exited with code 0

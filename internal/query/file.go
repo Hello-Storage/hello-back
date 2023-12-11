@@ -7,32 +7,39 @@ import (
 
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
+	"gorm.io/gorm"
 )
 
-// FileByUID returns file for the given UID.
+// FindFileByUID returns file for the given UID.
 func FindFileByUID(uid string) (*entity.File, error) {
-	f := entity.File{}
-
 	if uid == "" {
 		return nil, fmt.Errorf("file uid required")
 	}
 
-	err := db.Db().Where("uid = ?", uid).First(&f).Error
+	var file entity.File
+	err := db.Db().Where("uid = ?", uid).First(&file).Error
 
-	return &f, err
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("file not found for UID: %s", uid)
+		}
+		return nil, fmt.Errorf("failed to find file: %v", err)
+	}
+
+	return &file, nil
 }
 
 // FileByUID returns file for the given UID.
-func FindFileByID(id uint) (entity.File, error) {
-	f := entity.File{}
+func FindFileByID(id uint) (*entity.File, error) {
+	f := &entity.File{}
 
-	if id < 0 {
-		return f, fmt.Errorf("invalid id")
+	err := db.Db().Where("id = ?", id).First(f).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
 	}
 
-	err := db.Db().Where("id = ?", id).First(&f).Error
-
-	return f, err
+	return f, nil
 }
 
 // FilesByRoot return files in a given folder root.
@@ -142,7 +149,7 @@ func FindRootFilesByUser(user_id uint) (files entity.Files, err error) {
 
 func FindUsersByFileCID(cid string) ([]uint, error) {
 	var fileUsers []entity.FileUser
-	usersMap := make(map[uint]bool)
+	var usersWF []uint
 
 	// Join File and FileUser tables and find records by CID
 	err := db.Db().
@@ -158,18 +165,10 @@ func FindUsersByFileCID(cid string) ([]uint, error) {
 
 	// Extract user IDs from the result
 	for _, fu := range fileUsers {
-		if _, ok := usersMap[fu.UserID]; !ok {
-			usersMap[fu.UserID] = true
-		}
+		usersWF = append(usersWF, fu.UserID)
 	}
 
-	// Convert unique user IDs to a slice
-	var users []uint
-	for userID := range usersMap {
-		users = append(users, userID)
-	}
-
-	return users, nil
+	return usersWF, nil
 }
 
 // DeleteFileByUID deletes a file by its UID.
@@ -267,14 +266,14 @@ func CountTotalFilesUser(user_uid string) (upfile int64, err error) {
 func CountStorageUsed(daystring string, user_uid string) (dailystorage int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(SUM(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN files.size WHEN files_users.permission != 'shared' AND (files.deleted_at IS NOT NULL AND DATE(files.deleted_at) < DATE(?)) THEN -files.size ELSE 0 END), 0)", daystring, daystring).
+		Select("GREATEST(COALESCE(SUM(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN files.size WHEN files_users.permission != 'shared' AND (files.deleted_at IS NOT NULL AND DATE(files.deleted_at) < DATE(?)) THEN -files.size ELSE 0 END), 0), 0)", daystring, daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("users.uid = ? AND DATE(files.created_at) <= DATE(?)", user_uid, daystring)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailystorage).Error; err != nil {
-		return dailystorage, err
+		return 0, err
 	}
 
 	return dailystorage, nil
@@ -284,14 +283,14 @@ func CountStorageUsed(daystring string, user_uid string) (dailystorage int64, er
 func CountPublicStorageUsed(daystring string) (dailystorage int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(SUM(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN files.size WHEN files_users.permission != 'shared' AND (files.deleted_at IS NOT NULL AND DATE(files.deleted_at) < DATE(?)) THEN -files.size ELSE 0 END), 0)", daystring, daystring).
+		Select("GREATEST(COALESCE(SUM(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN files.size WHEN files_users.permission != 'shared' AND (files.deleted_at IS NOT NULL AND DATE(files.deleted_at) < DATE(?)) THEN -files.size ELSE 0 END), 0), 0)", daystring, daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("DATE(files.created_at) <= DATE(?)", daystring)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailystorage).Error; err != nil {
-		return dailystorage, err
+		return 0, err
 	}
 
 	return dailystorage, nil
@@ -301,14 +300,14 @@ func CountPublicStorageUsed(daystring string) (dailystorage int64, err error) {
 func CountFilesUsed(daystring string, user_uid string) (dailyfiles int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN 1 END), 0)", daystring).
+		Select("GREATEST(COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN 1 END), 0), 0)", daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("users.uid = ? AND DATE(files.created_at) <= DATE(?)", user_uid, daystring)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailyfiles).Error; err != nil {
-		return dailyfiles, err
+		return 0, err
 	}
 
 	return dailyfiles, nil
@@ -318,14 +317,14 @@ func CountFilesUsed(daystring string, user_uid string) (dailyfiles int64, err er
 func CountFilesUsedByStatus(daystring string, user_uid string, status string) (dailypublicfiles int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN 1 END), 0)", daystring).
+		Select("GREATEST(COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR DATE(files.deleted_at) > DATE(?)) THEN 1 END), 0), 0)", daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("users.uid = ? AND DATE(files.created_at) <= DATE(?) AND files.encryption_status = ?", user_uid, daystring, status)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailypublicfiles).Error; err != nil {
-		return dailypublicfiles, err
+		return 0, err
 	}
 
 	return dailypublicfiles, nil
@@ -335,14 +334,14 @@ func CountFilesUsedByStatus(daystring string, user_uid string, status string) (d
 func CountStorageUsedH(daystring string, user_uid string) (dailystorage int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(SUM(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR (files.deleted_at) > (?)) THEN files.size WHEN files_users.permission != 'shared' AND (files.deleted_at IS NOT NULL AND DATE(files.deleted_at) < DATE(?)) THEN -files.size ELSE 0 END), 0)", daystring, daystring).
+		Select("GREATEST(COALESCE(SUM(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR (files.deleted_at) > (?)) THEN files.size WHEN files_users.permission != 'shared' AND (files.deleted_at IS NOT NULL AND DATE(files.deleted_at) < DATE(?)) THEN -files.size ELSE 0 END), 0), 0)", daystring, daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("users.uid = ? AND (files.created_at) <= (?)", user_uid, daystring)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailystorage).Error; err != nil {
-		return dailystorage, err
+		return 0, err
 	}
 
 	return dailystorage, nil
@@ -352,14 +351,14 @@ func CountStorageUsedH(daystring string, user_uid string) (dailystorage int64, e
 func CountFilesUsedH(daystring string, user_uid string) (dailyfiles int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR (files.deleted_at) > (?)) THEN 1 END), 0)", daystring).
+		Select("GREATEST(COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR (files.deleted_at) > (?)) THEN 1 END), 0), 0)", daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("users.uid = ? AND (files.created_at) <= (?)", user_uid, daystring)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailyfiles).Error; err != nil {
-		return dailyfiles, err
+		return 0, err
 	}
 
 	return dailyfiles, nil
@@ -369,14 +368,14 @@ func CountFilesUsedH(daystring string, user_uid string) (dailyfiles int64, err e
 func CountFilesUsedByStatusH(daystring string, user_uid string, status string) (dailypublicfiles int64, err error) {
 	query := db.Db().
 		Table("files").
-		Select("COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR (files.deleted_at) > (?)) THEN 1 END), 0)", daystring).
+		Select("GREATEST(COALESCE(COUNT(CASE WHEN files_users.permission != 'shared' AND (files.deleted_at IS NULL OR (files.deleted_at) > (?)) THEN 1 END), 0), 0)", daystring).
 		Joins("INNER JOIN files_users ON files_users.file_id = files.id").
 		Joins("INNER JOIN users ON users.id = files_users.user_id").
 		Where("users.uid = ? AND (files.created_at) <= (?) AND files.encryption_status = ?", user_uid, daystring, status)
 
 	// Execute and scan the result
 	if err := query.Scan(&dailypublicfiles).Error; err != nil {
-		return dailypublicfiles, err
+		return 0, err
 	}
 
 	return dailypublicfiles, nil
@@ -426,4 +425,64 @@ func CountTotalFiles(encryptionType string, daystring string) (totalFiles int64,
 	}
 
 	return totalFiles, nil
+}
+
+func QueryShareGroupByHash(shareGroupHash string) ([]string, error) {
+	var publicFileShareGroups []entity.PublicFileShareGroup
+
+	// Query the database to fetch records of PublicFileShareGroup associated with the shareGroupHash
+	if err := db.Db().Where("share_group_hash = ?", shareGroupHash).Find(&publicFileShareGroups).Error; err != nil {
+		return nil, err
+	}
+
+	// Extract share hashes from PublicFileShareGroup records
+	var shareHashes []string
+	for _, publicFileShareGroup := range publicFileShareGroups {
+		shareHashes = append(shareHashes, publicFileShareGroup.ShareHash)
+	}
+
+	return shareHashes, nil
+}
+
+// DeletePublicFileShareGroupByShareHash deletes the record in publicFileShareGroups
+// based on the sharing hash.
+func DeletePublicFileShareGroupByShareHash(shareHash string) error {
+	var publicFileShareGroup entity.PublicFileShareGroup
+
+	// Find the record based on the sharing hash
+	result := db.Db().Where("share_hash = ?", shareHash).First(&publicFileShareGroup)
+
+	// Check for errors during the query
+	if err := result.Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Record not found, return without error
+			return nil
+		}
+		// Other error occurred
+		return err
+	}
+
+	// Delete the record
+	if err := db.Db().Delete(&publicFileShareGroup).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func DeleteFileShareStatesByFileUID(fileUID string) error {
+	return db.Db().Where("file_uid = ?", fileUID).Delete(&entity.FileShareState{}).Error
+}
+
+func DeleteEmptyShareGroup(shareGroupHash string) error {
+	var count int64
+	if err := db.Db().Model(&entity.PublicFileShareGroup{}).Where("share_group_hash = ?", shareGroupHash).Count(&count).Error; err != nil {
+		return err
+	}
+
+	if count == 0 {
+		return db.Db().Unscoped().Where("hash = ?", shareGroupHash).Delete(&entity.ShareGroup{}).Error
+	}
+
+	return nil
 }

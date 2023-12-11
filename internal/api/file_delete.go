@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
@@ -53,7 +54,6 @@ func DeleteFile(router *gin.RouterGroup) {
 			Region:           aws.String(config.Env().WasabiRegion),
 			S3ForcePathStyle: aws.Bool(true),
 		}
-		keyPath := authPayload.UserUID + "/" + f.UID
 
 		// Check if other users have the file
 		usersWithFile, err := query.FindUsersByFileCID(f.CID)
@@ -63,7 +63,7 @@ func DeleteFile(router *gin.RouterGroup) {
 			log.Errorf("error finding users by file CID: %v", err)
 			return
 		}
-
+		fmt.Println("Users with the file: ", usersWithFile)
 		// Delete the file from s3 if there is more than one user
 		if len(usersWithFile) > 1 {
 			// If more than one user has the file, delete the file from the user and give the owner to the next user shared
@@ -78,12 +78,16 @@ func DeleteFile(router *gin.RouterGroup) {
 			if isOwner {
 				// get the user details
 				user_detail := query.FindUserDetailByUserID(authPayload.UserID)
+				// Removes storage_used from the database.
+				updatedStorageUsed := uint(0)
+				if uint(f.Size) < (user_detail.StorageUsed) {
+					updatedStorageUsed = user_detail.StorageUsed - uint(f.Size)
+				}
 
-				// removes storage_used from the database.
-				if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(f.Size)); err != nil {
-					log.Errorf("removing storage_used: %s", err)
-					AbortInternalServerError(ctx)
-					return
+				log.Infof("Updating storage_used: Old Value=%d, Size to Remove=%d, New Value=%d", user_detail.StorageUsed, f.Size, updatedStorageUsed)
+
+				if err := user_detail.Update("storage_used", updatedStorageUsed); err != nil {
+					log.Errorf("Error updating storage_used: %s", err)
 				}
 
 				// update the "deleted_at column" for this user
@@ -137,29 +141,30 @@ func DeleteFile(router *gin.RouterGroup) {
 
 			}
 		} else {
-			// If not, delete the file from s3
-			err = DeleteFileFromS3(keyPath, s3Config)
+			inicio := time.Now()
 
+			fmt.Printf("Attempting to delete file from S3. CID: %s\n", f.CID)
+			err := DeleteFileFromS3(f.CID, s3Config)
+			fmt.Printf("Delete operation completed. Elapsed time: %s\n", time.Since(inicio))
+			fmt.Println(err)
 			// Delete the file from s3 if it exists
 			if err != nil {
-				log.Print("error deleting file from s3, trying using the CID. ")
+				log.Print("error deleting file from s3 using the CID. ")
 				log.Print(err)
-				// If not found, try deleting using the CID as the keyPath
-				keyPath = f.CID
-				err = DeleteFileFromS3(keyPath, s3Config)
-				if err != nil {
-					log.Print("error deleting file from s3: ")
-					log.Print(err)
-				}
 			}
 			// get the user details
 			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
 
 			// removes storage_used from the database.
-			if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(f.Size)); err != nil {
-				log.Errorf("removing storage_used: %s", err)
-				AbortInternalServerError(ctx)
-				return
+			updatedStorageUsed := uint(0)
+			if uint(f.Size) < (user_detail.StorageUsed) {
+				updatedStorageUsed = user_detail.StorageUsed - uint(f.Size)
+			}
+
+			log.Infof("Updating storage_used: Old Value=%d, Size to Remove=%d, New Value=%d", user_detail.StorageUsed, f.Size, updatedStorageUsed)
+
+			if err := user_detail.Update("storage_used", updatedStorageUsed); err != nil {
+				log.Errorf("Error updating storage_used: %s", err)
 			}
 
 			// update the "deleted_at column" for this user
@@ -182,6 +187,33 @@ func DeleteFile(router *gin.RouterGroup) {
 			"message": "ok",
 		})
 	})
+	// router.DELETE("/delete/test/:cid", func(ctx *gin.Context) {
+	// 	// TO-DO: Check user auth & add user uid
+	// 	fileCID := ctx.Param("cid")
+
+	// 	// Create S3 configuration
+	// 	s3Config := aws.Config{
+	// 		Credentials: credentials.NewStaticCredentials(
+	// 			config.Env().WasabiAccessKey,
+	// 			config.Env().WasabiSecretKey,
+	// 			"",
+	// 		),
+	// 		Endpoint:         aws.String(config.Env().WasabiEndpoint),
+	// 		Region:           aws.String(config.Env().WasabiRegion),
+	// 		S3ForcePathStyle: aws.Bool(true),
+	// 	}
+
+	// 	// Print the configuration for debugging
+	// 	fmt.Println("S3 Config: ", s3Config)
+
+	// 	err := DeleteFileFromS3(fileCID, s3Config)
+
+	// 	// Return JSON response with the result
+	// 	ctx.JSON(200, gin.H{
+	// 		"message": err,
+	// 	})
+	// })
+
 }
 
 // internal delete one file

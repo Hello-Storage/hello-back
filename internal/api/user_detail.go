@@ -10,6 +10,7 @@ import (
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type SharedListUser struct {
@@ -57,20 +58,17 @@ func GetUserDetail(router *gin.RouterGroup) {
 	})
 
 	router.GET("/user/shared/general", func(ctx *gin.Context) {
-
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 
 		user := query.FindUser(entity.User{ID: authPayload.UserID})
-
 		if user == nil {
-			ctx.JSON(http.StatusNotFound, "user not found")
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
 
 		filesUser, err := query.GetFilesUserFromUser(user.ID)
-
 		if err != nil {
-			ctx.JSON(http.StatusNotFound, "files not found")
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching user files"})
 			return
 		}
 
@@ -80,27 +78,27 @@ func GetUserDetail(router *gin.RouterGroup) {
 		for _, fileUser := range filesUser {
 			file, err := query.FindFileByID(fileUser.FileID)
 			if err != nil {
-				//ctx.JSON(http.StatusNotFound, "file not found")
-				return
+				if err != gorm.ErrRecordNotFound {
+					ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching file"})
+					return
+				}
+				continue
 			}
 
 			if fileUser.Permission == entity.SharedPermission {
-				sharedwithUser = append(sharedwithUser, file)
+				sharedwithUser = append(sharedwithUser, *file)
 			} else {
-
-				// Check if other users have the file
 				usersWithFile, err := query.FindUsersByFileCID(file.CID)
 				if err != nil {
-					//ctx.JSON(http.StatusNotFound, "file not found")
+					ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching users with file"})
 					return
 				}
-				if fileUser.Permission == entity.OwnerPermission {
-					if len(usersWithFile) > 1 {
-						sharedByUser = append(sharedByUser, file)
-					}
+				if fileUser.Permission == entity.OwnerPermission && len(usersWithFile) > 1 {
+					sharedByUser = append(sharedByUser, *file)
 				}
 			}
 		}
+
 		response := SharedListUser{
 			SharedWithMe: sharedwithUser,
 			SharedByMe:   sharedByUser,
@@ -108,4 +106,5 @@ func GetUserDetail(router *gin.RouterGroup) {
 
 		ctx.JSON(http.StatusOK, response)
 	})
+
 }

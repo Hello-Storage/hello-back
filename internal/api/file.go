@@ -1,14 +1,18 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/gin-gonic/gin"
 )
+
 // GetFile returns file details as JSON.
 //
 // GET /api/file/info/:uid
@@ -67,6 +71,51 @@ func GetShareState(router *gin.RouterGroup) {
 
 		c.JSON(http.StatusOK, share_state)
 	})
+
+	router.GET("/share/states", func(c *gin.Context) {
+		// Get file UIDs from query params
+		fileUIDs := c.QueryArray("file_uids")
+
+		// Print for debugging
+		fmt.Println("Received file UIDs:", fileUIDs)
+
+		if len(fileUIDs) == 0 {
+			fmt.Println("No file UIDs received")
+			AbortEntityNotFound(c)
+		}
+		var shareStates []entity.FileShareState
+
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
+
+		// Iterate through file UIDs
+		for _, fileUID := range fileUIDs {
+			// check if file exists
+			f, err := query.FindFileByUID(fileUID)
+			if err != nil {
+				log.Errorf("cannot get file: %s", err)
+				// skip this file if it doesn't exist
+				continue
+			}
+
+			// get share state, if doesn't exist, create it
+			shareState, err := query.FindShareStateByFileUID(fileUID)
+			if err != nil {
+				log.Errorf("Error finding share state: %s", err)
+				shareState, err = query.CreateShareState(f)
+				if err != nil {
+					log.Errorf("cannot create share state: %s", err)
+					// skip this file if share state creation fails
+					continue
+				}
+			}
+
+			shareStates = append(shareStates, shareState)
+		}
+
+		c.JSON(http.StatusOK, shareStates)
+	})
 }
 
 // PublishFile publishes a file.
@@ -75,58 +124,287 @@ func GetShareState(router *gin.RouterGroup) {
 // Params:
 // - selectedShareFile: form.CustomFileMeta
 func PublishFile(router *gin.RouterGroup) {
-	router.POST("/share/publish", func(c *gin.Context) {
-		//get file id from params
-		var selectedShareFile form.CustomFileMeta
-		err := c.BindJSON(&selectedShareFile)
-		if err != nil {
-			log.Errorf("cannot bind json: %s", err)
-			AbortEntityNotFound(c)
+	router.POST("/share/group", func(c *gin.Context) {
+		var request struct {
+			ShareHashes []string `json:"share_hashes" binding:"required"`
+		}
+
+		// Bind JSON request body to the request struct
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid JSON format"})
 			return
 		}
 
-		//check if file exists
-		f, err := query.FindFileByUID(selectedShareFile.UID)
-		if err != nil {
-			log.Errorf("cannot get file: %s", err)
-			AbortEntityNotFound(c)
+		// Print for debugging
+		fmt.Println("Received share hashes:", request.ShareHashes)
+
+		if len(request.ShareHashes) == 0 {
+			fmt.Println("No share hashes received")
+			c.JSON(400, gin.H{"error": "No share hashes received"})
 			return
 		}
 
-		//get share state, if doesn't exist, create it
-		share_state, err := query.FindShareStateByFileUID(selectedShareFile.UID)
-		if err != nil {
-			share_state, err = query.CreateShareState(f)
-			if err != nil {
-				log.Errorf("cannot create share state: %s", err)
-				AbortEntityNotFound(c)
+		// Create a new share group
+		shareGroup := entity.ShareGroup{}
+		if err := shareGroup.Create(); err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create share group"})
+			return
+		}
+
+		// Associate each share_hash with the newly created share group
+		for _, shareHash := range request.ShareHashes {
+			publicFileShareGroup := entity.PublicFileShareGroup{
+				ShareGroupHash: shareGroup.Hash,
+				ShareHash:      shareHash,
+			}
+
+			if err := publicFileShareGroup.Create(); err != nil {
+				c.JSON(500, gin.H{"error": "Failed to associate share_hash with share group"})
 				return
 			}
 		}
 
-		//update share state
-
-		public_file, err := query.PublishFile(share_state, selectedShareFile)
-		if err != nil {
-			log.Errorf("cannot update share state: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		share_state.PublicFile = *public_file
-
-		share_state.UpdatedAt = time.Now()
-
-		err = share_state.Save()
-
-		if err != nil {
-			log.Errorf("cannot update share state: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		c.JSON(http.StatusOK, share_state)
+		c.JSON(200, gin.H{"share_group": shareGroup.Hash})
 	})
+
+	router.GET("/share/group/:shareGroupHash", func(c *gin.Context) {
+		shareGroupHash := c.Param("shareGroupHash")
+
+		// Check if the share group Hash is provided and valid
+		if shareGroupHash == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No share group Hash provided"})
+			return
+		}
+
+		// Perform the query using the queryShareGroup function
+		shareHashes, err := query.QueryShareGroupByHash(shareGroupHash)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve share hashes"})
+			return
+		}
+
+		// Respond with the list of share hashes
+		c.JSON(http.StatusOK, gin.H{"share_hashes": shareHashes})
+	})
+
+	router.POST("/share/custom-type/:shareType", func(c *gin.Context) {
+		// Get the sharing type from the parameters
+		shareType := c.Param("shareType")
+
+		// Validate that the sharing type is valid
+		if shareType != "public" && shareType != "one-time" && shareType != "monthly" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid share type"})
+			return
+		}
+
+		// Get the file ID from the parameters
+		var selectedShareFile form.CustomFileMeta
+		if err := c.BindJSON(&selectedShareFile); err != nil {
+			log.Errorf("failed to bind JSON: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		// Check if the file exists
+		f, err := query.FindFileByUID(selectedShareFile.UID)
+		if err != nil {
+			log.Errorf("failed to get file: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		fmt.Println("Sharing file:\nshareType:", shareType, "\nfile uid:", selectedShareFile.UID)
+
+		// Get the sharing state; if it doesn't exist, create it
+		shareState, err := query.FindShareStateByFileUID(selectedShareFile.UID)
+		if err != nil {
+			shareState, err = query.CreateShareState(f)
+			if err != nil {
+				log.Errorf("failed to create share state: %s", err)
+				// Devuelve un mensaje de error al cliente
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
+				return
+			}
+		}
+
+		// PublishFile crea un nuevo PublicFile y lo devuelve
+		publicFile, err := query.PublishFile(shareState, selectedShareFile)
+		if err != nil {
+			log.Errorf("failed to publish file: %s", err)
+			// Devuelve un mensaje de error al cliente
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
+			return
+		}
+
+		// Update the shareState with the new PublicFile
+		shareState.PublicFile = *publicFile
+
+		// Set the values based on the sharing type
+		var expireDate *time.Time
+		switch shareType {
+		case "public":
+			// No changes needed
+		case "one-time":
+			hasBeenOpened := false
+			shareState.PublicFile.HasBeenOpened = &hasBeenOpened
+		case "monthly":
+			tmpExpireDate := time.Now().AddDate(0, 1, 0)
+			expireDate = &tmpExpireDate
+			shareState.PublicFile.HasBeenOpened = nil
+		}
+
+		// Set ExpireAt outside of the switch
+		shareState.PublicFile.ExpireAt = expireDate
+
+		// Debugging: Print the current state of shareState.PublicFile
+		fmt.Printf("After switch: ExpireAt: %v, HasBeenOpened: %v\n", shareState.PublicFile.ExpireAt, shareState.PublicFile.HasBeenOpened)
+
+		// Save the updated shareState.PublicFile
+		err = shareState.PublicFile.Save()
+		if err != nil {
+			log.Errorf("failed to save share state: %s", err)
+			// Devuelve un mensaje de error al cliente
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
+			return
+		}
+
+		c.JSON(http.StatusOK, shareState)
+	})
+	router.POST("/share/email/:user", func(ctx *gin.Context) {
+		// Get the email from the parameters
+		shareWithEmail := ctx.Param("user")
+
+		tx := db.Db().Begin()
+
+		// Get the file metadata from the request body
+		var selectedShareFile form.CustomFileMeta
+		if err := ctx.BindJSON(&selectedShareFile); err != nil {
+			log.Errorf("failed to bind JSON: %s", err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to bind JSON"})
+			return
+		}
+
+		// Check if the file exists
+		f, err := query.FindFileByUID(selectedShareFile.UID)
+		if err != nil {
+			log.Errorf("failed to get file: %s", err)
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+			return
+		}
+
+		// Get the user by email
+		shareWithUser := query.FindUserByEmail(shareWithEmail)
+		if shareWithUser == nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+
+		// Create a new file with the same metadata
+		newFile := createNewFileFromMetadata(f, selectedShareFile)
+		if err := newFile.TxCreate(tx); err != nil {
+			log.Errorf("create file: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+		}
+
+		// Create a FilesUsers entry to share the file with the specified user
+
+		fileUser := &entity.FileUser{
+			FileID:     newFile.ID,
+			UserID:     shareWithUser.ID,
+			Permission: entity.SharedPermission,
+		}
+
+		if err := fileUser.TxCreate(tx); err != nil {
+			log.Errorf("create file_user relation: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+			return
+		}
+
+		fmt.Printf("Sharing file:\nshareType: %s\nfile UID: %s\nshared with: %s\n", entity.SharedPermission, selectedShareFile.UID, shareWithEmail)
+
+		tx.Commit()
+
+		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully"})
+	})
+
+	router.POST("/share/wallet/:user", func(ctx *gin.Context) {
+		// Get the wallet from the parameters
+		wallet := ctx.Param("user")
+
+		tx := db.Db().Begin()
+
+		// Get the file metadata from the request body
+		var selectedShareFile form.CustomFileMeta
+		if err := ctx.BindJSON(&selectedShareFile); err != nil {
+			log.Errorf("failed to bind JSON: %s", err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to bind JSON"})
+			return
+		}
+
+		// Check if the file exists
+		f, err := query.FindFileByUID(selectedShareFile.UID)
+		if err != nil {
+			log.Errorf("failed to get file: %s", err)
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+			return
+		}
+
+		// Get the user by wallet address
+		shareWithUser := query.FindUserByWalletAddress(wallet)
+		if shareWithUser == nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+
+		// Create a new file with the same metadata
+		newFile := createNewFileFromMetadata(f, selectedShareFile)
+		if err := newFile.TxCreate(tx); err != nil {
+			log.Errorf("create file: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+		}
+
+		// Create a FilesUsers entry to share the file with the specified user
+
+		fileUser := &entity.FileUser{
+			FileID:     newFile.ID,
+			UserID:     shareWithUser.ID,
+			Permission: entity.SharedPermission,
+		}
+
+		if err := fileUser.TxCreate(tx); err != nil {
+			log.Errorf("create file_user relation: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+			return
+		}
+
+		fmt.Printf("Sharing file:\nshareType: %s\nfile UID: %s\nshared with: %s\n", entity.SharedPermission, selectedShareFile.UID, wallet)
+
+		tx.Commit()
+
+		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully"})
+	})
+
+}
+
+func createNewFileFromMetadata(originalFile *entity.File, metadata form.CustomFileMeta) *entity.File {
+	var isInPool bool = true
+
+	return &entity.File{
+		Name:                 metadata.Name,
+		Root:                 "/",
+		CID:                  metadata.CID,
+		CIDOriginalEncrypted: nil,
+		Mime:                 metadata.MimeType,
+		Size:                 metadata.Size,
+		EncryptionStatus:     entity.Public,
+		CreatedAt:            time.Now(),
+		IsInPool:             &isInPool,
+		UpdatedAt:            time.Now(),
+	}
 }
 
 // UnpublishFile unpublishes a file.
@@ -136,7 +414,7 @@ func PublishFile(router *gin.RouterGroup) {
 // - selectedShareFile: form.CustomFileMeta
 func UnpublishFile(router *gin.RouterGroup) {
 	router.POST("/share/unpublish", func(c *gin.Context) {
-		//get file id from params
+		// get file id from params
 		var selectedShareFile form.CustomFileMeta
 		err := c.BindJSON(&selectedShareFile)
 		if err != nil {
@@ -145,7 +423,7 @@ func UnpublishFile(router *gin.RouterGroup) {
 			return
 		}
 
-		//check if file exists
+		// check if file exists
 		f, err := query.FindFileByUID(selectedShareFile.UID)
 		if err != nil {
 			log.Errorf("cannot get file: %s", err)
@@ -153,10 +431,10 @@ func UnpublishFile(router *gin.RouterGroup) {
 			return
 		}
 
-		//get share state, if doesn't exist, create it
-		share_state, err := query.FindShareStateByFileUID(selectedShareFile.UID)
+		// get share state, if doesn't exist, create it
+		shareState, err := query.FindShareStateByFileUID(selectedShareFile.UID)
 		if err != nil {
-			share_state, err = query.CreateShareState(f)
+			shareState, err = query.CreateShareState(f)
 			if err != nil {
 				log.Errorf("cannot create share state: %s", err)
 				AbortEntityNotFound(c)
@@ -164,13 +442,30 @@ func UnpublishFile(router *gin.RouterGroup) {
 			}
 		}
 
-		//update share state
-		//delete public file from db
-		//update share state
-		if share_state.PublicFile.ID != 0 { // Check if the PublicFile has a valid ID
-			err = share_state.PublicFile.Delete()
+		// update share state
+		// delete public file from db
+		// update share state
+		if shareState.PublicFile.ID != 0 { // Check if the PublicFile has a valid ID
+			// Delete the corresponding record in publicFileShareGroups
+			err = query.DeletePublicFileShareGroupByShareHash(shareState.PublicFile.ShareHash)
+			if err != nil {
+				log.Errorf("cannot delete public file share group: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
+
+			// Delete the PublicFile
+			err = shareState.PublicFile.Delete()
 			if err != nil {
 				log.Errorf("cannot delete public file: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
+
+			// Check if the ShareGroup is empty after deleting the PublicFile
+			err = query.DeleteEmptyShareGroup(shareState.PublicFile.ShareHash)
+			if err != nil {
+				log.Errorf("cannot delete empty share group: %s", err)
 				AbortEntityNotFound(c)
 				return
 			}
@@ -178,11 +473,13 @@ func UnpublishFile(router *gin.RouterGroup) {
 			log.Info("No existing public file to delete.")
 		}
 
-		share_state.PublicFile = entity.PublicFile{}
+		// Clear the association with PublicFile
+		shareState.PublicFile = entity.PublicFile{}
 
-		share_state.UpdatedAt = time.Now()
+		// Update the share state
+		shareState.UpdatedAt = time.Now()
 
-		err = share_state.Save()
+		err = shareState.Save()
 
 		if err != nil {
 			log.Errorf("cannot update share state: %s", err)
@@ -190,7 +487,7 @@ func UnpublishFile(router *gin.RouterGroup) {
 			return
 		}
 
-		c.JSON(http.StatusOK, share_state)
+		c.JSON(http.StatusOK, shareState)
 	})
 }
 
@@ -201,20 +498,47 @@ func UnpublishFile(router *gin.RouterGroup) {
 // - hash: form.PublicFile.ShareHash
 func GetPublishedFile(router *gin.RouterGroup) {
 	router.GET("/share/published/:hash", func(c *gin.Context) {
-		log.Print("GetPublishedFile")
-		//get file id from params
+		// Get the hash from the parameters
 		hash := c.Param("hash")
+		log.Print("GetPublishedFile: ", hash)
 
-		log.Print(hash)
-		//get public file
-		public_file, err := query.FindPublicFileByHash(hash)
+		// Get the public file
+		publicFile, err := query.FindPublicFileByHash(hash)
 		if err != nil {
 			log.Errorf("cannot get public file: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
-		c.JSON(http.StatusOK, public_file)
+		// Check additional conditions
+		if publicFile.HasBeenOpened != nil && *publicFile.HasBeenOpened {
+			// If HasBeenOpened is true, the file has been accessed before, and access is not allowed
+			c.JSON(http.StatusForbidden, gin.H{"error": "File has already been accessed"})
+			return
+		}
+
+		if publicFile.ExpireAt != nil && !publicFile.ExpireAt.IsZero() && time.Now().After(*publicFile.ExpireAt) {
+			// If ExpireAt is a past date, the file has expired, and access is not allowed
+			c.JSON(http.StatusForbidden, gin.H{"error": "File has expired"})
+			return
+		}
+
+		// Update HasBeenOpened if necessary
+		if publicFile.HasBeenOpened != nil && !*publicFile.HasBeenOpened {
+			hasBeenOpened := true
+			publicFile.HasBeenOpened = &hasBeenOpened
+			// You could also update the access date here if necessary
+			publicFile.UpdatedAt = time.Now()
+			err = publicFile.Save()
+			if err != nil {
+				log.Errorf("failed to update public file: %s", err)
+				AbortEntityNotFound(c)
+				return
+			}
+		}
+
+		// Return the public file
+		c.JSON(http.StatusOK, publicFile)
 	})
 }
 
