@@ -29,7 +29,6 @@ func DeleteFile(router *gin.RouterGroup) {
 		// TO-DO check user auth & add user uid
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 		file_uid := ctx.Param("uid")
-		log.Printf("file uid: %v", file_uid)
 		f, err := query.FindFileByUID(file_uid)
 
 		// AbortEntityNotFound if file not found.
@@ -141,7 +140,6 @@ func DeleteFile(router *gin.RouterGroup) {
 		} else {
 			// If not, delete the file from s3
 			err = DeleteFileFromS3(keyPath, s3Config)
-			log.Printf("deleting from s3")
 
 			// Delete the file from s3 if it exists
 			if err != nil {

@@ -27,8 +27,6 @@ func CreateFile(router *gin.RouterGroup) {
 			return
 		}
 		//log entire request (not only file meta)
-		log.Printf("request: %v", ctx.Request)
-		log.Printf("customFileMeta1: %v", customFileMeta)
 
 		// Check if file already exists
 		/*
@@ -49,7 +47,6 @@ func CreateFile(router *gin.RouterGroup) {
 			r = "/"
 		}
 
-		log.Printf("path: %s", customFileMeta.Path)
 		actual_root, firstCreatedRootUID, err := GetAndProcessFileRoot(customFileMeta.Path, r, authPayload.UserID, customFileMeta.EncryptionStatus)
 
 		if err != nil {

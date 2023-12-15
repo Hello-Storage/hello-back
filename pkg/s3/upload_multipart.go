@@ -137,7 +137,6 @@ func uploadPart(svc *s3.S3, resp *s3.CreateMultipartUploadOutput, fileBytes []by
 			log.Printf("Retrying to upload part #%v\n", partNumber)
 			tryNum++
 		} else {
-			log.Printf("Uploaded part #%v\n", partNumber)
 			return &s3.CompletedPart{
 				ETag:       uploadResult.ETag,
 				PartNumber: aws.Int64(int64(partNumber)),

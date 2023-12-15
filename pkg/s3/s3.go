@@ -27,8 +27,6 @@ func GetS3Client() *s3.S3 {
 		var awsBucketRegion = config.Env().WasabiRegion
 		var awsEndpoint = config.Env().WasabiEndpoint
 
-		log.Printf("awsAccessKeyID: %s", awsAccessKeyID)
-		log.Printf("awsSecretAccessKey: %s", awsSecretAccessKey)
 		creds := credentials.NewStaticCredentials(awsAccessKeyID, awsSecretAccessKey, "")
 		_, err := creds.Get()
 		if err != nil {

@@ -33,7 +33,6 @@ func EncryptFile(router *gin.RouterGroup) {
 		var webkitRelativePath string
 		if isFolder {
 			webkitRelativePath = ctx.PostForm("webkitRelativePath")
-			log.Printf("webkitRelativePath: %s", webkitRelativePath)
 		}
 
 		// Parse JSON field

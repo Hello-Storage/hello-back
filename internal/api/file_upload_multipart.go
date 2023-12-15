@@ -114,7 +114,6 @@ func UploadFileMultipart(router *gin.RouterGroup) {
 				})
 				return
 			}
-			log.Printf("Multipart upload completed for %s at %s", cid, state.UploadID)
 			delete(uploadStates, cid)
 		}
 
@@ -147,13 +146,11 @@ func initiateMultipartUpload(svc *s3.S3, cid string) (*multipartUploadState, err
 
 func uploadPart(svc *s3.S3, state *multipartUploadState, file multipart.File, fileHeader *multipart.FileHeader, cid string) (*s3.CompletedPart, error) {
 	var awsBucketName = config.Env().WasabiBucket
-	log.Println("starting upload part")
 	buffer := make([]byte, fileHeader.Size)
 	_, err := file.Read(buffer)
 	if err != nil {
 		return nil, err
 	}
-	log.Println("readed file")
 
 	partInput := &s3.UploadPartInput{
 		Body:       bytes.NewReader(buffer),
@@ -162,7 +159,6 @@ func uploadPart(svc *s3.S3, state *multipartUploadState, file multipart.File, fi
 		PartNumber: aws.Int64(int64(state.PartNumber)),
 		UploadId:   aws.String(state.UploadID),
 	}
-	log.Println("uploading part")
 
 	// Upload part in a separate goroutine
 	var wg sync.WaitGroup
@@ -179,7 +175,6 @@ func uploadPart(svc *s3.S3, state *multipartUploadState, file multipart.File, fi
 	if err != nil {
 		return nil, err
 	}
-	log.Println("uploaded part")
 
 	return &s3.CompletedPart{
 		ETag:       uploadResult.ETag,

@@ -26,7 +26,6 @@ func DownloadMultipartFile(router *gin.RouterGroup) {
 
 		// Multipart form
 		//keyPath := authPayload.UserUID + "/" + file_uid
-		log.Println("file uid: ", file_uid)
 		f, err := query.FindFileByUID(file_uid)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{
