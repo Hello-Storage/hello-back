@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/Hello-Storage/hello-back/internal/api"
+	v1 "github.com/Hello-Storage/hello-back/internal/api/v1"
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/middlewares"
 	"github.com/Hello-Storage/hello-back/pkg/token"
@@ -15,9 +16,6 @@ func registerRoutes(router *gin.Engine) {
 	// Enables automatic redirection if the current route cannot be matched but a
 	// handler for the path with (without) the trailing slash exists.
 	// router.RedirectTrailingSlash = true
-
-	// Create API router group.
-	APIv1 = router.Group("/api")
 	// Create AuthAPI router group.
 	tokenMaker, err := token.NewPasetoMaker(config.Env().TokenSymmetricKey)
 	if err != nil {
@@ -25,14 +23,22 @@ func registerRoutes(router *gin.Engine) {
 		panic(err)
 	}
 
+	// Create router groups.
+	APIv1 = router.Group("/api")
 
+	ApiKeyAPIv1 := router.Group("/api/v1")
+	ApiKeyAPIv1.Use(middlewares.APIKeyAuthMiddleware(tokenMaker))
 
 	AuthAPIv1 := router.Group("/api")
 	AuthAPIv1.Use(middlewares.AuthMiddleware(tokenMaker))
+
 	// routes
 	api.Ping(APIv1)
 	api.FetchReferredUsers(APIv1)
 	api.GetUserCount(APIv1)
+
+	//api keys routes
+	api.ApiKey(AuthAPIv1, tokenMaker)
 
 	//statistics routes
 	api.GetStatistics(APIv1)
@@ -65,7 +71,6 @@ func registerRoutes(router *gin.Engine) {
 	api.UnpublishFile(FileRoutes)
 	api.GetPublishedFile(FileRoutes)
 
-
 	api.GetPublishedFileName(router.Group("/api/file"))
 
 	// folder routes
@@ -74,4 +79,7 @@ func registerRoutes(router *gin.Engine) {
 	api.DownloadFolder(AuthAPIv1)
 	api.DeleteFolder(AuthAPIv1)
 	api.UpdateFolderRoot(AuthAPIv1)
+
+	//api routes
+	v1.FileCRUD(ApiKeyAPIv1)
 }

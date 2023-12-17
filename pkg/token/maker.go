@@ -11,4 +11,10 @@ type Maker interface {
 
 	// VerifyToken checks if the token is valid or not
 	VerifyToken(token string) (*Payload, error)
+
+	// CreateApiKey creates a new apikey for a specific username
+	CreateApiKey(user_id uint, user_uid, user_name string) (string, *Payload, error)
+
+	// VerifyToken checks if the token is valid or not
+	VerifyApiKey(apikey string) (*Payload, error)
 }

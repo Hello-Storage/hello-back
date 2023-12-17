@@ -8,6 +8,7 @@ const (
 	AuthorizationHeaderKey  = "authorization"
 	AuthorizationTypeBearer = "bearer"
 	AuthorizationPayloadKey = "authorization_payload"
+	APIKeyHeaderKey         = "api_key"
 )
 
 const LoginMessage = "Greetings from hello\nSign this message to log into hello\nnonce: "
