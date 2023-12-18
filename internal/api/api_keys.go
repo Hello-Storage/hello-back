@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
@@ -14,18 +15,15 @@ import (
 //
 // POST /api/api_key
 func ApiKey(router *gin.RouterGroup, tokenMaker token.Maker) {
-	router.POST("/api/api_key", func(ctx *gin.Context) {
-		var f form.CreateApiKeyRequest
-		if err := ctx.BindJSON(&f); err != nil {
-			AbortBadRequest(ctx)
-			return
-		}
+	router.POST("/api_key", func(ctx *gin.Context) {
+
+		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 
 		authMutex.Lock()
 		defer authMutex.Unlock()
 
-		u := query.FindUserByWalletAddress(f.WalletAddress)
-		if u == nil {
+		u, err := query.FindUserByUID(authPayload.UserID)
+		if err != nil {
 			Abort(ctx, http.StatusNotFound, "user not exists!")
 			return
 		}
@@ -60,6 +58,17 @@ func ApiKey(router *gin.RouterGroup, tokenMaker token.Maker) {
 			return
 		}
 		ctx.JSON(http.StatusOK, rsp)
+	})
+
+	router.GET("/api_key", func(c *gin.Context) {
+
+		authPayload := c.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+		p, err := query.FindApiKeyByUserID(authPayload.UserID)
+		if err != nil {
+			AbortEntityNotFound(c)
+			return
+		}
+		c.JSON(http.StatusOK, p)
 	})
 
 }

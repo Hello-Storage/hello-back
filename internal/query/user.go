@@ -2,11 +2,13 @@ package query
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/pkg/rnd"
+	"gorm.io/gorm"
 )
 
 // RegisteredUsers finds all registered users.
@@ -16,6 +18,21 @@ func RegisteredUsers() (result entity.Users) {
 	}
 
 	return result
+}
+
+func FindUserByUID(id uint) (*entity.User, error) {
+
+	var user entity.User
+	err := db.Db().Where("id = ?", id).First(&user).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("user not found for ID: %d", id)
+		}
+		return nil, fmt.Errorf("failed to find file: %v", err)
+	}
+
+	return &user, nil
 }
 
 func FindUser(find entity.User) *entity.User {

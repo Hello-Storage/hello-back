@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"mime"
@@ -177,20 +178,27 @@ func FileCreate(router *gin.RouterGroup) {
 func GetCid(file *multipart.FileHeader) (string, error) {
 	fileContent, err := file.Open()
 	if err != nil {
-		return "opening file:", err
+		return "", fmt.Errorf("opening file: %w", err)
 	}
 	defer fileContent.Close()
 
 	buffer, err := io.ReadAll(fileContent)
 	if err != nil {
-		return "reading file:", err
+		return "", fmt.Errorf("reading file: %w", err)
 	}
 
-	hash, err := multihash.Sum(buffer, multihash.SHA2_256, -1)
+	hash := sha256.New()
+	_, err = hash.Write(buffer)
 	if err != nil {
-		return "getting cid:", err
+		return "", fmt.Errorf("hashing file: %w", err)
 	}
 
-	c := cid.NewCidV1(cid.Raw, hash)
+	hashBytes := hash.Sum(nil)
+	mhash, err := multihash.Sum(hashBytes, multihash.SHA2_256, -1)
+	if err != nil {
+		return "", fmt.Errorf("getting multihash: %w", err)
+	}
+
+	c := cid.NewCidV1(cid.Raw, mhash)
 	return c.String(), nil
 }
