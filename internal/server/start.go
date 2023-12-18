@@ -33,10 +33,12 @@ func Start(ctx context.Context) {
 	router.Use(gin.Recovery(), Logger(), middlewares.RateLimitMiddleware(100, 100))
 	log.Info("server: common middleware registered")
 	// cors config
-	router.Use(cors.New(cors.Config{
+	routerCorsConfig := cors.New(cors.Config{
 		AllowOrigins: []string{
+			//development
 			"http://localhost:5173",
-			"http://localhost:3000",
+			"http://127.0.0.1:5173",
+			//production
 			"https://joinhello.app",
 			"https://staging.joinhello.app",
 			"https://www.staging.joinhello.app",
@@ -55,7 +57,6 @@ func Start(ctx context.Context) {
 			"https://www.space.hello.storage",
 			"https://space.hello.ws",
 			"https://www.space.hello.ws",
-			"http://127.0.0.1:5173",
 		},
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders: []string{
@@ -70,15 +71,11 @@ func Start(ctx context.Context) {
 			return strings.Contains(origin, "hello-storage.vercel.app")
 		},
 		MaxAge: 12 * time.Hour,
-	}))
-
-	router.GET("/", func(ctx *gin.Context) {
-		ctx.JSON(http.StatusOK, "hello backend api endpoints \n version: 0.0.1")
 	})
 
 	config.LoadEnv()
 	// Register HTTP route handlers.
-	registerRoutes(router)
+	registerRoutes(router, routerCorsConfig)
 
 	log.Infof("port: %s", config.Env().AppPort)
 	server := &http.Server{
@@ -116,8 +113,6 @@ func Start(ctx context.Context) {
 		statisticsData.Statistics = initialStatistics
 		log.Println("Calculated initial stats")
 	}
-
-	
 
 	// Graceful HTTP server shutdown.
 	<-ctx.Done()

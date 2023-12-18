@@ -91,3 +91,9 @@ func GetFile(router *gin.RouterGroup) {
 		})
 	})
 }
+
+func Ping(router *gin.RouterGroup) {
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, "hello api")
+	})
+}
