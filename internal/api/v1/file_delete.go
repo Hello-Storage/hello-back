@@ -17,7 +17,7 @@ import (
 )
 
 func DeleteFile(router *gin.RouterGroup) {
-	router.DELETE("/delete/:uid", func(ctx *gin.Context) {
+	router.DELETE("/files/:uid", func(ctx *gin.Context) {
 		// TO-DO check user auth & add user uid
 		authPayload := ctx.MustGet(constant.APIKeyHeaderKey).(*token.Payload)
 		uid := ctx.Param("uid")

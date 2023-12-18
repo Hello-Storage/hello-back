@@ -2,6 +2,7 @@ package v1
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/Hello-Storage/hello-back/internal/api"
 	"github.com/Hello-Storage/hello-back/internal/constant"
@@ -13,7 +14,7 @@ import (
 
 func GetFile(router *gin.RouterGroup) {
 
-	router.GET("/file/:uid", func(c *gin.Context) {
+	router.GET("/files/:uid", func(c *gin.Context) {
 
 		uid := c.Param("uid")
 
@@ -31,16 +32,44 @@ func GetFile(router *gin.RouterGroup) {
 
 		authPayload := c.MustGet(constant.APIKeyHeaderKey).(*token.Payload)
 
-		files, err := query.GetApiFiles(authPayload.UserID)
+		pageNumber := c.DefaultQuery("page", "1")
+		pageSize := c.DefaultQuery("pageSize", "10")
 
+		pageNumberInt, err := strconv.Atoi(pageNumber)
+		if err != nil || pageNumberInt < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page number"})
+			return
+		}
+
+		pageSizeInt, err := strconv.Atoi(pageSize)
+		if err != nil || pageSizeInt < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page size"})
+			return
+		}
+
+		allFiles, err := query.GetApiFiles(authPayload.UserID)
 		if err != nil {
 			api.AbortEntityNotFound(c)
 			return
 		}
+
+		startIndex := (pageNumberInt - 1) * pageSizeInt
+		endIndex := pageNumberInt * pageSizeInt
+
+		if startIndex >= len(allFiles) {
+			c.JSON(http.StatusOK, gin.H{"files": []form.FileResponse{}})
+			return
+		}
+
+		if endIndex > len(allFiles) {
+			endIndex = len(allFiles)
+		}
+
+		paginatedFiles := allFiles[startIndex:endIndex]
+
 		var fileResponses []form.FileResponse
 
-		for _, f := range files {
-
+		for _, f := range paginatedFiles {
 			fResponse := form.FileResponse{
 				ID:              f.ID,
 				Name:            f.Name,
@@ -55,7 +84,6 @@ func GetFile(router *gin.RouterGroup) {
 			}
 
 			fileResponses = append(fileResponses, fResponse)
-
 		}
 
 		c.JSON(http.StatusOK, gin.H{
