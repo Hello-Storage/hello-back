@@ -32,6 +32,7 @@ var Entities = Tables{
 	PublicFileShareGroup{}.TableName(): &PublicFileShareGroup{},
 	ShareGroup{}.TableName():           &ShareGroup{},
 	ApiKey{}.TableName():               &ApiKey{},
+	ApiKeyFile{}.TableName():           &ApiKeyFile{},
 }
 
 // WaitForMigration waits for the database migration to be successful.

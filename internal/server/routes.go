@@ -81,5 +81,9 @@ func registerRoutes(router *gin.Engine) {
 	api.UpdateFolderRoot(AuthAPIv1)
 
 	//api routes
-	v1.FileCRUD(ApiKeyAPIv1)
+	v1.FileCreate(ApiKeyAPIv1)
+	v1.GetFile(ApiKeyAPIv1)
+	v1.FileUpdate(ApiKeyAPIv1)
+	v1.DeleteFile(ApiKeyAPIv1)
+	v1.DownloadFile(ApiKeyAPIv1)
 }

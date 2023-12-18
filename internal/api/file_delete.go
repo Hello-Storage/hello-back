@@ -174,6 +174,11 @@ func DeleteFile(router *gin.RouterGroup) {
 				return
 			}
 
+			// Delete the apikey file
+			if err := query.DeleteApiKeyFile(f_u); err != nil {
+				fmt.Printf("delete api key file error: %v", err)
+			}
+
 			// Delete file permission for the user
 			if err := query.DeleteFilePermission(f_u.UserID, f_u.FileID); err != nil {
 				AbortInternalServerError(ctx)

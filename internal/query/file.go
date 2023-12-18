@@ -42,6 +42,19 @@ func FindFileByID(id uint) (*entity.File, error) {
 	return f, nil
 }
 
+// FindFileByCID returns file for the given CID.
+func FindFileByCID(cid string) (*entity.File, error) {
+	f := &entity.File{}
+
+	err := db.Db().Where("cid = ?", cid).First(f).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return f, nil
+}
+
 // FilesByRoot return files in a given folder root.
 func FindFilesByRoot(root string) (files entity.Files, err error) {
 	if err := db.Db().Where("root = ?", root).Find(&files).Error; err != nil {
@@ -485,4 +498,22 @@ func DeleteEmptyShareGroup(shareGroupHash string) error {
 	}
 
 	return nil
+}
+
+func GetApiFiles(user_id uint) (files entity.Files, err error) {
+	var apiFiles []entity.ApiKeyFile
+	if err := db.Db().Where("user_id = ?", user_id).Find(&apiFiles).Error; err != nil {
+		return nil, err
+	}
+
+	var fileIDs []uint
+	for _, apiFile := range apiFiles {
+		fileIDs = append(fileIDs, apiFile.FileID)
+	}
+
+	if err := db.Db().Where("id IN ?", fileIDs).Find(&files).Error; err != nil {
+		return nil, err
+	}
+
+	return files, nil
 }
