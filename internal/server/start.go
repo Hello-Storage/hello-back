@@ -27,13 +27,26 @@ func Start(ctx context.Context) {
 
 	// Create new HTTP router engine without standard middleware.
 	router := gin.New()
+
+	ProtectedRouter := gin.New()
+	PublicRouter := gin.New()
+
 	router.MaxMultipartMemory = 500 << 20
 
-	// Register common middleware.
-	router.Use(gin.Recovery(), Logger(), middlewares.RateLimitMiddleware(100, 100))
-	log.Info("server: common middleware registered")
-	// cors config
-	routerCorsConfig := cors.New(cors.Config{
+	//cors protection
+	ApiKeyAPIv1CorsConfig := cors.New(cors.Config{
+		AllowMethods:    []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowAllOrigins: true,
+		AllowHeaders: []string{
+			"Origin",
+			"Content-Length",
+			"Content-Type",
+			"Cross-Origin-Opener-Policy",
+			"Api_key",
+		},
+		MaxAge: 12 * time.Hour,
+	})
+	protectedCorsConfig := cors.New(cors.Config{
 		AllowOrigins: []string{
 			//development
 			"http://localhost:5173",
@@ -72,10 +85,20 @@ func Start(ctx context.Context) {
 		},
 		MaxAge: 12 * time.Hour,
 	})
+	ProtectedRouter.Use(protectedCorsConfig)
+	PublicRouter.Use(ApiKeyAPIv1CorsConfig)
+	// Register common middleware.
+	router.Use(gin.Recovery(), Logger(), middlewares.RateLimitMiddleware(100, 100))
+	log.Info("server: common middleware registered")
+
+	router.Any("/api/*action", gin.WrapH(ProtectedRouter))
+	router.Any("/public-api/*action", gin.WrapH(PublicRouter))
 
 	config.LoadEnv()
+
 	// Register HTTP route handlers.
-	registerRoutes(router, routerCorsConfig)
+	registerRoutes(ProtectedRouter)
+	RegisterApiRoutes(PublicRouter)
 
 	log.Infof("port: %s", config.Env().AppPort)
 	server := &http.Server{

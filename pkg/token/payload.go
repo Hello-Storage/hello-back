@@ -30,13 +30,22 @@ func NewPayload(user_id uint, user_uid, user_name string, duration time.Duration
 		return nil, err
 	}
 
+	var expirationDate time.Time
+	if duration == 0 {
+		// If the duration is zero, set the expiration date to the year 9999,
+		// we need to change this when we want to put expiration for the api
+		expirationDate = time.Date(9999, time.December, 31, 23, 59, 59, 999999999, time.UTC)
+	} else {
+		expirationDate = time.Now().Add(duration)
+	}
+
 	payload := &Payload{
 		TokenID:   tokenID,
 		UserID:    user_id,
 		UserUID:   user_uid,
 		UserName:  user_name,
 		IssuedAt:  time.Now(),
-		ExpiredAt: time.Now().Add(duration),
+		ExpiredAt: expirationDate,
 	}
 	return payload, nil
 }

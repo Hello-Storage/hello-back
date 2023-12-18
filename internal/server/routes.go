@@ -1,26 +1,17 @@
 package server
 
 import (
-	"time"
-
 	"github.com/Hello-Storage/hello-back/internal/api"
 	v1 "github.com/Hello-Storage/hello-back/internal/api/v1"
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/middlewares"
 	"github.com/Hello-Storage/hello-back/pkg/token"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-var APIv1 *gin.RouterGroup
-var AuthAPIv1 *gin.RouterGroup
-var ApiKeyAPIv1 *gin.RouterGroup
-
-func registerRoutes(router *gin.Engine, corsConfig gin.HandlerFunc) {
-	// Enables automatic redirection if the current route cannot be matched but a
-	// handler for the path with (without) the trailing slash exists.
-	// router.RedirectTrailingSlash = true
-	// Create AuthAPI router group.
+func registerRoutes(router *gin.Engine) {
+	var APIv1 *gin.RouterGroup
+	var AuthAPIv1 *gin.RouterGroup
 	tokenMaker, err := token.NewPasetoMaker(config.Env().TokenSymmetricKey)
 	if err != nil {
 		log.Errorf("cannot create token maker: %s", err)
@@ -29,25 +20,8 @@ func registerRoutes(router *gin.Engine, corsConfig gin.HandlerFunc) {
 
 	// Create router groups.
 	APIv1 = router.Group("/api")
-
-	ApiKeyAPIv1 := router.Group("/api/v1")
-	ApiKeyAPIv1.Use(middlewares.APIKeyAuthMiddleware(tokenMaker))
-
-	AuthAPIv1 := router.Group("/api")
+	AuthAPIv1 = router.Group("/api")
 	AuthAPIv1.Use(middlewares.AuthMiddleware(tokenMaker))
-
-	//cors protection
-	APIv1.Use(corsConfig)
-	AuthAPIv1.Use(corsConfig)
-	ApiKeyAPIv1CorsConfig := cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
-		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Cross-Origin-Opener-Policy", "Authorization"},
-		AllowCredentials: true,
-		AllowAllOrigins:  true,
-		MaxAge:           12 * time.Hour,
-	})
-	ApiKeyAPIv1.Use(ApiKeyAPIv1CorsConfig)
 
 	// routes
 	api.Ping(APIv1)
@@ -96,6 +70,21 @@ func registerRoutes(router *gin.Engine, corsConfig gin.HandlerFunc) {
 	api.DownloadFolder(AuthAPIv1)
 	api.DeleteFolder(AuthAPIv1)
 	api.UpdateFolderRoot(AuthAPIv1)
+
+}
+
+func RegisterApiRoutes(router *gin.Engine) {
+	var ApiKeyAPIv1 *gin.RouterGroup
+
+	tokenMaker, err := token.NewPasetoMaker(config.Env().TokenSymmetricKey)
+	if err != nil {
+		log.Errorf("cannot create token maker: %s", err)
+		panic(err)
+	}
+
+	// Create router groups.
+	ApiKeyAPIv1 = router.Group("/public-api/v1")
+	ApiKeyAPIv1.Use(middlewares.APIKeyAuthMiddleware(tokenMaker))
 
 	//api routes
 	v1.Ping(ApiKeyAPIv1)

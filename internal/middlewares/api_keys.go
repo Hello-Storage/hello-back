@@ -27,7 +27,7 @@ func APIKeyAuthMiddleware(tokenMaker token.Maker) gin.HandlerFunc {
 			return
 		}
 
-		ctx.Set(constant.AuthorizationPayloadKey, payload)
+		ctx.Set(constant.APIKeyHeaderKey, payload)
 		ctx.Next()
 	}
 }

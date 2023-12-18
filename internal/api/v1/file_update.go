@@ -23,6 +23,13 @@ func FileUpdate(router *gin.RouterGroup) {
 		tx := db.Db().Begin()
 		//get the user data from de apikey
 		authPayload := ctx.MustGet(constant.APIKeyHeaderKey).(*token.Payload)
+
+		//increment requests counter
+		apiKey, err := query.FindApiKeyByUserID(authPayload.UserID)
+		if err == nil && apiKey != nil {
+			apiKey.IncrementKeyRequests()
+		}
+
 		//params
 		uid := ctx.Param("uid")
 		var fileResponses []form.FileResponse

@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"sync"
@@ -37,8 +38,7 @@ func GetFile(router *gin.RouterGroup) {
 		c.JSON(http.StatusOK, p)
 	})
 
-	router.GET("/apikey/files", func(c *gin.Context) {
-
+	router.GET("/apikey", func(c *gin.Context) {
 		authPayload := c.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 
 		pageNumber := c.DefaultQuery("page", "1")
@@ -58,20 +58,22 @@ func GetFile(router *gin.RouterGroup) {
 
 		allFiles, err := query.GetApiFiles(authPayload.UserID)
 		if err != nil {
-			AbortEntityNotFound(c)
-			return
+			fmt.Print(err)
 		}
+
+		totalItems := len(allFiles)
+		totalPages := int(math.Ceil(float64(totalItems) / float64(pageSizeInt)))
 
 		startIndex := (pageNumberInt - 1) * pageSizeInt
 		endIndex := pageNumberInt * pageSizeInt
 
-		if startIndex >= len(allFiles) {
-			c.JSON(http.StatusOK, gin.H{"files": []form.FileResponse{}})
+		if startIndex >= totalItems {
+			c.JSON(http.StatusOK, gin.H{"files": []form.FileResponse{}, "totalItems": totalItems, "totalPages": totalPages})
 			return
 		}
 
-		if endIndex > len(allFiles) {
-			endIndex = len(allFiles)
+		if endIndex > totalItems {
+			endIndex = totalItems
 		}
 
 		paginatedFiles := allFiles[startIndex:endIndex]
@@ -96,9 +98,12 @@ func GetFile(router *gin.RouterGroup) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"files": fileResponses,
+			"files":      fileResponses,
+			"totalItems": totalItems,
+			"totalPages": totalPages,
 		})
 	})
+
 }
 
 // GetShareState returns file share state based on file id.

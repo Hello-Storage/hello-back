@@ -21,8 +21,13 @@ import (
 // @return 200 {string} string "ok"
 func DownloadFile(router *gin.RouterGroup) {
 	router.GET("/download/:uid", func(ctx *gin.Context) {
-		// TO-DO check user auth & add user uid
 		authPayload := ctx.MustGet(constant.APIKeyHeaderKey).(*token.Payload)
+
+		//increment requests counter
+		apiKey, err := query.FindApiKeyByUserID(authPayload.UserID)
+		if err == nil && apiKey != nil {
+			apiKey.IncrementKeyRequests()
+		}
 
 		uid := ctx.Param("uid")
 

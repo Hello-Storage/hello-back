@@ -27,6 +27,12 @@ func FileCreate(router *gin.RouterGroup) {
 		tx := db.Db().Begin()
 		authPayload := ctx.MustGet(constant.APIKeyHeaderKey).(*token.Payload)
 
+		//increment requests counter
+		apiKey, err := query.FindApiKeyByUserID(authPayload.UserID)
+		if err == nil && apiKey != nil {
+			apiKey.IncrementKeyRequests()
+		}
+
 		var fileResponses []form.FileResponse
 
 		// Multipart form

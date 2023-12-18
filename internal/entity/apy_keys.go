@@ -26,3 +26,8 @@ func (m *ApiKey) Create() error {
 func (m *ApiKey) Save() error {
 	return db.Db().Save(m).Error
 }
+
+func (m *ApiKey) IncrementKeyRequests() error {
+	m.KeyRequests++
+	return m.Save()
+}

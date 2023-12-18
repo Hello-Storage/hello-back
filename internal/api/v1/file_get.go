@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -15,6 +17,14 @@ import (
 func GetFile(router *gin.RouterGroup) {
 
 	router.GET("/files/:uid", func(c *gin.Context) {
+
+		authPayload := c.MustGet(constant.APIKeyHeaderKey).(*token.Payload)
+
+		//increment requests counter
+		apiKey, err := query.FindApiKeyByUserID(authPayload.UserID)
+		if err == nil && apiKey != nil {
+			apiKey.IncrementKeyRequests()
+		}
 
 		uid := c.Param("uid")
 
@@ -31,6 +41,12 @@ func GetFile(router *gin.RouterGroup) {
 	router.GET("/files", func(c *gin.Context) {
 
 		authPayload := c.MustGet(constant.APIKeyHeaderKey).(*token.Payload)
+
+		//increment requests counter
+		apiKey, err := query.FindApiKeyByUserID(authPayload.UserID)
+		if err == nil && apiKey != nil {
+			apiKey.IncrementKeyRequests()
+		}
 
 		pageNumber := c.DefaultQuery("page", "1")
 		pageSize := c.DefaultQuery("pageSize", "10")
@@ -49,20 +65,22 @@ func GetFile(router *gin.RouterGroup) {
 
 		allFiles, err := query.GetApiFiles(authPayload.UserID)
 		if err != nil {
-			api.AbortEntityNotFound(c)
-			return
+			fmt.Print(err)
 		}
+
+		totalItems := len(allFiles)
+		totalPages := int(math.Ceil(float64(totalItems) / float64(pageSizeInt)))
 
 		startIndex := (pageNumberInt - 1) * pageSizeInt
 		endIndex := pageNumberInt * pageSizeInt
 
-		if startIndex >= len(allFiles) {
-			c.JSON(http.StatusOK, gin.H{"files": []form.FileResponse{}})
+		if startIndex >= totalItems {
+			c.JSON(http.StatusOK, gin.H{"files": []form.FileResponse{}, "totalItems": totalItems, "totalPages": totalPages})
 			return
 		}
 
-		if endIndex > len(allFiles) {
-			endIndex = len(allFiles)
+		if endIndex > totalItems {
+			endIndex = totalItems
 		}
 
 		paginatedFiles := allFiles[startIndex:endIndex]
@@ -87,13 +105,21 @@ func GetFile(router *gin.RouterGroup) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"files": fileResponses,
+			"files":      fileResponses,
+			"totalItems": totalItems,
+			"totalPages": totalPages,
 		})
 	})
 }
 
 func Ping(router *gin.RouterGroup) {
 	router.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, "hello api")
+		c.Header("X-Rate-Limit-Limit", "3")
+		c.Header("X-Rate-Limit-Reset", "1")
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Welcome to the hello.app API!",
+			"note":    "This route is for testing purposes and does not count towards the request limit. Be sure to enjoy the experience, 'hello' and goodbye.",
+		})
 	})
 }
