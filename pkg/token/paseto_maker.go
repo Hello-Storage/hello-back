@@ -27,7 +27,7 @@ func NewPasetoMaker(symmetricKey string) (Maker, error) {
 	return maker, nil
 }
 
-// CreateToken creates a new token for a specific username and duration
+// CreateToken creates a new token for a specific user and duration
 func (maker *PasetoMaker) CreateToken(user_id uint, user_uid, user_name string, duration time.Duration) (string, *Payload, error) {
 	payload, err := NewPayload(user_id, user_uid, user_name, duration)
 	if err != nil {
@@ -43,6 +43,35 @@ func (maker *PasetoMaker) VerifyToken(token string) (*Payload, error) {
 	payload := &Payload{}
 
 	err := maker.paseto.Decrypt(token, maker.symmetricKey, payload, nil)
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	err = payload.Valid()
+	if err != nil {
+		return nil, err
+	}
+
+	return payload, nil
+}
+
+// CreateApiKey creates a new API key for a specific user
+func (maker *PasetoMaker) CreateApiKey(user_id uint, user_uid, user_name string) (string, *Payload, error) {
+	//duration of 0 for no expiration
+	payload, err := NewPayload(user_id, user_uid, user_name, 0)
+	if err != nil {
+		return "", payload, err
+	}
+
+	apiKey, err := maker.paseto.Encrypt(maker.symmetricKey, payload, nil)
+	return apiKey, payload, err
+}
+
+// VerifyApiKey checks if the API key is valid or not
+func (maker *PasetoMaker) VerifyApiKey(apiKey string) (*Payload, error) {
+	payload := &Payload{}
+
+	err := maker.paseto.Decrypt(apiKey, maker.symmetricKey, payload, nil)
 	if err != nil {
 		return nil, ErrInvalidToken
 	}

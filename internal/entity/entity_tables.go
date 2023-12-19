@@ -31,6 +31,8 @@ var Entities = Tables{
 	Referral{}.TableName():             &Referral{},
 	PublicFileShareGroup{}.TableName(): &PublicFileShareGroup{},
 	ShareGroup{}.TableName():           &ShareGroup{},
+	ApiKey{}.TableName():               &ApiKey{},
+	ApiKeyFile{}.TableName():           &ApiKeyFile{},
 }
 
 // WaitForMigration waits for the database migration to be successful.
@@ -100,7 +102,9 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 	if opt.AutoMigrate {
 		for name, entity = range list {
 			if name == "users" || name == "wallets" || name == "githubs" {
+				// if db.Migrator().HasTable(name) {
 				continue
+				// }
 			}
 			if err := db.AutoMigrate(entity); err != nil {
 				log.Debugf("migrate: %s (waiting 1s)", err)
