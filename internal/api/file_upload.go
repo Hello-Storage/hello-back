@@ -50,9 +50,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			S3ForcePathStyle: aws.Bool(true),
 		}
 
-		// Create a map to track CIDs that have been processed
-		cidProcessed := make(map[string]bool)
-
 		//iterate over customFileMetas and check if the cid exists in s3
 		var filesFoundResponses []form.FileResponse
 
@@ -72,20 +69,15 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 				// Skip if CID has already been processed
 
 				_, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
-				if cidProcessed[customFileMeta.CID] {
-					log.Infof("cidProcessed: %v", customFileMeta.CID)
-					createFiles(&firstRootUID, customFileMeta, r, authPayload, tx, ctx, &filesFoundResponses)
-					cidProcessed[customFileMeta.CID] = true
-				} else if err != nil {
+				if err != nil {
 					//this means that the object doesn't exist at S3, so we can return CID to frontend for later upload of binary and metadata
 					log.Info("headobject for following cid is nil:")
 					log.Info(customFileMeta.CID)
-					cidProcessed[customFileMeta.CID] = true
 				} else {
 					log.Infof("none of the above: %v", customFileMeta.CID)
 					createFiles(&firstRootUID, customFileMeta, r, authPayload, tx, ctx, &filesFoundResponses)
-					cidProcessed[customFileMeta.CID] = true
 				}
+				log.Printf(("firstRootUID: %v"), firstRootUID)
 
 			}
 		} else {
@@ -463,7 +455,6 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, encryption_stat
 
 	f := query.FindFolderByTitleAndRoot(sub_title, root)
 
-	log.Infof("folder find by title and root: %v", f)
 	if f == nil {
 		f = &entity.Folder{
 			Title:            sub_title,

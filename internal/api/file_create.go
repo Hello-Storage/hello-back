@@ -4,12 +4,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
+	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/Hello-Storage/hello-back/pkg/token"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/gin-gonic/gin"
 )
 
@@ -55,6 +59,40 @@ func CreateFile(router *gin.RouterGroup) {
 			return
 		}
 
+		var isInPool bool
+		if customFileMeta.IsInPool != nil {
+			isInPool = *customFileMeta.IsInPool
+		} else {
+			// Check if files exist in s3
+			s3Config := aws.Config{
+				Credentials: credentials.NewStaticCredentials(
+					config.Env().WasabiAccessKey,
+					config.Env().WasabiSecretKey,
+					"",
+				),
+				Endpoint:         aws.String(config.Env().WasabiEndpoint),
+				Region:           aws.String(config.Env().WasabiRegion),
+				S3ForcePathStyle: aws.Bool(true),
+			}
+			_, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
+			if err != nil {
+				log.Printf("error: %s", err)
+				//this means that the object doesn't exist at S3
+				isInPool = false
+			} else {
+				usersWithFile, err := query.FindUsersByFileCID(customFileMeta.CID)
+				if err != nil {
+					AbortInternalServerError(ctx)
+					log.Errorf("error finding users by file CID: %v", err)
+					return
+				}
+				if len(usersWithFile) > 0 {
+					isInPool = true
+				} else {
+					isInPool = false
+				}
+			}
+		}
 		// Create file
 		file := entity.File{
 			Name:                 customFileMeta.Name,
@@ -64,6 +102,7 @@ func CreateFile(router *gin.RouterGroup) {
 			Mime:                 customFileMeta.MimeType,
 			Size:                 customFileMeta.Size,
 			EncryptionStatus:     customFileMeta.EncryptionStatus,
+			IsInPool:             &isInPool,
 			CreatedAt:            time.Now(),
 			UpdatedAt:            time.Now(),
 		}
@@ -75,10 +114,22 @@ func CreateFile(router *gin.RouterGroup) {
 			return
 		}
 
-		f_u := entity.FileUser{
-			FileID:     file.ID,
-			UserID:     authPayload.UserID,
-			Permission: entity.OwnerPermission,
+		//if is in pool, permission is sharedpermission
+		//otherwise, ownerpermission
+		var f_u entity.FileUser
+		if isInPool {
+			//create file share state
+			f_u = entity.FileUser{
+				FileID:     file.ID,
+				UserID:     authPayload.UserID,
+				Permission: entity.SharedPermission,
+			}
+		} else {
+			f_u = entity.FileUser{
+				FileID:     file.ID,
+				UserID:     authPayload.UserID,
+				Permission: entity.OwnerPermission,
+			}
 		}
 
 		if err := f_u.TxCreate(tx); err != nil {
@@ -103,6 +154,7 @@ func CreateFile(router *gin.RouterGroup) {
 		fResponse := form.FileResponse{
 			ID:        file.ID,
 			UID:       file.UID,
+			IsInPool:  file.IsInPool,
 			CreatedAt: file.CreatedAt.String(),
 			UpdatedAt: file.UpdatedAt.String(),
 		}

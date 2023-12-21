@@ -6,10 +6,8 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
-	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-gonic/gin"
 )
 
@@ -52,26 +50,19 @@ func getAllFiles(folderUID string, allFiles *[]entity.File, currentPath string) 
 	return nil
 }
 
-// DownloadFolder downloads all files of a folder as a ZIP
+// DownloadFolder downloads all files of a folder
 //
 // GET /api/folder/download/:uid
 func DownloadFolder(router *gin.RouterGroup) {
 	router.GET("/folder/download/:uid", func(ctx *gin.Context) {
-		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 		folderUID := ctx.Param("uid")
+		log.Printf("folderUID: %s", folderUID)
 
-		// Find the folder by UID
-		var folder entity.Folder
-		if err := db.Db().Where("uid = ?", folderUID).First(&folder).Error; err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{
-				"message": "Folder not found",
-			})
-			return
-		}
 
 		// Find all files inside the folder
 		var allFiles []entity.File
 		if err := getAllFiles(folderUID, &allFiles, ""); err != nil {
+			log.Errorf("error getting all files: %s", err.Error())
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"message": "Unable to retrieve files",
 			})
@@ -81,9 +72,11 @@ func DownloadFolder(router *gin.RouterGroup) {
 		fileData := make([]map[string]interface{}, len(allFiles))
 
 		for i, file := range allFiles {
-			keyPath := authPayload.UserUID + "/" + file.UID
+			keyPath := file.CID
+			log.Printf("keyPath: %s", keyPath)
 			out, err := DownloadFileFromS3(keyPath)
 			if err != nil {
+				log.Errorf("error downloading from s3: %s", err.Error())
 				ctx.JSON(http.StatusInternalServerError, gin.H{
 					"message": err.Error(),
 				})
@@ -93,6 +86,7 @@ func DownloadFolder(router *gin.RouterGroup) {
 			// Read the body into bytes
 			bodyBytes, err := io.ReadAll(out.Body)
 			if err != nil {
+				log.Errorf("error: %s", err.Error())
 				ctx.JSON(http.StatusInternalServerError, gin.H{
 					"message": err.Error(),
 				})

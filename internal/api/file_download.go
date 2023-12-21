@@ -4,13 +4,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
-
 	"github.com/Hello-Storage/hello-back/internal/config"
-	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/s3"
-	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	awsS3 "github.com/aws/aws-sdk-go/service/s3"
@@ -25,42 +21,28 @@ import (
 func DownloadFile(router *gin.RouterGroup) {
 	router.GET("/download/:uid", func(ctx *gin.Context) {
 		// TO-DO check user auth & add user uid
-		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+		//authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 
 		file_uid := ctx.Param("uid")
 
 		// Multipart form
-		keyPath := authPayload.UserUID + "/" + file_uid
+		f, err := query.FindFileByUID(file_uid)
+		if err != nil {
+			log.Errorf("find file by uid: %s", err)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+		keyPath := f.CID
 		out, error := DownloadFileFromS3(keyPath)
 		//if error contains "NoSuchKey" then set keyPath without the userUID
 		if error != nil {
-			if strings.Contains(error.Error(), "NoSuchKey") {
-				//get file by uid
-				f, err := query.FindFileByUID(file_uid)
-				if err != nil {
-					ctx.JSON(http.StatusBadRequest, gin.H{
-						"message": error.Error(),
-					})
-					return
-				}
-				keyPath = "/" + f.CID
-				out, error = DownloadFileFromS3(keyPath)
-				log.Errorf("download file: %s", error)
-				if error != nil {
-					ctx.JSON(http.StatusBadRequest, gin.H{
-						"message": error.Error(),
-					})
-					return
-				}
-
-			} else {
-				log.Errorf("download file: %s", error)
-				ctx.JSON(http.StatusBadRequest, gin.H{
-					"message": error.Error(),
-				})
-				return
-			}
-
+			log.Errorf("download file: %s", error)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"message": error.Error(),
+			})
+			return
 		}
 		// Set the correct content type and file name
 		ctx.Header("Content-Type", *out.ContentType)
@@ -70,6 +52,7 @@ func DownloadFile(router *gin.RouterGroup) {
 		// Copy the file data to the response
 		_, error = io.Copy(ctx.Writer, out.Body)
 		if error != nil {
+			log.Errorf("copy file data to response: %s", error)
 			ctx.JSON(http.StatusBadRequest, gin.H{
 				"message": error.Error(),
 			})

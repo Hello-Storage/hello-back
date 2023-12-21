@@ -22,6 +22,7 @@ type CustomFileMeta struct {
 	MimeType                string  `json:"mime_type"`
 	Size                    int64   `json:"size"`
 	MediaType               string  `json:"media_type"`
+	IsInPool				*bool    `json:"is_in_pool,omitempty"`
 	Path                    string  `json:"path"`
 	Data                    *string `json:"data,omitempty"`
 }

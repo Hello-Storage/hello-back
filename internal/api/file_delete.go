@@ -1,8 +1,6 @@
 package api
 
 import (
-	"fmt"
-
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/entity"
@@ -64,10 +62,20 @@ func DeleteFile(router *gin.RouterGroup) {
 			return
 		}
 
+		filesWithUser, err := query.FindFilesByUserAndFileCID(authPayload.UserID, f.CID)
+		// AbortInternalServerError if there is an error finding files by user and file CID
+		if err != nil {
+			AbortInternalServerError(ctx)
+			log.Errorf("error finding files by user and file CID: %v", err)
+			return
+		}
+
 		// Delete the file from s3 if there is more than one user
-		if len(usersWithFile) > 1 {
+		log.Printf("users with file: %v", usersWithFile)
+		log.Printf("files with user: %v", len(filesWithUser))
+		if len(usersWithFile) > 1 || len(filesWithUser) > 1 {
 			// If more than one user has the file, delete the file from the user and give the owner to the next user shared
-			fmt.Println("Can't delete the file, the owners are: ", usersWithFile, ", changing owner")
+			log.Println("Can't delete the file, the owners are: ", usersWithFile, ", changing owner")
 			// Returns true if the entity is a file owner.
 			isOwner, err := entity.IsFileOwner(f_u.FileID, f_u.UserID)
 			if err != nil {
@@ -109,6 +117,21 @@ func DeleteFile(router *gin.RouterGroup) {
 				nextOwner, err := query.GetNextOwner(f_u.UserID, f_u.FileID)
 				if err != nil {
 					log.Errorf("get next owner error: %v", err)
+					log.Printf("length of files with user: %v", len(filesWithUser))
+					if len(filesWithUser) > 1 {
+						log.Printf("users with file bigger than 1")
+						nextFileUser, err := query.GetNextFileUser(f_u.UserID, f.CID)
+						if err != nil {
+							log.Errorf("get next file error: %v", err)
+							AbortInternalServerError(ctx)
+							return
+						} else {
+							//give the owner
+							log.Printf("next file user: %v", nextFileUser)
+							query.SetOwnerPermision(nextFileUser.UserID, nextFileUser.FileID)
+							query.SetNextFileInPool(nextFileUser.UserID, nextFileUser.FileID)
+						}
+					}
 				} else {
 					//give the owner
 					query.SetOwnerPermision(nextOwner.UserID, nextOwner.FileID)

@@ -35,7 +35,6 @@ func DownloadMultipartFile(router *gin.RouterGroup) {
 		}
 
 		keyPath := f.CID
-		log.Println("file cid: ", keyPath)
 
 		// Open a stream to the S3 object
 		s3Service := *s3.NewS3Service(
@@ -52,7 +51,6 @@ func DownloadMultipartFile(router *gin.RouterGroup) {
 		}
 		defer reader.Close()
 
-		log.Printf("Content-Length: %d", contentLength)
 		// Set headers
 		ctx.Header("Content-Type", contentType)
 		ctx.Header("Content-Length", fmt.Sprintf("%d", contentLength))
