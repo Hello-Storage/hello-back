@@ -76,6 +76,7 @@ func registerRoutes(router *gin.Engine) {
 	// folder routes
 	api.SearchFolderByRoot(AuthAPIv1)
 	api.CreateFolder(AuthAPIv1)
+	api.GetFolderFiles(AuthAPIv1)
 	api.DownloadFolder(AuthAPIv1)
 	api.DownloadMultipartFolder(AuthAPIv1)
 	api.DeleteFolder(AuthAPIv1)
