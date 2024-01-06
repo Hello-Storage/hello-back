@@ -6,7 +6,7 @@ import (
 	"github.com/Hello-Storage/hello-back/pkg/rnd"
 )
 
-func FindFolder(find entity.Folder) *entity.Folder {
+func FindFolder(find entity.Folder) (*entity.Folder, error) {
 	m := &entity.Folder{}
 
 	stmt := db.Db()
@@ -20,15 +20,15 @@ func FindFolder(find entity.Folder) *entity.Folder {
 	} else if find.Title != "" {
 		stmt = stmt.Where("title = ?", find.Title)
 	} else {
-		return nil
+		return nil, nil 
 	}
 
 	// Find matching record.
 	if err := stmt.First(m).Error; err != nil {
-		return nil
+		return nil, err
 	}
 
-	return m
+	return m, nil
 
 }
 
@@ -72,7 +72,11 @@ func FindFolderPathByRoot(root string) entity.Folders {
 		return entity.Folders{}
 	}
 
-	m := FindFolder(entity.Folder{UID: root})
+	m, err := FindFolder(entity.Folder{UID: root})
+
+	if err != nil || m == nil {
+		return entity.Folders{}
+	}
 
 	return append(FindFolderPathByRoot(m.Root), *m)
 }
