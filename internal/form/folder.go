@@ -15,3 +15,14 @@ type UpdateFolder struct {
 	Uid  string `json:"uid"`
 	Root string `json:"root"`
 }
+
+type SharedFolder struct {
+	Uid  string `json:"uid"`
+	Title string `json:"title"`
+	Files []CustomFileMeta `json:"files"`
+}
+
+type SharedFolderRes struct {
+	Folder entity.Folder `json:"folder"`
+	Files []CustomFileMeta `json:"files"`
+}

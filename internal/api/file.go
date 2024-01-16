@@ -28,6 +28,10 @@ func GetFile(router *gin.RouterGroup) {
 		// To Do check access grant
 		uid := c.Param("uid")
 
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
+
 		p, err := query.FindFileByUID(uid)
 
 		if err != nil {
@@ -55,6 +59,10 @@ func GetFile(router *gin.RouterGroup) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid page size"})
 			return
 		}
+
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
 
 		allFiles, err := query.GetApiFiles(authPayload.UserID)
 		if err != nil {
@@ -115,8 +123,8 @@ func GetShareState(router *gin.RouterGroup) {
 	router.GET("/share/state", func(c *gin.Context) {
 		//get file id from params
 		file_uid := c.Query("file_uid")
-		fileMutex := sync.Mutex{}
 
+		fileMutex := sync.Mutex{}
 		fileMutex.Lock()
 		defer fileMutex.Unlock()
 
@@ -215,6 +223,10 @@ func PublishFile(router *gin.RouterGroup) {
 			return
 		}
 
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
+
 		// Create a new share group
 		shareGroup := entity.ShareGroup{}
 		if err := shareGroup.Create(); err != nil {
@@ -247,6 +259,10 @@ func PublishFile(router *gin.RouterGroup) {
 			return
 		}
 
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
+
 		// Perform the query using the queryShareGroup function
 		shareHashes, err := query.QueryShareGroupByHash(shareGroupHash)
 		if err != nil {
@@ -275,6 +291,10 @@ func PublishFile(router *gin.RouterGroup) {
 			AbortEntityNotFound(c)
 			return
 		}
+
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
 
 		// Check if the file exists
 		f, err := query.FindFileByUID(selectedShareFile.UID)
@@ -334,18 +354,19 @@ func PublishFile(router *gin.RouterGroup) {
 		err = shareState.PublicFile.Save()
 		if err != nil {
 			log.Errorf("failed to save share state: %s", err)
-			// Devuelve un mensaje de error al cliente
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
 			return
 		}
 
 		c.JSON(http.StatusOK, shareState)
 	})
-	router.POST("/share/email/:user", func(ctx *gin.Context) {
-		// Get the email from the parameters
-		shareWithEmail := ctx.Param("user")
 
-		tx := db.Db().Begin()
+	router.POST("/share/:shareType/:user", func(ctx *gin.Context) {
+		// Get the share type from the parameters
+		shareType := ctx.Param("shareType")
+
+		// Get the account identifier (email or wallet) from the parameters
+		accountIdentifier := ctx.Param("user")
 
 		// Get the file metadata from the request body
 		var selectedShareFile form.CustomFileMeta
@@ -355,31 +376,50 @@ func PublishFile(router *gin.RouterGroup) {
 			return
 		}
 
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
+
+		// Determine the appropriate function to retrieve the user based on the share type
+		var shareWithUser *entity.User
+		switch shareType {
+		case "email":
+			shareWithUser = query.FindUserByEmail(accountIdentifier)
+		case "wallet":
+			shareWithUser = query.FindUserByWalletAddress(accountIdentifier)
+		default:
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid share type"})
+			return
+		}
+
+		// Check if the user was found
+		if shareWithUser == nil {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+		
+		// Start the transaction
+		tx := db.Db().Begin()
+
 		// Check if the file exists
 		f, err := query.FindFileByUID(selectedShareFile.UID)
 		if err != nil {
 			log.Errorf("failed to get file: %s", err)
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
-			return
-		}
-
-		// Get the user by email
-		shareWithUser := query.FindUserByEmail(shareWithEmail)
-		if shareWithUser == nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			tx.Rollback()
 			return
 		}
 
 		// Create a new file with the same metadata
-		newFile := createNewFileFromMetadata(f, selectedShareFile)
+		newFile := CreateNewFileFromMetadata(f, selectedShareFile)
 		if err := newFile.TxCreate(tx); err != nil {
 			log.Errorf("create file: %s", err)
 			tx.Rollback()
 			AbortInternalServerError(ctx)
+			return
 		}
 
 		// Create a FilesUsers entry to share the file with the specified user
-
 		fileUser := &entity.FileUser{
 			FileID:     newFile.ID,
 			UserID:     shareWithUser.ID,
@@ -393,67 +433,10 @@ func PublishFile(router *gin.RouterGroup) {
 			return
 		}
 
-		fmt.Printf("Sharing file:\nshareType: %s\nfile UID: %s\nshared with: %s\n", entity.SharedPermission, selectedShareFile.UID, shareWithEmail)
+		// Print a debug message indicating the sharing details
+		fmt.Printf("Sharing file:\nshareType: %s\nfile UID: %s\nshared with: %s\n", entity.SharedPermission, selectedShareFile.UID, accountIdentifier)
 
-		tx.Commit()
-
-		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully"})
-	})
-
-	router.POST("/share/wallet/:user", func(ctx *gin.Context) {
-		// Get the wallet from the parameters
-		wallet := ctx.Param("user")
-
-		tx := db.Db().Begin()
-
-		// Get the file metadata from the request body
-		var selectedShareFile form.CustomFileMeta
-		if err := ctx.BindJSON(&selectedShareFile); err != nil {
-			log.Errorf("failed to bind JSON: %s", err)
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Failed to bind JSON"})
-			return
-		}
-
-		// Check if the file exists
-		f, err := query.FindFileByUID(selectedShareFile.UID)
-		if err != nil {
-			log.Errorf("failed to get file: %s", err)
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
-			return
-		}
-
-		// Get the user by wallet address
-		shareWithUser := query.FindUserByWalletAddress(wallet)
-		if shareWithUser == nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-			return
-		}
-
-		// Create a new file with the same metadata
-		newFile := createNewFileFromMetadata(f, selectedShareFile)
-		if err := newFile.TxCreate(tx); err != nil {
-			log.Errorf("create file: %s", err)
-			tx.Rollback()
-			AbortInternalServerError(ctx)
-		}
-
-		// Create a FilesUsers entry to share the file with the specified user
-
-		fileUser := &entity.FileUser{
-			FileID:     newFile.ID,
-			UserID:     shareWithUser.ID,
-			Permission: entity.SharedPermission,
-		}
-
-		if err := fileUser.TxCreate(tx); err != nil {
-			log.Errorf("create file_user relation: %s", err)
-			tx.Rollback()
-			AbortInternalServerError(ctx)
-			return
-		}
-
-		fmt.Printf("Sharing file:\nshareType: %s\nfile UID: %s\nshared with: %s\n", entity.SharedPermission, selectedShareFile.UID, wallet)
-
+		// Commit the transaction
 		tx.Commit()
 
 		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully"})
@@ -461,7 +444,7 @@ func PublishFile(router *gin.RouterGroup) {
 
 }
 
-func createNewFileFromMetadata(originalFile *entity.File, metadata form.CustomFileMeta) *entity.File {
+func CreateNewFileFromMetadata(originalFile *entity.File, metadata form.CustomFileMeta) *entity.File {
 	var isInPool bool = true
 
 	return &entity.File{
@@ -493,6 +476,10 @@ func UnpublishFile(router *gin.RouterGroup) {
 			AbortEntityNotFound(c)
 			return
 		}
+
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
 
 		// check if file exists
 		f, err := query.FindFileByUID(selectedShareFile.UID)
@@ -573,6 +560,10 @@ func GetPublishedFile(router *gin.RouterGroup) {
 		hash := c.Param("hash")
 		log.Print("GetPublishedFile: ", hash)
 
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
+
 		// Get the public file
 		publicFile, err := query.FindPublicFileByHash(hash)
 		if err != nil {
@@ -622,6 +613,10 @@ func GetPublishedFileName(router *gin.RouterGroup) {
 	router.GET("/share/published/name/:hash", func(c *gin.Context) {
 		//get file id from params
 		hash := c.Param("hash")
+
+		fileMutex := sync.Mutex{}
+		fileMutex.Lock()
+		defer fileMutex.Unlock()
 
 		//get public file
 		public_file, err := query.FindPublicFileByHash(hash)

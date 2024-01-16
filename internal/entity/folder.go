@@ -78,3 +78,25 @@ func IsFolderOwner(folderID uint, userID uint) (bool, error) {
 
 	return count > 0, nil
 }
+
+// UpdateTitle updates the folder title with the new title provided.
+func (m *Folder) UpdateTitle(newTitle string) error {
+	m.Title = newTitle
+
+	if err := db.Db().Model(m).Where("UID = ?", m.UID).Update("Title", newTitle).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdateEncryptionStatus updates the EncryptionStatus for the folder.
+func (m *Folder) UpdateEncryptionStatus(newEncryptionStatus EncryptionStatus) error {
+	m.EncryptionStatus = newEncryptionStatus
+
+	if err := db.Db().Model(m).Where("UID = ?", m.UID).Update("EncryptionStatus", newEncryptionStatus).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
