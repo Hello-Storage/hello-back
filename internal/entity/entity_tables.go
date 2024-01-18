@@ -12,23 +12,27 @@ type Tables map[string]interface{}
 
 // Entities contains database entities and their table names.
 var Entities = Tables{
-	Error{}.TableName():        &Error{},
-	User{}.TableName():         &User{},
-	UserDetail{}.TableName():   &UserDetail{},
-	UserLogin{}.TableName():    &UserLogin{},
-	ReferredUser{}.TableName(): &ReferredUser{},
-	Plan{}.TableName():         &Plan{},
-	Subscription{}.TableName(): &Subscription{},
-	Email{}.TableName():        &Email{},
-	Wallet{}.TableName():       &Wallet{},
-	Github{}.TableName():       &Github{},
-	File{}.TableName():         &File{},
-	FileShareState{}.TableName(): &FileShareState{},
-	PublicFile{}.TableName():   &PublicFile{},
-	Folder{}.TableName():       &Folder{},
-	FileUser{}.TableName():     &FileUser{},
-	FolderUser{}.TableName():   &FolderUser{},
-	Referral{}.TableName():     &Referral{},
+	Error{}.TableName():                &Error{},
+	User{}.TableName():                 &User{},
+	UserDetail{}.TableName():           &UserDetail{},
+	UserLogin{}.TableName():            &UserLogin{},
+	ReferredUser{}.TableName():         &ReferredUser{},
+	Plan{}.TableName():                 &Plan{},
+	Subscription{}.TableName():         &Subscription{},
+	Email{}.TableName():                &Email{},
+	Wallet{}.TableName():               &Wallet{},
+	Github{}.TableName():               &Github{},
+	File{}.TableName():                 &File{},
+	FileShareState{}.TableName():       &FileShareState{},
+	PublicFile{}.TableName():           &PublicFile{},
+	Folder{}.TableName():               &Folder{},
+	FileUser{}.TableName():             &FileUser{},
+	FolderUser{}.TableName():           &FolderUser{},
+	Referral{}.TableName():             &Referral{},
+	PublicFileShareGroup{}.TableName(): &PublicFileShareGroup{},
+	ShareGroup{}.TableName():           &ShareGroup{},
+	ApiKey{}.TableName():               &ApiKey{},
+	ApiKeyFile{}.TableName():           &ApiKeyFile{},
 }
 
 // WaitForMigration waits for the database migration to be successful.
@@ -97,6 +101,11 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 	// Run ORM auto migrations.
 	if opt.AutoMigrate {
 		for name, entity = range list {
+			if name == "users" || name == "wallets" || name == "githubs" {
+				// if db.Migrator().HasTable(name) {
+				continue
+				// }
+			}
 			if err := db.AutoMigrate(entity); err != nil {
 				log.Debugf("migrate: %s (waiting 1s)", err)
 

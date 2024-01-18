@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Hello-Storage/hello-back/internal/config"
@@ -46,11 +47,28 @@ func DownloadFile(router *gin.RouterGroup) {
 				keyPath = f.CID
 				out, error = DownloadFileFromS3(keyPath)
 				log.Errorf("download file: %s", error)
+
+				//if error contains "NoSuchKey" then set keyPath without the userUID
 				if error != nil {
-					ctx.JSON(http.StatusBadRequest, gin.H{
-						"message": error.Error(),
-					})
-					return
+					if strings.Contains(error.Error(), "NoSuchKey") {
+						keyPath = f.CID + strconv.FormatUint(uint64(authPayload.UserID), 10)
+						out, error = DownloadFileFromS3(keyPath)
+						log.Errorf("download file: %s", error)
+						if error != nil {
+							ctx.JSON(http.StatusBadRequest, gin.H{
+								"message": error.Error(),
+							})
+							return
+						}
+
+					} else {
+						log.Errorf("download file: %s", error)
+						ctx.JSON(http.StatusBadRequest, gin.H{
+							"message": error.Error(),
+						})
+						return
+					}
+
 				}
 
 			} else {

@@ -21,7 +21,7 @@ func PublishFile(share_state entity.FileShareState, selectedShareFile form.Custo
 	publicFile.CIDOriginalDecrypted = selectedShareFile.CIDOriginalEncrypted
 
 	//ShareHash is the CID derived out of concatenated name, mime and size
-	
+
 	// Create a cid manually by specifying the 'prefix' parameters
 	pref := cid.Prefix{
 		Version:  1,

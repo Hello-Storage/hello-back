@@ -2,6 +2,8 @@ package commands
 
 import (
 	"context"
+	// "time"
+	// "github.com/Hello-Storage/hello-back/internal/entity"
 
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/event"
@@ -32,7 +34,27 @@ func Start() {
 	// config.ConnectRedis()
 
 	// Pass this context down the chain.
-	cctx, _ := context.WithCancel(context.Background())
+	cctx, cancel := context.WithCancel(context.Background())
+
+	// This block is in case we want to delete files_groups records that are expired every 24 hours
+	// // Schedule the timer to execute the function at regular intervals
+	// ticker := time.NewTicker(24 * time.Hour) // Execute every 24 hours
+	// defer ticker.Stop()
+
+	// // Goroutine to execute the function in the background
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case <-ticker.C:
+	// 			entity.DeleteExpiredShareGroups()
+	// 		case <-cctx.Done():
+	// 			return
+	// 		}
+	// 	}
+	// }()
 
 	server.Start(cctx)
+
+	// Cancel the context when the server stops
+	cancel()
 }

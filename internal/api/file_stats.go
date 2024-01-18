@@ -125,7 +125,14 @@ func (s *SharedStatistics) CalculateStatistics() (Statistics, error) {
 	}
 
 	//medium size files
-	msize := totalusedstorage / upfile
+	var msize int64
+	if upfile != 0 {
+		msize = totalusedstorage / upfile
+	} else {
+		// Manejar el caso donde upfile es cero, por ejemplo, asignar un valor predeterminado
+		msize = 0
+		log.Warn("Total uploaded files is zero, setting CountMediumSizeFiles to zero.")
+	}
 
 	encryptedfiles, err := query.CountEncryptedFiles()
 	if err != nil {
@@ -464,8 +471,6 @@ func (s *SharedStorageData) CalculateWeeklyStorageStats() ([]WeeklyStorageStats,
 
 	return weeklyStats, nil
 }
-
-
 
 func (s *SharedStorageData) startStorageBackgroundJob() {
 	// Stop any existing timer
