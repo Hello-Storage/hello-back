@@ -596,8 +596,17 @@ func GetPublishedFile(router *gin.RouterGroup) {
 			}
 		}
 
-		// Return the public file
-		c.JSON(http.StatusOK, publicFile)
+		// get the original file
+		f, err := query.FindFileByUID(publicFile.FileUID)
+		if err != nil {
+			log.Errorf("cannot get file: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		res := CreateFileForSharedFile(*f, *publicFile)
+
+		c.JSON(http.StatusOK, res)
 	})
 }
 
@@ -622,7 +631,16 @@ func GetPublishedFileName(router *gin.RouterGroup) {
 			AbortEntityNotFound(c)
 			return
 		}
+		// get the original file
+		f, err := query.FindFileByUID(public_file.FileUID)
+		if err != nil {
+			log.Errorf("cannot get file: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
 
-		c.JSON(http.StatusOK, public_file.Name)
+		res := CreateFileForSharedFile(*f, *public_file)
+
+		c.JSON(http.StatusOK, res)
 	})
 }
