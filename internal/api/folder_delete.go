@@ -119,11 +119,12 @@ func DeleteAllFilesInFolder(folderUID, userUID string) error {
 		_, err = s3.HeadObject(s3Config, config.Env().WasabiBucket, keyPath)
 		if err != nil {
 			keyPath = file.CID
-		} 
+		}
 
-
-		if err := DeleteFileFromS3(keyPath, s3Config); err != nil {
-			return err
+		if !*file.IsInPool {
+			if err := DeleteFileFromS3(keyPath, s3Config); err != nil {
+				return err
+			}
 		}
 
 		// Delete from DB
@@ -136,7 +137,6 @@ func DeleteAllFilesInFolder(folderUID, userUID string) error {
 
 		if err := user_detail.Update("storage_used", user_detail.StorageUsed-uint(file.Size)); err != nil {
 			log.Errorf("adding storage_used: %s", err)
-			return err
 		}
 	}
 	return nil

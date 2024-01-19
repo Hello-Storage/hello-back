@@ -64,6 +64,27 @@ func FindFilesByRoot(root string) (files entity.Files, err error) {
 	return files, err
 }
 
+// FindSharedFilesByRoot returns shared files in a given folder root.
+func FindPublicFilesByRoot(root string) (publicFiles []entity.PublicFile, err error) {
+	files, err := FindFilesByRoot(root)
+	if err != nil {
+		return publicFiles, err
+	}
+
+	for _, file := range files {
+		var publicFile entity.PublicFile
+
+		if err := db.Db().Where("file_uid = ?",
+			file.UID).First(&publicFile).Error; err != nil {
+			fmt.Println(err)
+		}
+
+		publicFiles = append(publicFiles, publicFile)
+	}
+
+	return publicFiles, nil
+}
+
 // Count all files overall
 func CountFiles() (upfile int64, err error) {
 	if err := db.Db().Table("files").Count(&upfile).Error; err != nil {
@@ -190,15 +211,8 @@ func DeleteFileByUID(file_uid string) error {
 		return fmt.Errorf("file uid required")
 	}
 
-	// Get file_shared_state
-	file_share_state, err := FindShareStateByFileUID(file_uid)
-
-	if err == nil {
-		// Delete file_shared_state
-		if err := file_share_state.Delete(); err != nil {
-			return err
-		}
-	}
+	// Get file_shared_state and delete it
+	DeleteFileShareState(file_uid)
 
 	return db.Db().Where("uid = ?", file_uid).Delete(&entity.File{}).Error
 }
@@ -516,4 +530,15 @@ func GetApiFiles(user_id uint) (files entity.Files, err error) {
 	}
 
 	return files, nil
+}
+
+// DeleteFileShareState deletes the sharing state of a file based on its UID.
+func DeleteFileShareState(fileUID string) {
+	var fileShareState entity.FileShareState
+	// Search for the sharing state by the file UID
+	result := db.Db().Unscoped().Where("file_uid = ?", fileUID).First(&fileShareState)
+	if result.Error == nil {
+		db.Db().Delete(&fileShareState.PublicFile)
+		db.Db().Unscoped().Delete(&fileShareState)
+	}
 }
