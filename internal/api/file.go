@@ -347,9 +347,6 @@ func PublishFile(router *gin.RouterGroup) {
 		// Set ExpireAt outside of the switch
 		shareState.PublicFile.ExpireAt = expireDate
 
-		// Debugging: Print the current state of shareState.PublicFile
-		fmt.Printf("After switch: ExpireAt: %v, HasBeenOpened: %v\n", shareState.PublicFile.ExpireAt, shareState.PublicFile.HasBeenOpened)
-
 		// Save the updated shareState.PublicFile
 		err = shareState.PublicFile.Save()
 		if err != nil {

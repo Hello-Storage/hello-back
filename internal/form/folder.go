@@ -27,6 +27,13 @@ type SharedFolder struct {
 	Folders []FolderContent `json:"folders"`
 }
 
+type SharedFolderContentRes struct {
+	Uid  string `json:"uid"`
+	Title string `json:"title"`
+	Files []entity.File `json:"files"`
+	Folders entity.Folders `json:"folders"`
+}
+
 type SharedFolderRes struct {
 	Folder entity.Folder `json:"folder"`
 }

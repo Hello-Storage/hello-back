@@ -16,220 +16,203 @@ import (
 )
 
 var folderMutex = sync.Mutex{}
-var ShareWithUserHandler func(formget form.SharedFolder, authPayload *token.Payload, shareType string, accountIdentifier string, ctx *gin.Context, shareWithUser *entity.User) *entity.Folder
-var ShareFolderHandler func(formget form.SharedFolder, authPayload *token.Payload, shareType string, ctx *gin.Context) *entity.Folder
+func ShareWithUserHandler(formget form.SharedFolder, authPayload *token.Payload, shareType string, accountIdentifier string, ctx *gin.Context, shareWithUser *entity.User){
+
+	// Find the existing folder in the database
+	foundFolder, err := query.FindFolderByUID(formget.Uid)
+	fmt.Println(foundFolder)
+
+	if err != nil {
+		AbortNotFound(ctx)
+		return
+	}
+
+	// Update the folder title
+	if err := foundFolder.UpdateTitle(formget.Title); err != nil {
+		AbortBadRequest(ctx)
+		return
+	}
+
+	// Update the folder's encryption status to 'public'
+	if err := foundFolder.UpdateEncryptionStatus(entity.Public); err != nil {
+		AbortBadRequest(ctx)
+		return
+	}
+
+	folder_user := entity.FolderUser{
+		FolderID:   foundFolder.ID,
+		UserID:     shareWithUser.ID,
+		Permission: entity.SharedPermission,
+	}
+
+	if err := folder_user.Create(); err != nil {
+		AbortBadRequest(ctx)
+		return
+	}
+
+	// Find files in the folder based on its UID
+	filesInFolder, _ := query.FindFilesByRoot(foundFolder.UID)
+
+	if err := folder_user.Create(); err != nil {
+		fmt.Println("error: ", err)
+	}
+
+	// Validate that the number of files in the folder matches the number of files in the request payload
+	if len(filesInFolder) != len(formget.Files) {
+		Abort(ctx, http.StatusBadRequest, "files in folder don't match with files in the database")
+		return
+	}
+
+	// Print a debug message indicating the start of the sharing process
+	fmt.Println("Sharing folder:\n uid:", formget.Uid, "\n user:", authPayload.UserID)
+
+	// Start the transaction
+	tx := db.Db().Begin()
+
+	// Iterate through each file in the request payload
+	for _, file := range formget.Files {
+
+		// Check if the file exists
+		f, err := query.FindFileByUID(file.UID)
+		if err != nil {
+			log.Errorf("failed to get file: %s", err)
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+			tx.Rollback()
+			return
+		}
+
+		// Create a new file with the same metadata
+		newFile := CreateNewFileFromMetadata(f, file)
+		if err := newFile.TxCreate(tx); err != nil {
+			log.Errorf("create file: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+			return
+		}
+
+		// Create a FilesUsers entry to share the file with the specified user
+		fileUser := &entity.FileUser{
+			FileID:     newFile.ID,
+			UserID:     shareWithUser.ID,
+			Permission: entity.SharedPermission,
+		}
+
+		if err := fileUser.TxCreate(tx); err != nil {
+			log.Errorf("create file_user relation: %s", err)
+			tx.Rollback()
+			AbortInternalServerError(ctx)
+			return
+		}
+
+	}
+
+	// Commit the transaction
+	tx.Commit()
+
+	for _, child := range formget.Folders {
+		ShareWithUserHandler(child.Folder, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
+	}
+}
+func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Context){
+	// Find the existing folder in the database
+	foundFolder, err := query.FindFolderByUID(formget.Uid)
+
+	if err != nil {
+		AbortNotFound(ctx)
+		return
+	}
+
+	// Update the folder title
+	if err := foundFolder.UpdateTitle(formget.Title); err != nil {
+		AbortBadRequest(ctx)
+		return
+	}
+
+	// Update the folder's encryption status to 'public'
+	if err := foundFolder.UpdateEncryptionStatus(entity.Public); err != nil {
+		AbortBadRequest(ctx)
+		return
+	}
+
+	// Find files in the folder based on its UID
+	filesInFolder, _ := query.FindFilesByRoot(foundFolder.UID)
+
+	// Validate that the number of files in the folder matches the number of files in the request payload
+	if len(filesInFolder) != len(formget.Files) {
+		Abort(ctx, http.StatusBadRequest, "files in folder don't match with files in the database")
+		return
+	}
+
+	// Iterate through each file in the request payload
+	for _, file := range formget.Files {
+		// Find the file in the database based on its UID
+		f, err := query.FindFileByUID(file.UID)
+		if err != nil {
+			log.Errorf("failed to get file: %s", err)
+		}
+
+		query.DeleteFileShareState(f.UID)
+
+		// Find or create a sharing state for the file
+		shareState, err := query.FindShareStateByFileUID(file.UID)
+		if err != nil {
+			shareState, err = query.CreateShareState(f)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
+				return
+			}
+		}
+
+		// Publish the file and get the corresponding PublicFile instance
+		publicFile, err := query.PublishFile(shareState, file)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
+			return
+		}
+
+		// Update the sharing state with the new PublicFile
+		shareState.PublicFile = *publicFile
+
+		// Set values based on the sharing type
+		var expireDate *time.Time
+		switch shareType {
+		case "public":
+			// No changes needed
+		case "one-time":
+			hasBeenOpened := false
+			shareState.PublicFile.HasBeenOpened = &hasBeenOpened
+		case "monthly":
+			tmpExpireDate := time.Now().AddDate(0, 1, 0)
+			expireDate = &tmpExpireDate
+			shareState.PublicFile.HasBeenOpened = nil
+		}
+
+		// Set ExpireAt outside of the switch
+		shareState.PublicFile.ExpireAt = expireDate
+
+		// Save the updated shareState.PublicFile
+		err = shareState.PublicFile.Save()
+
+		if err != nil {
+			fmt.Println("failed to save share state: ", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
+			return
+		}
+	}
+
+	if formget.Folders != nil && len(formget.Folders) > 0 {
+		for _, childF := range formget.Folders {
+			ShareFolderHandler(childF.Folder, shareType, ctx)
+		}
+	}
+
+}
 
 // CreateFolder returns bool
 //
 // POST /api/folder/create
 // formData: form.CreateFolder
 func CreateFolder(router *gin.RouterGroup) {
-
-	ShareWithUserHandler := func(formget form.SharedFolder, authPayload *token.Payload, shareType string, accountIdentifier string, ctx *gin.Context, shareWithUser *entity.User) *entity.Folder {
-
-		// Find the existing folder in the database
-		foundFolder, err := query.FindFolderByUID(formget.Uid)
-
-		if err != nil {
-			AbortNotFound(ctx)
-			return nil
-		}
-
-		// Update the folder title
-		if err := foundFolder.UpdateTitle(formget.Title); err != nil {
-			AbortBadRequest(ctx)
-			return nil
-		}
-
-		// Update the folder's encryption status to 'public'
-		if err := foundFolder.UpdateEncryptionStatus(entity.Public); err != nil {
-			AbortBadRequest(ctx)
-			return nil
-		}
-
-		folder_user := entity.FolderUser{
-			FolderID:   foundFolder.ID,
-			UserID:     shareWithUser.ID,
-			Permission: entity.SharedPermission,
-		}
-
-		if err := folder_user.Create(); err != nil {
-			AbortBadRequest(ctx)
-			return nil
-		}
-
-		// Find files in the folder based on its UID
-		filesInFolder, err := query.FindFilesByRoot(foundFolder.UID)
-		if err != nil {
-			Abort(ctx, http.StatusNoContent, "folder is empty")
-			return nil
-		}
-
-		// Validate that the number of files in the folder matches the number of files in the request payload
-		if len(filesInFolder) != len(formget.Files) {
-			Abort(ctx, http.StatusNoContent, "files in folder don't match with files in the database")
-			return nil
-		}
-
-		// Print a debug message indicating the start of the sharing process
-		fmt.Println("Sharing folder:\n uid:", formget.Uid, "\n user:", authPayload.UserID)
-
-		// Start the transaction
-		tx := db.Db().Begin()
-
-		// Iterate through each file in the request payload
-		for _, file := range formget.Files {
-
-			// Check if the file exists
-			f, err := query.FindFileByUID(file.UID)
-			if err != nil {
-				log.Errorf("failed to get file: %s", err)
-				ctx.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
-				tx.Rollback()
-				return nil
-			}
-
-			// Create a new file with the same metadata
-			newFile := CreateNewFileFromMetadata(f, file)
-			if err := newFile.TxCreate(tx); err != nil {
-				log.Errorf("create file: %s", err)
-				tx.Rollback()
-				AbortInternalServerError(ctx)
-				return nil
-			}
-
-			// Create a FilesUsers entry to share the file with the specified user
-			fileUser := &entity.FileUser{
-				FileID:     newFile.ID,
-				UserID:     shareWithUser.ID,
-				Permission: entity.SharedPermission,
-			}
-
-			if err := fileUser.TxCreate(tx); err != nil {
-				log.Errorf("create file_user relation: %s", err)
-				tx.Rollback()
-				AbortInternalServerError(ctx)
-				return nil
-			}
-
-			// Print a debug message indicating the sharing details
-			fmt.Printf("Sharing file:\nshareType: %s\nfile UID: %s\nshared with: %s\n", entity.SharedPermission, file.UID, accountIdentifier)
-
-		}
-
-		// Commit the transaction
-		tx.Commit()
-
-		for _, child := range formget.Folders {
-			ShareWithUserHandler(child.Folder, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
-		}
-
-		return foundFolder
-	}
-
-	ShareFolderHandler := func(formget form.SharedFolder, authPayload *token.Payload, shareType string, ctx *gin.Context) *entity.Folder {
-
-		// Find the existing folder in the database
-		foundFolder, err := query.FindFolderByUID(formget.Uid)
-
-		if err != nil {
-			AbortNotFound(ctx)
-			return nil
-		}
-
-		// Update the folder title
-		if err := foundFolder.UpdateTitle(formget.Title); err != nil {
-			AbortBadRequest(ctx)
-			return nil
-		}
-
-		// Update the folder's encryption status to 'public'
-		if err := foundFolder.UpdateEncryptionStatus(entity.Public); err != nil {
-			AbortBadRequest(ctx)
-			return nil
-		}
-
-		// Find files in the folder based on its UID
-		filesInFolder, err := query.FindFilesByRoot(foundFolder.UID)
-		if err != nil {
-			Abort(ctx, http.StatusNoContent, "folder is empty")
-			return nil
-		}
-
-		// Validate that the number of files in the folder matches the number of files in the request payload
-		if len(filesInFolder) != len(formget.Files) {
-			Abort(ctx, http.StatusNoContent, "files in folder don't match with files in the database")
-			return nil
-		}
-
-		// Print a debug message indicating the start of the sharing process
-		fmt.Println("Sharing folder:\n uid:", formget.Uid, "\n user:", authPayload.UserID)
-
-		// Iterate through each file in the request payload
-		for _, file := range formget.Files {
-			// Find the file in the database based on its UID
-			f, err := query.FindFileByUID(file.UID)
-			if err != nil {
-				log.Errorf("failed to get file: %s", err)
-			}
-
-			// Find or create a sharing state for the file
-			shareState, err := query.FindShareStateByFileUID(file.UID)
-			if err != nil {
-				shareState, err = query.CreateShareState(f)
-				if err != nil {
-					log.Errorf("failed to create share state: %s", err)
-					ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
-					return nil
-				}
-			}
-
-			// Publish the file and get the corresponding PublicFile instance
-			publicFile, err := query.PublishFile(shareState, file)
-			if err != nil {
-				log.Errorf("failed to publish file: %s", err)
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
-				return nil
-			}
-
-			// Update the sharing state with the new PublicFile
-			shareState.PublicFile = *publicFile
-
-			// Set values based on the sharing type
-			var expireDate *time.Time
-			switch shareType {
-			case "public":
-				// No changes needed
-			case "one-time":
-				hasBeenOpened := false
-				shareState.PublicFile.HasBeenOpened = &hasBeenOpened
-			case "monthly":
-				tmpExpireDate := time.Now().AddDate(0, 1, 0)
-				expireDate = &tmpExpireDate
-				shareState.PublicFile.HasBeenOpened = nil
-			}
-
-			// Set ExpireAt outside of the switch
-			shareState.PublicFile.ExpireAt = expireDate
-
-			// Debugging: Print the current state of shareState.PublicFile
-			fmt.Printf("After switch: ExpireAt: %v, HasBeenOpened: %v\n", shareState.PublicFile.ExpireAt, shareState.PublicFile.HasBeenOpened)
-
-			// Save the updated shareState.PublicFile
-			err = shareState.PublicFile.Save()
-			if err != nil {
-				log.Errorf("failed to save share state: %s", err)
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
-				return nil
-			}
-		}
-
-		for _, child := range formget.Folders {
-			ShareFolderHandler(child.Folder, authPayload, shareType, ctx)
-		}
-		return foundFolder
-
-	}
 
 	router.POST("/folder/create", func(ctx *gin.Context) {
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
@@ -283,18 +266,16 @@ func CreateFolder(router *gin.RouterGroup) {
 			return
 		}
 
+		fmt.Println("Sharing folder\n user:", authPayload.UserID)
+
 		// Lock to ensure exclusive access to shared resources
 		folderMutex.Lock()
 		defer folderMutex.Unlock()
 
-		foundFolder := ShareFolderHandler(formget, authPayload, shareType, ctx)
+		ShareFolderHandler(formget, shareType, ctx)
 
-		res := form.SharedFolderRes{
-			Folder: *foundFolder,
-		}
-
-		// Respond with the updated folder information
-		ctx.JSON(http.StatusOK, res)
+		// Respond
+		ctx.JSON(http.StatusOK, "success")
 	})
 
 	router.POST("/folder/share/:shareType/:user", func(ctx *gin.Context) {
@@ -335,14 +316,109 @@ func CreateFolder(router *gin.RouterGroup) {
 			return
 		}
 
-		foundFolder := ShareWithUserHandler(formget, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
+		ShareWithUserHandler(formget, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
 
-		res := form.SharedFolderRes{
-			Folder: *foundFolder,
+		// Respond
+		ctx.JSON(http.StatusOK, "success")
+	})
+
+	router.GET("/folder/shared-uid/:uid", func(ctx *gin.Context) {
+		// Extract authorization payload from the context
+		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+
+		// Get the uid from the URL parameters
+		uid := ctx.Param("uid")
+
+		// Lock to ensure exclusive access to shared resources
+		folderMutex.Lock()
+		defer folderMutex.Unlock()
+
+		fmt.Println("Getting shared folder content:\n uid:", uid, "\n user:", authPayload.UserID)
+
+		// check if the folder exists
+		foundFolder, err := query.FindFolderByUID(uid)
+		if err != nil {
+			AbortNotFound(ctx)
+			return
+		}
+
+		// get files in the folder
+		filesInFolder, _ := query.FindFilesByRoot(foundFolder.UID)
+
+		publicfilesInFolder, _ := query.FindPublicFilesByRoot(foundFolder.UID)
+
+		var resFiles []entity.File
+
+		// check the size of the results
+		if len(filesInFolder) != len(publicfilesInFolder) {
+			fmt.Println("filesInFolder", filesInFolder)
+			fmt.Println("publicfilesInFolder", publicfilesInFolder)
+			Abort(ctx, http.StatusBadRequest, "files in folder are no shared")
+			return
+		}
+		for i, file := range filesInFolder {
+			publicFile := publicfilesInFolder[i]
+			resFiles = append(resFiles, CreateFileForSharedFile(file, publicFile))
+
+			// Check additional conditions
+			if publicFile.HasBeenOpened != nil && *publicFile.HasBeenOpened {
+				// If HasBeenOpened is true, the file has been accessed before, and access is not allowed
+				ctx.JSON(http.StatusForbidden, gin.H{"error": "File has already been accessed"})
+				return
+			}
+
+			if publicFile.ExpireAt != nil && !publicFile.ExpireAt.IsZero() && time.Now().After(*publicFile.ExpireAt) {
+				// If ExpireAt is a past date, the file has expired, and access is not allowed
+				ctx.JSON(http.StatusForbidden, gin.H{"error": "File has expired"})
+				return
+			}
+
+			// Update HasBeenOpened if necessary
+			if publicFile.HasBeenOpened != nil && !*publicFile.HasBeenOpened {
+				hasBeenOpened := true
+				publicFile.HasBeenOpened = &hasBeenOpened
+				// You could also update the access date here if necessary
+				publicFile.UpdatedAt = time.Now()
+				publicFile.Save()
+			}
+
+		}
+
+		// get folders in the folder
+		foldersInFolder, _ := query.FoldersByRoot(foundFolder.UID)
+
+		res := form.SharedFolderContentRes{
+			Uid:     foundFolder.UID,
+			Title:   foundFolder.Title,
+			Files:   resFiles,
+			Folders: foldersInFolder,
 		}
 
 		// Respond with the updated folder information
 		ctx.JSON(http.StatusOK, res)
 	})
+}
 
+func CreateFileForSharedFile(originalFile entity.File, publicFile entity.PublicFile) entity.File {
+	var isInPool bool = true
+	shareState, _ := query.FindShareStateByFileUID(originalFile.UID)
+
+	return entity.File{
+		ID:                   originalFile.ID,
+		UID:                  originalFile.UID,
+		CID:                  originalFile.CID,
+		CIDOriginalEncrypted: nil,
+		Name:                 publicFile.Name,
+		Root:                 "",
+		Mime:                 publicFile.Mime,
+		Size:                 publicFile.Size,
+		MediaType:            originalFile.MediaType,
+		EncryptionStatus:     entity.Public,
+		CreatedAt:            publicFile.CreatedAt,
+		UpdatedAt:            publicFile.UpdatedAt,
+		IsInPool:             &isInPool,
+		DeletedAt:            originalFile.DeletedAt,
+		Path:                 originalFile.Path,
+		FileShareState:       shareState,
+	}
 }
