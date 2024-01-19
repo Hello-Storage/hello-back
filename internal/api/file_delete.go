@@ -39,6 +39,9 @@ func DeleteFile(router *gin.RouterGroup) {
 			return
 		}
 
+		// delete the file share state in case it exists
+		query.DeleteFileShareState(f.UID)
+
 		f_u := entity.FileUser{
 			FileID: f.ID,
 			UserID: authPayload.UserID,

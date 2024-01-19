@@ -37,16 +37,9 @@ func DownloadFile(router *gin.RouterGroup) {
 		if error != nil {
 			if strings.Contains(error.Error(), "NoSuchKey") {
 				//get file by uid
-				f, err := query.FindFileByUID(file_uid)
-				if err != nil {
-					ctx.JSON(http.StatusBadRequest, gin.H{
-						"message": error.Error(),
-					})
-					return
-				}
+				f, _ := query.FindFileByUID(file_uid)
 				keyPath = f.CID
 				out, error = DownloadFileFromS3(keyPath)
-				log.Errorf("download file: %s", error)
 
 				//if error contains "NoSuchKey" then set keyPath without the userUID
 				if error != nil {
@@ -69,6 +62,8 @@ func DownloadFile(router *gin.RouterGroup) {
 						return
 					}
 
+				} else {
+					fmt.Println("download file: ", error)
 				}
 
 			} else {
@@ -79,6 +74,8 @@ func DownloadFile(router *gin.RouterGroup) {
 				return
 			}
 
+		} else {
+			fmt.Println("download file: ", error)
 		}
 		// Set the correct content type and file name
 		ctx.Header("Content-Type", *out.ContentType)
