@@ -16,7 +16,8 @@ import (
 )
 
 var folderMutex = sync.Mutex{}
-func ShareWithUserHandler(formget form.SharedFolder, authPayload *token.Payload, shareType string, accountIdentifier string, ctx *gin.Context, shareWithUser *entity.User){
+
+func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayload *token.Payload, shareType string, accountIdentifier string, ctx *gin.Context, shareWithUser *entity.User) {
 
 	// Find the existing folder in the database
 	foundFolder, err := query.FindFolderByUID(formget.Uid)
@@ -39,10 +40,21 @@ func ShareWithUserHandler(formget form.SharedFolder, authPayload *token.Payload,
 		return
 	}
 
+	folder := entity.Folder{
+		Title:            formget.Title,
+		Root:             parentRoot,
+		EncryptionStatus: entity.Public,
+	}
+
+	if err := folder.Create(); err != nil {
+		AbortBadRequest(ctx)
+		return
+	}
+
 	folder_user := entity.FolderUser{
-		FolderID:   foundFolder.ID,
+		FolderID:   folder.ID,
 		UserID:     shareWithUser.ID,
-		Permission: entity.SharedPermission,
+		Permission: entity.OwnerPermission,
 	}
 
 	if err := folder_user.Create(); err != nil {
@@ -83,6 +95,7 @@ func ShareWithUserHandler(formget form.SharedFolder, authPayload *token.Payload,
 
 		// Create a new file with the same metadata
 		newFile := CreateNewFileFromMetadata(f, file)
+		newFile.Root = folder.UID
 		if err := newFile.TxCreate(tx); err != nil {
 			log.Errorf("create file: %s", err)
 			tx.Rollback()
@@ -110,10 +123,10 @@ func ShareWithUserHandler(formget form.SharedFolder, authPayload *token.Payload,
 	tx.Commit()
 
 	for _, child := range formget.Folders {
-		ShareWithUserHandler(child.Folder, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
+		ShareWithUserHandler(child.Folder, folder.UID, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
 	}
 }
-func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Context){
+func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Context) {
 	// Find the existing folder in the database
 	foundFolder, err := query.FindFolderByUID(formget.Uid)
 
@@ -316,7 +329,7 @@ func CreateFolder(router *gin.RouterGroup) {
 			return
 		}
 
-		ShareWithUserHandler(formget, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
+		ShareWithUserHandler(formget, "/", authPayload, shareType, accountIdentifier, ctx, shareWithUser)
 
 		// Respond
 		ctx.JSON(http.StatusOK, "success")
