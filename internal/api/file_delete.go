@@ -1,11 +1,9 @@
 package api
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
+	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/s3"
@@ -54,6 +52,7 @@ func DeleteFile(router *gin.RouterGroup) {
 			Region:           aws.String(config.Env().WasabiRegion),
 			S3ForcePathStyle: aws.Bool(true),
 		}
+		keyPath := f.CID
 
 		// Check if other users have the file
 		usersWithFile, err := query.FindUsersByFileCID(f.CID)
@@ -63,11 +62,21 @@ func DeleteFile(router *gin.RouterGroup) {
 			log.Errorf("error finding users by file CID: %v", err)
 			return
 		}
-		fmt.Println("Users with the file: ", usersWithFile)
+
+		filesWithUser, err := query.FindFilesByUserAndFileCID(authPayload.UserID, f.CID)
+		// AbortInternalServerError if there is an error finding files by user and file CID
+		if err != nil {
+			AbortInternalServerError(ctx)
+			log.Errorf("error finding files by user and file CID: %v", err)
+			return
+		}
+
 		// Delete the file from s3 if there is more than one user
-		if len(usersWithFile) > 1 {
+		log.Printf("users with file: %v", usersWithFile)
+		log.Printf("files with user: %v", len(filesWithUser))
+		if len(usersWithFile) > 1 || len(filesWithUser) > 1 {
 			// If more than one user has the file, delete the file from the user and give the owner to the next user shared
-			fmt.Println("Can't delete the file, the owners are: ", usersWithFile, ", changing owner")
+			//log.Println("Can't delete the file, the owners are: ", usersWithFile, ", changing owner")
 			// Returns true if the entity is a file owner.
 			isOwner, err := entity.IsFileOwner(f_u.FileID, f_u.UserID)
 			if err != nil {
@@ -78,16 +87,17 @@ func DeleteFile(router *gin.RouterGroup) {
 			if isOwner {
 				// get the user details
 				user_detail := query.FindUserDetailByUserID(authPayload.UserID)
-				// Removes storage_used from the database.
-				updatedStorageUsed := uint(0)
-				if uint(f.Size) < (user_detail.StorageUsed) {
-					updatedStorageUsed = user_detail.StorageUsed - uint(f.Size)
+
+				// removes storage_used from the database.
+				newStorageUsed := user_detail.StorageUsed
+				if uint(f.Size) <= user_detail.StorageUsed {
+					newStorageUsed -= uint(f.Size)
+				} else {
+					log.Warnf("File size (%d) is larger than current storage used (%d), setting storage_used to 0", f.Size, user_detail.StorageUsed)
+					newStorageUsed = 0
 				}
-
-				log.Infof("Updating storage_used: Old Value=%d, Size to Remove=%d, New Value=%d", user_detail.StorageUsed, f.Size, updatedStorageUsed)
-
-				if err := user_detail.Update("storage_used", updatedStorageUsed); err != nil {
-					log.Errorf("Error updating storage_used: %s", err)
+				if err := user_detail.Update("storage_used", newStorageUsed); err != nil {
+					log.Errorf("removing storage_used: %s", err)
 				}
 
 				// update the "deleted_at column" for this user
@@ -107,21 +117,32 @@ func DeleteFile(router *gin.RouterGroup) {
 				//get id of the next owner
 				nextOwner, err := query.GetNextOwner(f_u.UserID, f_u.FileID)
 				if err != nil {
-					AbortInternalServerError(ctx)
 					log.Errorf("get next owner error: %v", err)
-					return
-				}
+					log.Printf("length of files with user: %v", len(filesWithUser))
+					if len(filesWithUser) > 1 {
+						log.Printf("users with file bigger than 1")
+						nextFileUser, err := query.GetNextFileUser(f_u.UserID, f.CID)
+						if err != nil {
+							log.Errorf("get next file error: %v", err)
+							AbortInternalServerError(ctx)
+							return
+						} else {
+							//give the owner
+							log.Printf("next file user: %v", nextFileUser)
+							query.SetOwnerPermision(nextFileUser.UserID, nextFileUser.FileID)
+							query.SetNextFileInPool(nextFileUser.UserID, nextFileUser.FileID)
+						}
+					}
+				} else {
+					//give the owner
+					query.SetOwnerPermision(nextOwner.UserID, nextOwner.FileID)
+					// get the user details
+					user_detail_next := query.FindUserDetailByUserID(nextOwner.UserID)
 
-				//give the owner
-				query.SetOwnerPermision(nextOwner.UserID, nextOwner.FileID)
-				// get the user details
-				user_detail_next := query.FindUserDetailByUserID(nextOwner.UserID)
-
-				// sums storage_used from the database.
-				if err := user_detail_next.Update("storage_used", user_detail_next.StorageUsed+uint(f.Size)); err != nil {
-					log.Errorf("adding storage_used: %s", err)
-					AbortInternalServerError(ctx)
-					return
+					// sums storage_used from the database.
+					if err := user_detail_next.Update("storage_used", user_detail_next.StorageUsed+uint(f.Size)); err != nil {
+						log.Errorf("adding storage_used: %s", err)
+					}
 				}
 
 			} else {
@@ -141,43 +162,41 @@ func DeleteFile(router *gin.RouterGroup) {
 
 			}
 		} else {
-			inicio := time.Now()
+			// If not, delete the file from s3
+			err = DeleteFileFromS3(keyPath, s3Config)
 
-			fmt.Printf("Attempting to delete file from S3. CID: %s\n", f.CID)
-			err := DeleteFileFromS3(f.CID, s3Config)
-			fmt.Printf("Delete operation completed. Elapsed time: %s\n", time.Since(inicio))
-			fmt.Println(err)
 			// Delete the file from s3 if it exists
 			if err != nil {
-				log.Print("error deleting file from s3 using the CID. ")
+				log.Print("error deleting file from s3, trying using the CID. ")
 				log.Print(err)
+				log.Printf("deleting again")
+				// If not found, try deleting using the CID as the keyPath
+				keyPath = authPayload.UserUID + "/" + f.UID
+				err = DeleteFileFromS3(keyPath, s3Config)
+				if err != nil {
+					log.Print("error deleting file from s3: ")
+					log.Print(err)
+				}
 			}
 			// get the user details
 			user_detail := query.FindUserDetailByUserID(authPayload.UserID)
 
 			// removes storage_used from the database.
-			updatedStorageUsed := uint(0)
-			if uint(f.Size) < (user_detail.StorageUsed) {
-				updatedStorageUsed = user_detail.StorageUsed - uint(f.Size)
+			newStorageUsed := user_detail.StorageUsed
+			if uint(f.Size) <= user_detail.StorageUsed {
+				newStorageUsed -= uint(f.Size)
+			} else {
+				log.Warnf("File size (%d) is larger than current storage used (%d), setting storage_used to 0", f.Size, user_detail.StorageUsed)
+				newStorageUsed = 0
 			}
-
-			log.Infof("Updating storage_used: Old Value=%d, Size to Remove=%d, New Value=%d", user_detail.StorageUsed, f.Size, updatedStorageUsed)
-
-			if err := user_detail.Update("storage_used", updatedStorageUsed); err != nil {
-				log.Errorf("Error updating storage_used: %s", err)
+			if err := user_detail.Update("storage_used", newStorageUsed); err != nil {
+				log.Errorf("removing storage_used: %s", err)
 			}
 
 			// update the "deleted_at column" for this user
 			if err := query.DeleteFileUser(f_u); err != nil {
 				AbortInternalServerError(ctx)
 				log.Errorf("delete file user error: %v", err)
-				return
-			}
-
-			// Delete the apikey file
-			if err := query.DeleteApiKeyFileByFileID(f_u.FileID); err != nil {
-				AbortInternalServerError(ctx)
-				fmt.Printf("delete api key file error: %v", err)
 				return
 			}
 
@@ -194,33 +213,6 @@ func DeleteFile(router *gin.RouterGroup) {
 			"message": "ok",
 		})
 	})
-	// router.DELETE("/delete/test/:cid", func(ctx *gin.Context) {
-	// 	// TO-DO: Check user auth & add user uid
-	// 	fileCID := ctx.Param("cid")
-
-	// 	// Create S3 configuration
-	// 	s3Config := aws.Config{
-	// 		Credentials: credentials.NewStaticCredentials(
-	// 			config.Env().WasabiAccessKey,
-	// 			config.Env().WasabiSecretKey,
-	// 			"",
-	// 		),
-	// 		Endpoint:         aws.String(config.Env().WasabiEndpoint),
-	// 		Region:           aws.String(config.Env().WasabiRegion),
-	// 		S3ForcePathStyle: aws.Bool(true),
-	// 	}
-
-	// 	// Print the configuration for debugging
-	// 	fmt.Println("S3 Config: ", s3Config)
-
-	// 	err := DeleteFileFromS3(fileCID, s3Config)
-
-	// 	// Return JSON response with the result
-	// 	ctx.JSON(200, gin.H{
-	// 		"message": err,
-	// 	})
-	// })
-
 }
 
 // internal delete one file
@@ -245,4 +237,11 @@ func DeleteFileFromS3(keyPath string, s3Config aws.Config) error {
 	}
 
 	return nil
+}
+
+func SetNextFileInPool(user_uid uint, file_id uint) error {
+	return db.Db().Table("files").
+		Where("id = ?", file_id).
+		Update("is_in_pool", false).
+		Error
 }

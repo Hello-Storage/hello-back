@@ -184,6 +184,24 @@ func FindUsersByFileCID(cid string) ([]uint, error) {
 	return usersWF, nil
 }
 
+func FindFilesByUserAndFileCID(userID uint, cid string) ([]entity.File, error) {
+	var files []entity.File
+
+	// Join File and FileUser tables and find records by CID
+	err := db.Db().Unscoped().
+		Table("files_users").
+		Select("files.*").
+		Joins("JOIN files ON files.id = files_users.file_id").
+		Where("files_users.user_id = ? AND files.c_id = ? AND files.deleted_at IS NULL", userID, cid).
+		Find(&files).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
+}
+
 // DeleteFileByUID deletes a file by its UID.
 func DeleteFileByUID(file_uid string) error {
 	if file_uid == "" {
