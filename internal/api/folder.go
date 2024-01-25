@@ -44,6 +44,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		Title:            formget.Title,
 		Root:             parentRoot,
 		EncryptionStatus: entity.Public,
+		IsInPool:         true,
 	}
 
 	if err := folder.Create(); err != nil {
@@ -54,7 +55,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 	folder_user := entity.FolderUser{
 		FolderID:   folder.ID,
 		UserID:     shareWithUser.ID,
-		Permission: entity.OwnerPermission,
+		Permission: entity.SharedPermission,
 	}
 
 	if err := folder_user.Create(); err != nil {

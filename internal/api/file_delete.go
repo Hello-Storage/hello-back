@@ -77,11 +77,8 @@ func DeleteFile(router *gin.RouterGroup) {
 		}
 
 		// Delete the file from s3 if there is more than one user
-		log.Printf("users with file: %v", usersWithFile)
-		log.Printf("files with user: %v", len(filesWithUser))
 		if len(usersWithFile) > 1 || len(filesWithUser) > 1 {
 			// If more than one user has the file, delete the file from the user and give the owner to the next user shared
-			//log.Println("Can't delete the file, the owners are: ", usersWithFile, ", changing owner")
 			// Returns true if the entity is a file owner.
 			isOwner, err := entity.IsFileOwner(f_u.FileID, f_u.UserID)
 			if err != nil {
