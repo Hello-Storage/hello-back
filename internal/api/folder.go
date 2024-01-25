@@ -117,6 +117,35 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 			return
 		}
 
+		// delete the file share state user shared in case it exists
+		query.DeleteFileShareStateUserShared(f.UID, shareWithUser.ID)
+		shareState, err := query.CreateShareStateUserShared(newFile, shareWithUser.ID)
+		if err != nil {
+			log.Errorf("failed to create share state: %s", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
+			return
+		}
+
+		// PublishFile crea un nuevo PublicFile y lo devuelve
+		publicFile, err := query.PublishFileUserShared(shareState, file)
+		if err != nil {
+			log.Errorf("failed to publish file: %s", err)
+			// Devuelve un mensaje de error al cliente
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
+			return
+		}
+
+		// Update the shareState with the new PublicFile
+		shareState.PublicFile = *publicFile
+
+		// Save the updated shareState.PublicFile
+		err = shareState.PublicFile.Save()
+		if err != nil {
+			log.Errorf("failed to save share state: %s", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
+			return
+		}
+
 	}
 
 	// Commit the transaction
