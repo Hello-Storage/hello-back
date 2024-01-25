@@ -98,15 +98,15 @@ func (s *SharedStatistics) startStatisticsBackgroundJob() {
 	}()
 }
 
-func (s *SharedStatistics) stopStatisticsBackgroundJob() {
-	// Perform any necessary cleanup here
-	// Reset the instance to allow for a fresh start on the next request
-	if s.timer != nil {
-		s.timer.Stop()
-		s.timer = nil
-	}
-	statisticsOnce = sync.Once{}
-}
+// func (s *SharedStatistics) stopStatisticsBackgroundJob() {
+// 	// Perform any necessary cleanup here
+// 	// Reset the instance to allow for a fresh start on the next request
+// 	if s.timer != nil {
+// 		s.timer.Stop()
+// 		s.timer = nil
+// 	}
+// 	statisticsOnce = sync.Once{}
+// }
 
 func (s *SharedStatistics) CalculateStatistics() (Statistics, error) {
 	totalusedstorage, err := query.CountTotalUsedStorage()

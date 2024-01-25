@@ -47,7 +47,15 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 				AbortInternalServerError(ctx)
 				return
 			} else {
-				resp.Files = files
+				filesMaped := []entity.File{}
+				for _, file := range files {
+					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
+					if err == nil {
+						file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
+					}
+					filesMaped = append(filesMaped, file)
+				}
+				resp.Files = filesMaped
 			}
 
 		} else {
@@ -63,11 +71,18 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 			// files
 			if files, err := query.FindFilesByRoot(root); err != nil {
 				log.Errorf("file: %s", err)
-
 				AbortInternalServerError(ctx)
 				return
 			} else {
-				resp.Files = files
+				filesMaped := []entity.File{}
+				for _, file := range files {
+					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
+					if err == nil {
+						file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
+					}
+					filesMaped = append(filesMaped, file)
+				}
+				resp.Files = filesMaped
 			}
 		}
 

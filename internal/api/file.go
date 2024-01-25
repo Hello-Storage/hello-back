@@ -304,8 +304,6 @@ func PublishFile(router *gin.RouterGroup) {
 			return
 		}
 
-		fmt.Println("Sharing file:\nshareType:", shareType, "\nfile uid:", selectedShareFile.UID)
-
 		// Get the sharing state; if it doesn't exist, create it
 		shareState, err := query.FindShareStateByFileUID(selectedShareFile.UID)
 		if err != nil {
@@ -394,7 +392,7 @@ func PublishFile(router *gin.RouterGroup) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
 		}
-		
+
 		// Start the transaction
 		tx := db.Db().Begin()
 
@@ -430,8 +428,34 @@ func PublishFile(router *gin.RouterGroup) {
 			return
 		}
 
-		// Print a debug message indicating the sharing details
-		fmt.Printf("Sharing file:\nshareType: %s\nfile UID: %s\nshared with: %s\n", entity.SharedPermission, selectedShareFile.UID, accountIdentifier)
+		// delete the file share state user shared in case it exists
+		query.DeleteFileShareStateUserShared(f.UID, shareWithUser.ID)
+		shareState, err := query.CreateShareStateUserShared(newFile, shareWithUser.ID)
+		if err != nil {
+			log.Errorf("failed to create share state: %s", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
+			return
+		}
+
+		// PublishFile crea un nuevo PublicFile y lo devuelve
+		publicFile, err := query.PublishFileUserShared(shareState, selectedShareFile)
+		if err != nil {
+			log.Errorf("failed to publish file: %s", err)
+			// Devuelve un mensaje de error al cliente
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
+			return
+		}
+
+		// Update the shareState with the new PublicFile
+		shareState.PublicFile = *publicFile
+
+		// Save the updated shareState.PublicFile
+		err = shareState.PublicFile.Save()
+		if err != nil {
+			log.Errorf("failed to save share state: %s", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
+			return
+		}
 
 		// Commit the transaction
 		tx.Commit()
