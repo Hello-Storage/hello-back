@@ -121,7 +121,7 @@ func DeleteAllFilesInFolder(folderUID, userUID string, userID uint) error {
 		// delete the file share state in case it exists
 		query.DeleteFileShareState(file.UID)
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStateUserShared(file.UID, userID)
+		query.DeleteFileShareStatesUserShared(file.UID, userID)
 
 		// Check if other users have the file
 		usersWithFile, err := query.FindUsersByFileCID(file.CID)

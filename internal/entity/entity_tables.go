@@ -33,7 +33,7 @@ var Entities = Tables{
 	ShareGroup{}.TableName():               &ShareGroup{},
 	ApiKey{}.TableName():                   &ApiKey{},
 	ApiKeyFile{}.TableName():               &ApiKeyFile{},
-	FileShareStateUserShared{}.TableName(): &FileShareStateUserShared{},
+	FileShareStatesUserShared{}.TableName(): &FileShareStatesUserShared{},
 	PublicFileUserShared{}.TableName():     &PublicFileUserShared{},
 }
 

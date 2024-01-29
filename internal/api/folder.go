@@ -119,7 +119,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		}
 
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStateUserShared(f.UID, shareWithUser.ID)
+		query.DeleteFileShareStatesUserShared(f.UID, shareWithUser.ID)
 		shareState, err := query.CreateShareStateUserShared(newFile, shareWithUser.ID)
 		if err != nil {
 			log.Errorf("failed to create share state: %s", err)

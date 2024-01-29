@@ -62,7 +62,7 @@ func FindPublicFileByHash(shareHash string) (*entity.PublicFile, error) {
 
 
 // PublishFileUserShared creates a new public file.
-func PublishFileUserShared(share_state entity.FileShareStateUserShared, selectedShareFile form.CustomFileMeta) (*entity.PublicFileUserShared, error) {
+func PublishFileUserShared(share_state entity.FileShareStatesUserShared, selectedShareFile form.CustomFileMeta) (*entity.PublicFileUserShared, error) {
 	var publicFile entity.PublicFileUserShared
 
 	publicFile.FileUID = share_state.FileUID
@@ -100,10 +100,10 @@ func PublishFileUserShared(share_state entity.FileShareStateUserShared, selected
 	return &publicFile, nil
 }
 
-// GetFileShareStateByFileUIDAndUserID retrieves the FileShareStateUserShared object and its associated PublicFile
+// GetFileShareStateByFileUIDAndUserID retrieves the FileShareStatesUserShared object and its associated PublicFile
 // based on the provided fileUID and userID.
-func GetFileShareStateByFileUIDAndUserID(fileUID string, userID uint) (*entity.FileShareStateUserShared, error) {
-    var fileShareState entity.FileShareStateUserShared
+func GetFileShareStateByFileUIDAndUserID(fileUID string, userID uint) (*entity.FileShareStatesUserShared, error) {
+    var fileShareState entity.FileShareStatesUserShared
     // Search for the sharing state by fileUID and userID
     result := db.Db().Preload("PublicFile").Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
     if result.Error != nil {
@@ -113,28 +113,28 @@ func GetFileShareStateByFileUIDAndUserID(fileUID string, userID uint) (*entity.F
     return &fileShareState, nil
 }
 
-// ConvertToDomainEntities converts the FileShareStateUserShared and PublicFileUserShared objects
+// ConvertToDomainEntities converts the FileShareStatesUserShared and PublicFileUserShared objects
 // to the desired FileShareState and PublicFile entities.
-func ConvertToDomainEntities(fileShareStateUserShared *entity.FileShareStateUserShared) (entity.FileShareState) {
+func ConvertToDomainEntities(fileShareStatesUserShared *entity.FileShareStatesUserShared) (entity.FileShareState) {
     fileShareState := entity.FileShareState{
 		ID: 	1, // if the ID is not set, it will be 0, the entire sharestate wont be able to be used in frontend
-        FileUID:    fileShareStateUserShared.FileUID,
+        FileUID:    fileShareStatesUserShared.FileUID,
         PublicFile: entity.PublicFile{
-            FileUID:              fileShareStateUserShared.PublicFile.FileUID,
-            ShareHash:            fileShareStateUserShared.PublicFile.ShareHash,
-            Name:                 fileShareStateUserShared.PublicFile.Name,
-            Mime:                 fileShareStateUserShared.PublicFile.Mime,
-            Size:                 fileShareStateUserShared.PublicFile.Size,
-            CID:                  fileShareStateUserShared.PublicFile.CID,
-            CIDOriginalDecrypted: fileShareStateUserShared.PublicFile.CIDOriginalDecrypted,
+            FileUID:              fileShareStatesUserShared.PublicFile.FileUID,
+            ShareHash:            fileShareStatesUserShared.PublicFile.ShareHash,
+            Name:                 fileShareStatesUserShared.PublicFile.Name,
+            Mime:                 fileShareStatesUserShared.PublicFile.Mime,
+            Size:                 fileShareStatesUserShared.PublicFile.Size,
+            CID:                  fileShareStatesUserShared.PublicFile.CID,
+            CIDOriginalDecrypted: fileShareStatesUserShared.PublicFile.CIDOriginalDecrypted,
         },
     }
     return fileShareState
 }
 
-// DeleteFileShareStateUserShared deletes the sharing state of a file shared with a specific user based on its UID.
-func DeleteFileShareStateUserShared(fileUID string, userID uint) {
-	var fileShareState entity.FileShareStateUserShared
+// DeleteFileShareStatesUserShared deletes the sharing state of a file shared with a specific user based on its UID.
+func DeleteFileShareStatesUserShared(fileUID string, userID uint) {
+	var fileShareState entity.FileShareStatesUserShared
 	// Search for the sharing state by the file UID and user ID
 	result := db.Db().Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
 	if result.Error == nil {
@@ -143,15 +143,15 @@ func DeleteFileShareStateUserShared(fileUID string, userID uint) {
 	}
 }
 
-func CreateShareStateUserShared(file *entity.File, userID uint) (file_share_state entity.FileShareStateUserShared, err error) {
-	file_share_state = entity.FileShareStateUserShared{
+func CreateShareStateUserShared(file *entity.File, userID uint) (file_share_state entity.FileShareStatesUserShared, err error) {
+	var file_share_states = entity.FileShareStatesUserShared{
 		FileUID: file.UID,
 		UserID:  userID,
 	}
 
 	if err := db.Db().Create(&file_share_state).Error; err != nil {
-		return file_share_state, err
+		return file_share_states, err
 	}
 
-	return file_share_state, nil
+	return file_share_states, nil
 }

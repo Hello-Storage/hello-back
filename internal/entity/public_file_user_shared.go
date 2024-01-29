@@ -17,6 +17,7 @@ type PublicFileUserShared struct {
 }
 
 func (PublicFileUserShared) TableName() string {
+	log.Printf("test")
 	return "public_files_user_shared"
 }
 
