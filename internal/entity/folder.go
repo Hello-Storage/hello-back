@@ -15,16 +15,17 @@ const (
 type Folders []Folder
 
 type Folder struct {
-	ID        uint             `gorm:"primarykey"                          json:"id"`
-	UID       string           `gorm:"type:varchar(42);uniqueIndex;"       json:"uid"`
-	Title     string           `gorm:"type:varchar(255);"                  json:"title"`
-	Path      string           `gorm:"type:varchar(1024);default:'/';"     json:"path"` // folderA/folderB/***
-	Root      string           `gorm:"type:varchar(42);index;default:'/';" json:"root"` // parent folder uid
-	CreatedAt time.Time        `                                           json:"created_at"`
-	UpdatedAt time.Time        `                                           json:"updated_at"`
-	DeletedAt gorm.DeletedAt   `gorm:"index"                               json:"deleted_at"`
-	IsInPool             bool          `gorm:"type:boolean;default:false;"         json:"is_in_pool"`
-	EncryptionStatus    EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"encryption_status"`
+	ID               uint             `gorm:"primarykey"                          json:"id"`
+	UID              string           `gorm:"type:varchar(42);uniqueIndex;"       json:"uid"`
+	CID              string           `gorm:"type:varchar(64)" json:"cid"`
+	Title            string           `gorm:"type:varchar(255);"                  json:"title"`
+	Path             string           `gorm:"type:varchar(1024);default:'/';"     json:"path"` // folderA/folderB/***
+	Root             string           `gorm:"type:varchar(42);index;default:'/';" json:"root"` // parent folder uid
+	CreatedAt        time.Time        `                                           json:"created_at"`
+	UpdatedAt        time.Time        `                                           json:"updated_at"`
+	DeletedAt        gorm.DeletedAt   `gorm:"index"                               json:"deleted_at"`
+	IsInPool         bool             `gorm:"type:boolean;default:false;"         json:"is_in_pool"`
+	EncryptionStatus EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"encryption_status"`
 }
 
 // TableName returns the entity table name.
@@ -82,7 +83,6 @@ func IsFolderOwner(folderID uint, userID uint) (bool, error) {
 
 // UpdateTitle updates the folder title with the new title provided.
 func (m *Folder) UpdateTitle(newTitle string) error {
-	m.Title = newTitle
 
 	if err := db.Db().Model(m).Where("UID = ?", m.UID).Update("Title", newTitle).Error; err != nil {
 		return err
@@ -93,9 +93,21 @@ func (m *Folder) UpdateTitle(newTitle string) error {
 
 // UpdateEncryptionStatus updates the EncryptionStatus for the folder.
 func (m *Folder) UpdateEncryptionStatus(newEncryptionStatus EncryptionStatus) error {
-	m.EncryptionStatus = newEncryptionStatus
 
 	if err := db.Db().Model(m).Where("UID = ?", m.UID).Update("EncryptionStatus", newEncryptionStatus).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdateEncryptionStatusAndCID updates the EncryptionStatus for the folder and the cid.
+func (m *Folder) UpdateEncryptionStatusAndCID(newEncryptionStatus EncryptionStatus, userID string) error {
+
+	if err := db.Db().Model(m).Where("uid = ?", m.UID).Update("EncryptionStatus", newEncryptionStatus).Error; err != nil {
+		return err
+	}
+	if err := db.Db().Model(m).Where("uid = ?", m.UID).Update("cid", userID+m.UID).Error; err != nil {
 		return err
 	}
 
