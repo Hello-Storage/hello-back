@@ -549,14 +549,3 @@ func GetApiFiles(user_id uint) (files entity.Files, err error) {
 
 	return files, nil
 }
-
-// DeleteFileShareState deletes the sharing state of a file based on its UID.
-func DeleteFileShareState(fileUID string) {
-	var fileShareState entity.FileShareState
-	// Search for the sharing state by the file UID
-	result := db.Db().Unscoped().Where("file_uid = ?", fileUID).First(&fileShareState)
-	if result.Error == nil {
-		db.Db().Delete(&fileShareState.PublicFile)
-		db.Db().Unscoped().Delete(&fileShareState)
-	}
-}

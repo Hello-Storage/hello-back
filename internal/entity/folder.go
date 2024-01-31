@@ -107,7 +107,7 @@ func (m *Folder) UpdateEncryptionStatusAndCID(newEncryptionStatus EncryptionStat
 	if err := db.Db().Model(m).Where("uid = ?", m.UID).Update("EncryptionStatus", newEncryptionStatus).Error; err != nil {
 		return err
 	}
-	if err := db.Db().Model(m).Where("uid = ?", m.UID).Update("cid", userID+m.UID).Error; err != nil {
+	if err := db.Db().Model(m).Where("uid = ?", m.UID).Update("c_id", userID+m.UID).Error; err != nil {
 		return err
 	}
 
