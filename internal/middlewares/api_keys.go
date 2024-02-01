@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/Hello-Storage/hello-back/internal/api"
@@ -14,7 +15,7 @@ import (
 func APIKeyAuthMiddleware(tokenMaker token.Maker) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		apiKeyHeader := ctx.GetHeader(constant.APIKeyHeaderKey)
-
+		fmt.Println("API Key Header: ", apiKeyHeader)
 		if len(apiKeyHeader) == 0 {
 			err := errors.New("1: API key header is not provided")
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, api.ErrorResponse(err))
