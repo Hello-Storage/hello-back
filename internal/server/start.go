@@ -37,13 +37,6 @@ func Start(ctx context.Context) {
 	ApiKeyAPIv1CorsConfig := cors.New(cors.Config{
 		AllowMethods:    []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
 		AllowAllOrigins: true,
-		AllowHeaders: []string{
-			"Origin",
-			"Content-Length",
-			"Content-Type",
-			"Cross-Origin-Opener-Policy",
-			"api_key",
-		},
 		MaxAge: 12 * time.Hour,
 	})
 	protectedCorsConfig := cors.New(cors.Config{
