@@ -205,6 +205,24 @@ func FindUsersByFileCID(cid string) ([]uint, error) {
 	return usersWF, nil
 }
 
+func FindFilesByUserAndFileCID(userID uint, cid string) ([]entity.File, error) {
+	var files []entity.File
+
+	// Join File and FileUser tables and find records by CID
+	err := db.Db().Unscoped().
+		Table("files_users").
+		Select("files.*").
+		Joins("JOIN files ON files.id = files_users.file_id").
+		Where("files_users.user_id = ? AND files.c_id = ? AND files.deleted_at IS NULL", userID, cid).
+		Find(&files).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
+}
+
 // DeleteFileByUID deletes a file by its UID.
 func DeleteFileByUID(file_uid string) error {
 	if file_uid == "" {
@@ -530,15 +548,4 @@ func GetApiFiles(user_id uint) (files entity.Files, err error) {
 	}
 
 	return files, nil
-}
-
-// DeleteFileShareState deletes the sharing state of a file based on its UID.
-func DeleteFileShareState(fileUID string) {
-	var fileShareState entity.FileShareState
-	// Search for the sharing state by the file UID
-	result := db.Db().Unscoped().Where("file_uid = ?", fileUID).First(&fileShareState)
-	if result.Error == nil {
-		db.Db().Delete(&fileShareState.PublicFile)
-		db.Db().Unscoped().Delete(&fileShareState)
-	}
 }

@@ -42,7 +42,7 @@ func Start(ctx context.Context) {
 			"Content-Length",
 			"Content-Type",
 			"Cross-Origin-Opener-Policy",
-			"Api_key",
+			"api_key",
 		},
 		MaxAge: 12 * time.Hour,
 	})

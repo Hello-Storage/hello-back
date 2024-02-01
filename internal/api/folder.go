@@ -35,7 +35,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 	}
 
 	// Update the folder's encryption status to 'public'
-	if err := foundFolder.UpdateEncryptionStatus(entity.Public); err != nil {
+	if err := foundFolder.UpdateEncryptionStatusAndCID(entity.Public, fmt.Sprintf("%d", authPayload.UserID)); err != nil {
 		AbortBadRequest(ctx)
 		return
 	}
@@ -44,6 +44,8 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		Title:            formget.Title,
 		Root:             parentRoot,
 		EncryptionStatus: entity.Public,
+		CID:              fmt.Sprintf("%d", authPayload.UserID) + foundFolder.UID,
+		IsInPool:         true,
 	}
 
 	if err := folder.Create(); err != nil {
@@ -54,7 +56,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 	folder_user := entity.FolderUser{
 		FolderID:   folder.ID,
 		UserID:     shareWithUser.ID,
-		Permission: entity.OwnerPermission,
+		Permission: entity.SharedPermission,
 	}
 
 	if err := folder_user.Create(); err != nil {
@@ -114,6 +116,35 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 			log.Errorf("create file_user relation: %s", err)
 			tx.Rollback()
 			AbortInternalServerError(ctx)
+			return
+		}
+
+		// delete the file share state user shared in case it exists
+		query.DeleteFileShareStatesUserShared(f.UID, shareWithUser.ID)
+		shareState, err := query.CreateShareStateUserShared(newFile, shareWithUser.ID)
+		if err != nil {
+			log.Errorf("failed to create share state: %s", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
+			return
+		}
+
+		// PublishFile crea un nuevo PublicFile y lo devuelve
+		publicFile, err := query.PublishFileUserShared(shareState, file)
+		if err != nil {
+			log.Errorf("failed to publish file: %s", err)
+			// Devuelve un mensaje de error al cliente
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
+			return
+		}
+
+		// Update the shareState with the new PublicFile
+		shareState.PublicFile = *publicFile
+
+		// Save the updated shareState.PublicFile
+		err = shareState.PublicFile.Save()
+		if err != nil {
+			log.Errorf("failed to save share state: %s", err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
 			return
 		}
 
