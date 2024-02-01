@@ -182,6 +182,17 @@ func GetFilesUserFromUser(user_id uint) ([]entity.FileUser, error) {
 	return filesUsers, nil
 }
 
+// Query get user folders by user id
+func GetFoldersUserFromUser(user_id uint) ([]entity.FolderUser, error) {
+	var foldersUsers []entity.FolderUser
+
+	if err := db.Db().Where("user_id = ?", user_id).Find(&foldersUsers).Error; err != nil {
+		return nil, err
+	}
+
+	return foldersUsers, nil
+}
+
 // 2023-11-27 13:18:35 backend   | time="2023-11-27T18:18:35Z" level=info msg="Calculated initial weekly user stats"
 // 2023-11-27 13:18:35 backend   | time="2023-11-27T18:18:35Z" level=info msg="Calculated initial weekly storage stats"
 // 2023-11-27 13:18:35 backend   | time="2023-11-27T18:18:35Z" level=error msg="runtime error: integer divide by zero"

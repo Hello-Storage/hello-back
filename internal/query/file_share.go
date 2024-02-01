@@ -132,26 +132,40 @@ func ConvertToDomainEntities(fileShareStatesUserShared *entity.FileShareStatesUs
     return fileShareState
 }
 
-// DeleteFileShareStatesUserShared deletes the sharing state of a file shared with a specific user based on its UID.
+// DeleteFileShareStatesUserShared deletes the sharing state of a file based on its UID.
 func DeleteFileShareStatesUserShared(fileUID string, userID uint) {
 	var fileShareState entity.FileShareStatesUserShared
-	// Search for the sharing state by the file UID and user ID
+	var filepublicf entity.PublicFileUserShared
+
 	result := db.Db().Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
 	if result.Error == nil {
-		db.Db().Delete(&fileShareState.PublicFile)
+		db.Db().Unscoped().Delete(&fileShareState.PublicFile)
+		db.Db().Unscoped().Delete(&fileShareState)
+	}
+	db.Db().Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf)
+}
+
+
+// DeleteFileShareState deletes the sharing state of a file based on its UID.
+func DeleteFileShareState(fileUID string) {
+	var fileShareState entity.FileShareState
+	// Search for the sharing state by the file UID
+	result := db.Db().Unscoped().Where("file_uid = ?", fileUID).First(&fileShareState)
+	if result.Error == nil {
+		db.Db().Unscoped().Delete(&fileShareState.PublicFile)
 		db.Db().Unscoped().Delete(&fileShareState)
 	}
 }
 
-func CreateShareStateUserShared(file *entity.File, userID uint) (file_share_state entity.FileShareStatesUserShared, err error) {
-	var file_share_states = entity.FileShareStatesUserShared{
+func CreateShareStateUserShared(file *entity.File, userID uint) (filesharestate entity.FileShareStatesUserShared, err error) {
+	filesharestate = entity.FileShareStatesUserShared{
 		FileUID: file.UID,
 		UserID:  userID,
 	}
 
-	if err := db.Db().Create(&file_share_state).Error; err != nil {
-		return file_share_states, err
+	if err := db.Db().Create(&filesharestate).Error; err != nil {
+		return filesharestate, err
 	}
 
-	return file_share_states, nil
+	return filesharestate, nil
 }
