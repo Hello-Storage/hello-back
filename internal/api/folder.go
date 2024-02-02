@@ -35,7 +35,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 	}
 
 	// Update the folder's encryption status to 'public'
-	if err := foundFolder.UpdateEncryptionStatus(entity.Public); err != nil {
+	if err := foundFolder.UpdateEncryptionStatusAndCID(entity.Public, fmt.Sprintf("%d", authPayload.UserID)); err != nil {
 		AbortBadRequest(ctx)
 		return
 	}
@@ -44,6 +44,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		Title:            formget.Title,
 		Root:             parentRoot,
 		EncryptionStatus: entity.Public,
+		CID:              fmt.Sprintf("%d", authPayload.UserID) + foundFolder.UID,
 		IsInPool:         true,
 	}
 

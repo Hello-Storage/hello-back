@@ -42,7 +42,6 @@ func Start(ctx context.Context) {
 			"Content-Length",
 			"Content-Type",
 			"Cross-Origin-Opener-Policy",
-			"Api_key",
 		},
 		MaxAge: 12 * time.Hour,
 	})
@@ -78,6 +77,8 @@ func Start(ctx context.Context) {
 			"Content-Type",
 			"Cross-Origin-Opener-Policy",
 			"Authorization",
+			"Api_key",
+			"api_key",
 		},
 		AllowCredentials: false,
 		AllowOriginFunc: func(origin string) bool {
@@ -87,18 +88,18 @@ func Start(ctx context.Context) {
 	})
 	ProtectedRouter.Use(protectedCorsConfig)
 	PublicRouter.Use(ApiKeyAPIv1CorsConfig)
+	// Register HTTP route handlers.
+	registerRoutes(ProtectedRouter)
+	RegisterApiRoutes(PublicRouter)
+
 	// Register common middleware.
 	router.Use(gin.Recovery(), Logger(), middlewares.RateLimitMiddleware(100, 100))
 	log.Info("server: common middleware registered")
 
 	router.Any("/api/*action", gin.WrapH(ProtectedRouter))
-	router.Any("/public-api/*action", gin.WrapH(PublicRouter))
-
+	router.Any("/public-api/v1/*action", gin.WrapH(PublicRouter))
+	
 	config.LoadEnv()
-
-	// Register HTTP route handlers.
-	registerRoutes(ProtectedRouter)
-	RegisterApiRoutes(PublicRouter)
 
 	log.Infof("port: %s", config.Env().AppPort)
 	server := &http.Server{

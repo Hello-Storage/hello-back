@@ -77,6 +77,17 @@ func FindFolderPathByRoot(root string) entity.Folders {
 	return append(FindFolderPathByRoot(m.Root), *m)
 }
 
+// FindFolderByID finds a folder by ID.
+func FindFolderByID(id uint) (*entity.Folder, error) {
+	m := &entity.Folder{}
+
+	if err := db.Db().Where("id = ?", id).First(m).Error; err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
 // FindFolderByUID finds a folder by UID.
 func FindFolderByUID(uid string) (*entity.Folder, error) {
 	m := &entity.Folder{}
@@ -136,4 +147,28 @@ func CountTotalPublicFoldersUser(user_uid string) (publicfolders int64, err erro
 	}
 
 	return publicfolders, nil
+}
+
+func FindUsersByFolderCID(cid string) ([]uint, error) {
+	var folderUsers []entity.FolderUser
+	var usersWF []uint
+
+	// Join File and FileUser tables and find records by CID
+	err := db.Db().
+		Table("folders_users").
+		Select("folders_users.user_id").
+		Joins("JOIN folders ON folders.id = folders_users.folder_id").
+		Where("folders.c_id = ? AND folders.deleted_at IS NULL", cid).
+		Find(&folderUsers).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract user IDs from the result
+	for _, fu := range folderUsers {
+		usersWF = append(usersWF, fu.UserID)
+	}
+
+	return usersWF, nil
 }

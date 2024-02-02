@@ -13,9 +13,14 @@ import (
 	"gorm.io/gorm"
 )
 
+type SharedNode struct {
+	Files   entity.Files
+	Folders entity.Folders
+}
+
 type SharedListUser struct {
-	SharedWithMe entity.Files
-	SharedByMe   entity.Files
+	SharedWithMe SharedNode
+	SharedByMe   SharedNode
 }
 
 // UpdateUser updates the profile information of the currently authenticated user.
@@ -84,24 +89,84 @@ func GetUserDetail(router *gin.RouterGroup) {
 				}
 				continue
 			}
+			usersWithFile, err := query.FindUsersByFileCID(file.CID)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching users with file"})
+				return
+			}
+			usersWithFileFiltered := []uint{}
+			for _, usrID := range usersWithFile {
+				if usrID != user.ID {
+					usersWithFileFiltered = append(usersWithFileFiltered, usrID)
+				}
+			}
 
-			if fileUser.Permission == entity.SharedPermission {
-				sharedwithUser = append(sharedwithUser, *file)
+			if fileUser.Permission == entity.SharedPermission && len(usersWithFileFiltered) > 0 {
+				if file.ID != 0 && file.Root == "/" {
+					sharedwithUser = append(sharedwithUser, *file)
+				}
 			} else {
-				usersWithFile, err := query.FindUsersByFileCID(file.CID)
-				if err != nil {
-					ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching users with file"})
+				if fileUser.Permission == entity.OwnerPermission && len(usersWithFileFiltered) > 0 {
+					if file.ID != 0 && file.Root == "/" {
+						sharedByUser = append(sharedByUser, *file)
+					}
+				}
+			}
+		}
+
+		foldersUser, err := query.GetFoldersUserFromUser(user.ID)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching user Folders"})
+			return
+		}
+
+		var FoldersharedwithUser entity.Folders
+		var FoldersharedByUser entity.Folders
+
+		for _, folderUser := range foldersUser {
+			folder, err := query.FindFolderByID(folderUser.FolderID)
+			if err != nil {
+				if err != gorm.ErrRecordNotFound {
+					ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching file"})
 					return
 				}
-				if fileUser.Permission == entity.OwnerPermission && len(usersWithFile) > 1 {
-					sharedByUser = append(sharedByUser, *file)
+				continue
+			}
+
+			usersWithFolder, err := query.FindUsersByFolderCID(folder.CID)
+			if err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching users with file"})
+				return
+			}
+			usersWithFolderFiltered := []uint{}
+			for _, usrID := range usersWithFolder {
+				if usrID != user.ID {
+					usersWithFolderFiltered = append(usersWithFolderFiltered, usrID)
+				}
+			}
+
+			if folderUser.Permission == entity.SharedPermission && len(usersWithFolderFiltered) > 0 {
+				if folder.ID != 0 && folder.Root == "/" {
+					FoldersharedwithUser = append(FoldersharedwithUser, *folder)
+				}
+			} else {
+				if folderUser.Permission == entity.OwnerPermission && len(usersWithFolderFiltered) > 0 {
+					if folder.ID != 0 && folder.Root == "/" {
+						FoldersharedByUser = append(FoldersharedByUser, *folder)
+					}
 				}
 			}
 		}
 
 		response := SharedListUser{
-			SharedWithMe: sharedwithUser,
-			SharedByMe:   sharedByUser,
+			SharedWithMe: SharedNode{
+				Files:   sharedwithUser,
+				Folders: FoldersharedwithUser,
+			},
+			SharedByMe: SharedNode{
+				Files:   sharedByUser,
+				Folders: FoldersharedByUser,
+			},
 		}
 
 		ctx.JSON(http.StatusOK, response)
