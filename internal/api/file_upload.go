@@ -136,7 +136,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 				f_u := entity.FileUser{
 					FileID:     f.ID,
 					UserID:     authPayload.UserID,
-					Permission: entity.SharedPermission,
+					Permission: entity.OwnerPermission,
 				}
 				if err := f_u.TxCreate(tx); err != nil {
 					log.Errorf("create file_user relation: %s", err)

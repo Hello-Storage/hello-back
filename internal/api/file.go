@@ -156,7 +156,6 @@ func GetShareState(router *gin.RouterGroup) {
 		fileUIDs := c.QueryArray("file_uids")
 
 		// Print for debugging
-		fmt.Println("Received file UIDs:", fileUIDs)
 
 		if len(fileUIDs) == 0 {
 			fmt.Println("No file UIDs received")
@@ -460,7 +459,8 @@ func PublishFile(router *gin.RouterGroup) {
 		// Commit the transaction
 		tx.Commit()
 
-		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully"})
+		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully",
+		"data": gin.H{"file": newFile, "shareState": shareState, "publicFile": publicFile}})
 	})
 
 }
