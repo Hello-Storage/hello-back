@@ -24,6 +24,7 @@ type CustomFileMeta struct {
 	MediaType               string  `json:"media_type"`
 	Path                    string  `json:"path"`
 	Data                    *string `json:"data,omitempty"`
+	IsOwner                 bool    `json:"isOwner"`
 }
 
 type FileResponse struct {
