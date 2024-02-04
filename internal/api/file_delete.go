@@ -1,3 +1,5 @@
+
+
 package api
 
 import (
@@ -247,3 +249,67 @@ func SetNextFileInPool(user_uid uint, file_id uint) error {
 		Update("is_in_pool", false).
 		Error
 }
+
+// Delete Duplicated Files That Aren't In Pool
+//
+// GET /delete-duplicated-files
+func DeleteDuplicatedFiles() {
+		tx := db.Db().Begin()
+
+		// Get all files that are not in pool
+		filesNotInPool, err := query.FindFilesNotInPool()
+		if err != nil {
+			log.Errorf("cannot get files: %s", err)
+			return
+		}
+
+		totalFiles := len(filesNotInPool)
+		log.Printf("Total files not in pool to delete: %d", totalFiles)
+
+		// Delete all files that are not in pool
+		for i, file := range filesNotInPool {
+			fileId := file.ID
+			fileUid := file.UID
+			var fileUser entity.FileUser
+			fileUser.FileID = fileId
+
+			if err := tx.Model(&fileUser).Where("file_id = ?", fileId).Delete(&entity.FileUser{}).Error; err != nil {
+				log.Errorf("cannot delete file user: %s", err)
+				tx.Rollback()
+				return
+			}
+
+			if err := tx.Model(&file).Where("id = ?", fileId).Delete(&entity.File{}).Error; err != nil {
+				log.Errorf("cannot delete file: %s", err)
+				tx.Rollback()
+				return
+			}
+
+			var fileShareState entity.FileShareState
+			if err := tx.Model(&fileShareState).Where("file_uid = ?", fileUid).Delete(&entity.FileShareState{}).Error; err != nil {
+				log.Errorf("cannot delete file permission: %s", err)
+				tx.Rollback()
+				return
+			}
+
+			var publicFile entity.PublicFile
+			if err := tx.Model(&publicFile).Where("file_uid = ?", fileUid).Delete(&entity.PublicFile{}).Error; err != nil {
+				log.Errorf("cannot delete public file: %s", err)
+				tx.Rollback()
+				return
+			}
+
+			if i%10 == 0 || i == totalFiles-1 {
+				log.Printf("Progress: %d of %d files deleted", i+1, totalFiles)
+			}
+
+		}
+
+		tx.Commit()
+
+		log.Printf("Deletion process completed. %d files processed.", totalFiles)
+
+		//return length of files not in pool
+	
+}
+

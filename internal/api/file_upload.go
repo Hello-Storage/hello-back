@@ -132,12 +132,21 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 
 				filesFoundResponses = append(filesFoundResponses, fResponse)
 
-				// create file_user relation with the shared permision
-				f_u := entity.FileUser{
-					FileID:     f.ID,
-					UserID:     authPayload.UserID,
-					Permission: entity.SharedPermission,
+				var f_u entity.FileUser
+				if customFileMeta.IsOwner {
+					f_u = entity.FileUser{
+						FileID:     f.ID,
+						UserID:     authPayload.UserID,
+						Permission: entity.OwnerPermission,
+					}
+				} else {
+					f_u = entity.FileUser{
+						FileID:     f.ID,
+						UserID:     authPayload.UserID,
+						Permission: entity.SharedPermission,
+					}
 				}
+				// create file_user relation with the shared permision
 				if err := f_u.TxCreate(tx); err != nil {
 					log.Errorf("create file_user relation: %s", err)
 					tx.Rollback()
