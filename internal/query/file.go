@@ -36,12 +36,21 @@ func FindFileByUID(uid string) (*entity.File, error) {
 // FileByUID returns file for the given UID.
 func FindFileByID(id uint) (*entity.File, error) {
 	f := &entity.File{}
+	fileShareState := entity.FileShareState{}
 
-	err := db.Db().Where("id = ?", id).First(f).Error
+	err := db.Db().Model(&f).Preload("FileShareState").Where("id = ?", id).First(&f).Error
+	err2 := db.Db().Where("file_uid = ?", f.UID).First(&fileShareState).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
+	if err2 != nil && err2 != gorm.ErrRecordNotFound {
+		return nil, err2
+	}
+	f.FileShareState = fileShareState
+
+	log.Printf("file_uid: %v", f)
+	log.Printf("File with preloaded sharestate: %v", f.FileShareState)
 
 	return f, nil
 }
@@ -603,5 +612,3 @@ func FindFilesNotInPool() (files entity.Files, err error) {
 
 	return filesNotInPool, nil
 }
-
-

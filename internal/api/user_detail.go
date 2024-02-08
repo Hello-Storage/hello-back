@@ -77,7 +77,7 @@ func GetUserDetail(router *gin.RouterGroup) {
 			return
 		}
 
-		var sharedwithUser entity.Files
+		var sharedWithUser entity.Files
 		var sharedByUser entity.Files
 
 		for _, fileUser := range filesUser {
@@ -103,7 +103,7 @@ func GetUserDetail(router *gin.RouterGroup) {
 
 			if fileUser.Permission == entity.SharedPermission && len(usersWithFileFiltered) > 0 {
 				if file.ID != 0 && file.Root == "/" {
-					sharedwithUser = append(sharedwithUser, *file)
+					sharedWithUser = append(sharedWithUser, *file)
 				}
 			} else {
 				if fileUser.Permission == entity.OwnerPermission && len(usersWithFileFiltered) > 0 {
@@ -160,7 +160,7 @@ func GetUserDetail(router *gin.RouterGroup) {
 
 		response := SharedListUser{
 			SharedWithMe: SharedNode{
-				Files:   sharedwithUser,
+				Files:   sharedWithUser,
 				Folders: FoldersharedwithUser,
 			},
 			SharedByMe: SharedNode{

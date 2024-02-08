@@ -12,7 +12,7 @@ type FileShareStates []FileShareState
 
 type FileShareState struct {
 	ID         uint           `gorm:"primarykey"                          json:"id"`
-	FileUID    string         `gorm:"type:varchar(42);uniqueIndex"              json:"file_uid"`
+	FileUID    string         `gorm:"type:varchar(42);uniqueIndex;references:UID;referencedTable:files"              json:"file_uid"`
 	PublicFile PublicFile     `gorm:"foreignKey:FileUID;references:FileUID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"public_file"`
 	CreatedAt  time.Time      `gorm:"index"                               json:"created_at"`
 	UpdatedAt  time.Time      `gorm:"index"                               json:"updated_at"`

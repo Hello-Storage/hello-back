@@ -133,7 +133,7 @@ func ConvertToDomainEntities(fileShareStatesUserShared *entity.FileShareStatesUs
 }
 
 // DeleteFileShareStatesUserShared deletes the sharing state of a file based on its UID.
-func DeleteFileShareStatesUserShared(fileUID string, userID uint) {
+func DeleteFileShareStatesUserShared(fileUID string, userID uint) string {
 	var fileShareState entity.FileShareStatesUserShared
 	var filepublicf entity.PublicFileUserShared
 
@@ -143,6 +143,8 @@ func DeleteFileShareStatesUserShared(fileUID string, userID uint) {
 		db.Db().Unscoped().Delete(&fileShareState)
 	}
 	db.Db().Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf)
+
+	return fileShareState.PublicFile.CIDOriginalDecrypted
 }
 
 
