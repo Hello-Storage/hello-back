@@ -120,29 +120,31 @@ func ConvertToDomainEntities(fileShareStatesUserShared *entity.FileShareStatesUs
 		ID: 	1, // if the ID is not set, it will be 0, the entire sharestate wont be able to be used in frontend
         FileUID:    fileShareStatesUserShared.FileUID,
         PublicFile: entity.PublicFile{
-            FileUID:              fileShareStatesUserShared.PublicFile.FileUID,
-            ShareHash:            fileShareStatesUserShared.PublicFile.ShareHash,
-            Name:                 fileShareStatesUserShared.PublicFile.Name,
-            Mime:                 fileShareStatesUserShared.PublicFile.Mime,
-            Size:                 fileShareStatesUserShared.PublicFile.Size,
-            CID:                  fileShareStatesUserShared.PublicFile.CID,
-            CIDOriginalDecrypted: fileShareStatesUserShared.PublicFile.CIDOriginalDecrypted,
+            FileUID:              fileShareStatesUserShared.PublicFileUserShared.FileUID,
+            ShareHash:            fileShareStatesUserShared.PublicFileUserShared.ShareHash,
+            Name:                 fileShareStatesUserShared.PublicFileUserShared.Name,
+            Mime:                 fileShareStatesUserShared.PublicFileUserShared.Mime,
+            Size:                 fileShareStatesUserShared.PublicFileUserShared.Size,
+            CID:                  fileShareStatesUserShared.PublicFileUserShared.CID,
+            CIDOriginalDecrypted: fileShareStatesUserShared.PublicFileUserShared.CIDOriginalDecrypted,
         },
     }
     return fileShareState
 }
 
 // DeleteFileShareStatesUserShared deletes the sharing state of a file based on its UID.
-func DeleteFileShareStatesUserShared(fileUID string, userID uint) {
+func DeleteFileShareStatesUserShared(fileUID string, userID uint) string {
 	var fileShareState entity.FileShareStatesUserShared
 	var filepublicf entity.PublicFileUserShared
 
 	result := db.Db().Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
 	if result.Error == nil {
-		db.Db().Unscoped().Delete(&fileShareState.PublicFile)
+		db.Db().Unscoped().Delete(&fileShareState.PublicFileUserShared)
 		db.Db().Unscoped().Delete(&fileShareState)
 	}
 	db.Db().Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf)
+
+	return fileShareState.PublicFileUserShared.CIDOriginalDecrypted
 }
 
 
