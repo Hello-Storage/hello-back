@@ -55,27 +55,23 @@ func DownloadFile(router *gin.RouterGroup) {
 						}
 
 					} else {
-						log.Errorf("download file: %s", error)
+						log.Errorf("download file specific error: %v", error)
 						ctx.JSON(http.StatusBadRequest, gin.H{
 							"message": error.Error(),
 						})
 						return
 					}
 
-				} else {
-					fmt.Println("download file: ", error)
 				}
 
 			} else {
-				log.Errorf("download file: %s", error)
+				log.Errorf("download file general error: %s", error.Error())
 				ctx.JSON(http.StatusBadRequest, gin.H{
 					"message": error.Error(),
 				})
 				return
 			}
 
-		} else {
-			fmt.Println("download file: ", error)
 		}
 		// Set the correct content type and file name
 		ctx.Header("Content-Type", *out.ContentType)
@@ -85,6 +81,7 @@ func DownloadFile(router *gin.RouterGroup) {
 		// Copy the file data to the response
 		_, error = io.Copy(ctx.Writer, out.Body)
 		if error != nil {
+			log.Errorf("download file: %s", error)
 			ctx.JSON(http.StatusBadRequest, gin.H{
 				"message": error.Error(),
 			})

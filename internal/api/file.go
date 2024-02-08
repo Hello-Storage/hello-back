@@ -453,10 +453,10 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// Update the shareState with the new PublicFile
-		shareState.PublicFile = *publicFile
+		shareState.PublicFileUserShared = *publicFile
 
 		// Save the updated shareState.PublicFile
-		err = shareState.PublicFile.Save()
+		err = shareState.PublicFileUserShared.Save()
 		if err != nil {
 			log.Errorf("failed to save share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
