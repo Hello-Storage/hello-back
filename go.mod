@@ -83,9 +83,9 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/multiformats/go-multicodec v0.9.0
-	golang.org/x/crypto v0.14.0
-	golang.org/x/sys v0.13.0 // indirect
-	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/crypto v0.17.0
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	gorm.io/driver/postgres v1.5.2
 	gorm.io/gorm v1.25.1
 )
