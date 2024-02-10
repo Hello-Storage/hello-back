@@ -3,7 +3,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"mime"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -210,6 +209,12 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			index := fmt.Sprintf("%d", index)
 			totalSize += uint(file.Size)
 
+			webkitRelativePath, ok := formMultipart.Value["webkitRelativePath["+index+"]"]
+			if !ok || len(webkitRelativePath) == 0 {
+				log.Warnf("Missing or empty webkitRelativePath for index %s", index)
+				continue
+			}
+
 			//cid of file
 			cid, ok := formMultipart.Value["cid["+index+"]"]
 			if !ok || len(cid) == 0 {
@@ -217,24 +222,16 @@ func PutUploadFiles(router *gin.RouterGroup) {
 				continue
 			}
 
-			_, params, err := mime.ParseMediaType(file.Header.Get("Content-Disposition"))
-			if err != nil {
-				log.Errorf("parse media type: %s", err)
-				AbortInternalServerError(ctx)
-				return
-			}
 			mime := file.Header.Get("Content-Type")
 
 			// create corresponding folders to locate this file at proper path
-			file_path := params["filename"]
+			file_path := webkitRelativePath[0]
 			actual_root, firstCreatedRoot, err := GetAndProcessFileRoot(file_path, r, authPayload.UserID, entity.Public)
-
 			if err != nil {
 				log.Errorf("get and process file root: %s", err)
 				AbortInternalServerError(ctx)
 				return
 			}
-
 			if firstRootUID == "" {
 				firstRootUID = firstCreatedRoot
 			}
