@@ -156,7 +156,6 @@ func GetShareState(router *gin.RouterGroup) {
 		fileUIDs := c.QueryArray("file_uids")
 
 		// Print for debugging
-		fmt.Println("Received file UIDs:", fileUIDs)
 
 		if len(fileUIDs) == 0 {
 			fmt.Println("No file UIDs received")
@@ -404,6 +403,7 @@ func PublishFile(router *gin.RouterGroup) {
 			tx.Rollback()
 			return
 		}
+		log.Printf("New file: %v", selectedShareFile)
 
 		// Create a new file with the same metadata
 		newFile := CreateNewFileFromMetadata(f, selectedShareFile)
@@ -429,13 +429,19 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(f.UID, shareWithUser.ID)
+		CIDOriginalDecrypted := query.DeleteFileShareStatesUserShared(f.UID, shareWithUser.ID)
 		shareState, err := query.CreateShareStateUserShared(newFile, shareWithUser.ID)
 		if err != nil {
 			log.Errorf("failed to create share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
 			return
 		}
+
+		//if CIDOriginalDecrypted is not empty, set eit to selectedShareFile.CIDOriginalDecrypted
+		if CIDOriginalDecrypted != "" {
+			selectedShareFile.CIDOriginalEncrypted = CIDOriginalDecrypted
+		}
+
 
 		// PublishFile crea un nuevo PublicFile y lo devuelve
 		publicFile, err := query.PublishFileUserShared(shareState, selectedShareFile)
@@ -447,10 +453,10 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// Update the shareState with the new PublicFile
-		shareState.PublicFile = *publicFile
+		shareState.PublicFileUserShared = *publicFile
 
 		// Save the updated shareState.PublicFile
-		err = shareState.PublicFile.Save()
+		err = shareState.PublicFileUserShared.Save()
 		if err != nil {
 			log.Errorf("failed to save share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
@@ -460,7 +466,8 @@ func PublishFile(router *gin.RouterGroup) {
 		// Commit the transaction
 		tx.Commit()
 
-		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully"})
+		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully",
+		"data": gin.H{"file": newFile, "shareState": shareState, "publicFile": publicFile}})
 	})
 
 }

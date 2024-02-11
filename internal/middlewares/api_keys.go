@@ -14,9 +14,8 @@ import (
 func APIKeyAuthMiddleware(tokenMaker token.Maker) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		apiKeyHeader := ctx.GetHeader(constant.APIKeyHeaderKey)
-
 		if len(apiKeyHeader) == 0 {
-			err := errors.New("API key header is not provided")
+			err := errors.New("1: API key header is not provided")
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, api.ErrorResponse(err))
 			return
 		}

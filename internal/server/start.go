@@ -35,14 +35,37 @@ func Start(ctx context.Context) {
 
 	//cors protection
 	ApiKeyAPIv1CorsConfig := cors.New(cors.Config{
-		AllowMethods:    []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
-		AllowAllOrigins: true,
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
+		AllowOrigins: []string{
+			//development
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+			//production
+			"https://joinhello.app",
+			"https://staging.joinhello.app",
+			"https://www.staging.joinhello.app",
+			"https://www.joinhello.app",
+			"https://joinhello.vercel.app",
+			"https://www.joinhello.vercel.app",
+			"https://hello.storage",
+			"https://www.hello.storage",
+			"https://space.hello.app",
+			"https://hello.app",
+			"https://www.hello.app",
+			"https://stats.hello.app",
+			"https://www.stats.hello.app",
+			"https://www.space.hello.app",
+			"https://space.hello.storage",
+			"https://www.space.hello.storage",
+			"https://space.hello.ws",
+			"https://www.space.hello.ws",
+		},
 		AllowHeaders: []string{
 			"Origin",
 			"Content-Length",
+			"Access-Control-Allow-Origin",
 			"Content-Type",
 			"Cross-Origin-Opener-Policy",
-			"api_key",
 		},
 		MaxAge: 12 * time.Hour,
 	})
@@ -77,7 +100,11 @@ func Start(ctx context.Context) {
 			"Content-Length",
 			"Content-Type",
 			"Cross-Origin-Opener-Policy",
+			"Access-Control-Allow-Origin",
 			"Authorization",
+			"Api_key",
+			"api_key",
+			"api-key",
 		},
 		AllowCredentials: false,
 		AllowOriginFunc: func(origin string) bool {
@@ -87,18 +114,18 @@ func Start(ctx context.Context) {
 	})
 	ProtectedRouter.Use(protectedCorsConfig)
 	PublicRouter.Use(ApiKeyAPIv1CorsConfig)
-	// Register common middleware.
-	router.Use(gin.Recovery(), Logger(), middlewares.RateLimitMiddleware(100, 100))
-	log.Info("server: common middleware registered")
-
-	router.Any("/api/*action", gin.WrapH(ProtectedRouter))
-	router.Any("/public-api/*action", gin.WrapH(PublicRouter))
-
-	config.LoadEnv()
-
 	// Register HTTP route handlers.
 	registerRoutes(ProtectedRouter)
 	RegisterApiRoutes(PublicRouter)
+
+	// Register common middleware.
+	router.Use(gin.Recovery(), Logger(), middlewares.RateLimitMiddleware(150, 150))
+	log.Info("server: common middleware registered")
+
+	router.Any("/api/*action", gin.WrapH(ProtectedRouter))
+	router.Any("/public-api/v1/*action", gin.WrapH(PublicRouter))
+
+	config.LoadEnv()
 
 	log.Infof("port: %s", config.Env().AppPort)
 	server := &http.Server{

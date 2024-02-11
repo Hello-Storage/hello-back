@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
+	"github.com/Hello-Storage/hello-back/pkg/s3"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"gorm.io/gorm"
 )
 
@@ -32,12 +36,29 @@ func FindFileByUID(uid string) (*entity.File, error) {
 // FileByUID returns file for the given UID.
 func FindFileByID(id uint) (*entity.File, error) {
 	f := &entity.File{}
+	fileShareState := entity.FileShareState{}
+	publicFile := entity.PublicFile{}
 
-	err := db.Db().Where("id = ?", id).First(f).Error
+	err := db.Db().Model(&f).Preload("FileShareState").Where("id = ?", id).First(&f).Error
+	err2 := db.Db().Where("file_uid = ?", f.UID).First(&fileShareState).Error
+	err3 := db.Db().Where("file_uid = ?", f.UID).First(&publicFile).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
+	if err2 != nil && err2 != gorm.ErrRecordNotFound {
+		return nil, err2
+	}
+	if err3 != nil && err3 != gorm.ErrRecordNotFound {
+		return nil, err3
+	}
+
+	fileShareState.PublicFile = publicFile
+
+	f.FileShareState = fileShareState
+
+	log.Printf("file_uid: %v", f)
+	log.Printf("File with preloaded sharestate: %v", f.FileShareState)
 
 	return f, nil
 }
@@ -548,4 +569,54 @@ func GetApiFiles(user_id uint) (files entity.Files, err error) {
 	}
 
 	return files, nil
+}
+
+// FindFilesNotInPool returns files that are not in the pool.
+func FindFilesNotInPool() (files entity.Files, err error) {
+	var allFiles []entity.File
+	//get all files
+	if err := db.Db().Find(&allFiles).Error; err != nil {
+		return nil, err
+	}
+
+	var filesNotInPool entity.Files
+	// Create a map to track CIDs
+	cidChecked := make(map[string]bool)
+
+	s3Config := aws.Config{
+		Credentials: credentials.NewStaticCredentials(
+			config.Env().WasabiAccessKey,
+			config.Env().WasabiSecretKey,
+			"",
+		),
+		Endpoint:         aws.String(config.Env().WasabiEndpoint),
+		Region:           aws.String(config.Env().WasabiRegion),
+		S3ForcePathStyle: aws.Bool(true),
+	}
+
+	totalFiles := len(allFiles)
+	log.Printf("Total files: %d", totalFiles)
+
+	for i, file := range allFiles {
+		if _, checked := cidChecked[file.CID]; !checked {
+			_, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, file.CID)
+			cidChecked[file.CID] = (err == nil) // true if exists in S3, false otherwise
+
+			if i%100 == 0 || i == totalFiles-1 {
+				log.Printf("S3 Check Progress: %d of %d files checked", i+1, totalFiles)
+
+			}
+		}
+	}
+
+	log.Printf("S3 check completed. %d files checked.", totalFiles)
+
+	// Create a list of files that are not in the pool
+	for _, file := range allFiles {
+		if !cidChecked[file.CID] {
+			filesNotInPool = append(filesNotInPool, file)
+		}
+	}
+
+	return filesNotInPool, nil
 }

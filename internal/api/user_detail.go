@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/constant"
+	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/token"
@@ -77,12 +78,14 @@ func GetUserDetail(router *gin.RouterGroup) {
 			return
 		}
 
-		var sharedwithUser entity.Files
+		var sharedWithUser entity.Files
 		var sharedByUser entity.Files
 
 		for _, fileUser := range filesUser {
 			file, err := query.FindFileByID(fileUser.FileID)
+			log.Printf("file: %v", file)
 			if err != nil {
+				log.Errorf("error fetching file: %v", err)
 				if err != gorm.ErrRecordNotFound {
 					ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching file"})
 					return
@@ -103,7 +106,24 @@ func GetUserDetail(router *gin.RouterGroup) {
 
 			if fileUser.Permission == entity.SharedPermission && len(usersWithFileFiltered) > 0 {
 				if file.ID != 0 && file.Root == "/" {
-					sharedwithUser = append(sharedwithUser, *file)
+					fileShareState := entity.FileShareStatesUserShared{}
+					publicFile := entity.PublicFileUserShared{}
+					fileShareStateErr := db.Db().Where("file_uid = ?", file.UID).First(&fileShareState).Error
+					publicFileErr := db.Db().Where("file_uid = ?", file.UID).First(&publicFile).Error
+
+					if fileShareStateErr != nil {
+						log.Errorf("error fetching fileShareState: %v", fileShareStateErr)
+					}
+					if publicFileErr != nil {
+						log.Errorf("error fetching publicFile: %v", publicFileErr)
+					}
+
+					if fileShareState.ID != 0 && publicFile.ID != 0 {
+						fileShareState.PublicFileUserShared = publicFile
+						file.FileShareStatesUserShared = fileShareState
+					}
+
+					sharedWithUser = append(sharedWithUser, *file)
 				}
 			} else {
 				if fileUser.Permission == entity.OwnerPermission && len(usersWithFileFiltered) > 0 {
@@ -160,7 +180,7 @@ func GetUserDetail(router *gin.RouterGroup) {
 
 		response := SharedListUser{
 			SharedWithMe: SharedNode{
-				Files:   sharedwithUser,
+				Files:   sharedWithUser,
 				Folders: FoldersharedwithUser,
 			},
 			SharedByMe: SharedNode{
