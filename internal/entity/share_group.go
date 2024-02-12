@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/db"
+	"gorm.io/gorm"
 )
 
 type ShareGroup struct {
@@ -27,6 +28,18 @@ func (m *ShareGroup) Create() error {
 	m.Hash = hash
 
 	return db.Db().Create(m).Error
+}
+
+// TxCreate creates a new share group in a transaction
+func (m *ShareGroup) TxCreate(tx *gorm.DB) error {
+	hash, err := generateShareGroupHash()
+	if err != nil {
+		return err
+	}
+
+	m.Hash = hash
+
+	return tx.Create(m).Error
 }
 
 func generateShareGroupHash() (string, error) {

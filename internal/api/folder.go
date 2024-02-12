@@ -120,8 +120,8 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		}
 
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(f.UID, shareWithUser.ID)
-		shareState, err := query.CreateShareStateUserShared(newFile, shareWithUser.ID)
+		query.DeleteFileShareStatesUserShared(tx, f.UID, shareWithUser.ID)
+		shareState, err := query.CreateShareStateUserShared(tx, newFile, shareWithUser.ID)
 		if err != nil {
 			log.Errorf("failed to create share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
@@ -129,7 +129,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		}
 
 		// PublishFile crea un nuevo PublicFile y lo devuelve
-		publicFile, err := query.PublishFileUserShared(shareState, file)
+		publicFile, err := query.PublishFileUserShared(tx, shareState, file)
 		if err != nil {
 			log.Errorf("failed to publish file: %s", err)
 			// Devuelve un mensaje de error al cliente
@@ -138,7 +138,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		}
 
 		// Update the shareState with the new PublicFile
-		shareState.PublicFileUserShared= *publicFile
+		shareState.PublicFileUserShared = *publicFile
 
 		// Save the updated shareState.PublicFile
 		err = shareState.PublicFileUserShared.Save()
@@ -166,14 +166,20 @@ func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Co
 		return
 	}
 
+	tx := db.Db().Begin()
+
 	// Update the folder title
 	if err := foundFolder.UpdateTitle(formget.Title); err != nil {
+		log.Errorf("failed to update folder title: %s", err)
+		tx.Rollback()
 		AbortBadRequest(ctx)
 		return
 	}
 
 	// Update the folder's encryption status to 'public'
 	if err := foundFolder.UpdateEncryptionStatus(entity.Public); err != nil {
+		log.Errorf("failed to update folder encryption status: %s", err)
+		tx.Rollback()
 		AbortBadRequest(ctx)
 		return
 	}
@@ -183,6 +189,8 @@ func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Co
 
 	// Validate that the number of files in the folder matches the number of files in the request payload
 	if len(filesInFolder) != len(formget.Files) {
+		log.Errorf("files in folder don't match with files in the database")
+		tx.Rollback()
 		Abort(ctx, http.StatusBadRequest, "files in folder don't match with files in the database")
 		return
 	}
@@ -195,20 +203,22 @@ func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Co
 			log.Errorf("failed to get file: %s", err)
 		}
 
-		query.DeleteFileShareState(f.UID)
+		query.DeleteFileShareState(tx, f.UID)
 
 		// Find or create a sharing state for the file
 		shareState, err := query.FindShareStateByFileUID(file.UID)
 		if err != nil {
-			shareState, err = query.CreateShareState(f)
+			shareState, err = query.CreateShareState(tx, f)
 			if err != nil {
+							tx.Rollback()
+				log.Errorf("failed to create share state: %s", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
 				return
 			}
 		}
 
 		// Publish the file and get the corresponding PublicFile instance
-		publicFile, err := query.PublishFile(shareState, file)
+		publicFile, err := query.PublishFile(tx, shareState, file)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
 			return
@@ -239,6 +249,7 @@ func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Co
 
 		if err != nil {
 			fmt.Println("failed to save share state: ", err)
+			tx.Rollback()
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
 			return
 		}
@@ -249,6 +260,8 @@ func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Co
 			ShareFolderHandler(childF.Folder, shareType, ctx)
 		}
 	}
+
+	tx.Commit()
 
 }
 

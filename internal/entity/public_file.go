@@ -39,6 +39,14 @@ func (m *PublicFile) Save() error {
 	return db.Db().Save(m).Error
 }
 
+func (m *PublicFile) TxSave(tx *gorm.DB) error {
+	return tx.Save(m).Error
+}
+
 func (m *PublicFile) Delete() error {
 	return db.Db().Unscoped().Delete(m).Error
+}
+
+func (m *PublicFile) TxDelete(tx *gorm.DB) error {
+	return tx.Unscoped().Delete(m).Error
 }
