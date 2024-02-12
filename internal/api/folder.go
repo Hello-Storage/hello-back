@@ -64,16 +64,13 @@ func ShareWithUserHandler(tx *gorm.DB, formget form.SharedFolder, parentRoot str
 
 	if err := folder_user.TxCreate(tx); err != nil {
 		tx.Rollback()
+		log.Errorf("error when creating folder_user: %v", err)
 		AbortBadRequest(ctx)
 		return
 	}
 
 	// Find files in the folder based on its UID
 	filesInFolder, _ := query.FindFilesByRoot(foundFolder.UID)
-
-	if err := folder_user.TxCreate(tx); err != nil {
-		fmt.Println("error when creating folder_user: ", err)
-	}
 
 	// Validate that the number of files in the folder matches the number of files in the request payload
 	if len(filesInFolder) != len(formget.Files) {
@@ -87,7 +84,6 @@ func ShareWithUserHandler(tx *gorm.DB, formget form.SharedFolder, parentRoot str
 	// Start the transaction
 
 	// Iterate through each file in the request payload
-	log.Printf("total files: %d", len(formget.Files))
 	for _, file := range formget.Files {
 
 		// Check if the file exists
@@ -103,7 +99,7 @@ func ShareWithUserHandler(tx *gorm.DB, formget form.SharedFolder, parentRoot str
 		newFile := CreateNewFileFromMetadata(f, file)
 		newFile.Root = folder.UID
 		if err := newFile.TxCreate(tx); err != nil {
-			log.Errorf("create file: %s", err)
+			log.Errorf("create file in folder from metadata: %s", err)
 			tx.Rollback()
 			AbortInternalServerError(ctx)
 			return
@@ -124,13 +120,18 @@ func ShareWithUserHandler(tx *gorm.DB, formget form.SharedFolder, parentRoot str
 		}
 
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(tx, f.UID, shareWithUser.ID)
+		CIDOriginalDecrypted := query.DeleteFileShareStatesUserShared(tx, f.UID, shareWithUser.ID)
 		shareState, err := query.CreateShareStateUserShared(tx, newFile, shareWithUser.ID)
 		if err != nil {
+			log.Errorf("failed to create a new share state user shared: %s", err)
 			tx.Rollback()
-			log.Errorf("failed to create share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
 			return
+		}
+
+		//if CIDOriginalDecrypted is not empty, set eit to selectedShareFile.CIDOriginalDecrypted
+		if CIDOriginalDecrypted != "" {
+			file.CIDOriginalEncrypted = CIDOriginalDecrypted
 		}
 
 		// PublishFile crea un nuevo PublicFile y lo devuelve
@@ -156,7 +157,6 @@ func ShareWithUserHandler(tx *gorm.DB, formget form.SharedFolder, parentRoot str
 		}
 
 	}
-
 
 	for _, child := range formget.Folders {
 		ShareWithUserHandler(tx, child.Folder, folder.UID, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
@@ -215,7 +215,7 @@ func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Co
 		if err != nil {
 			shareState, err = query.CreateShareState(tx, f)
 			if err != nil {
-							tx.Rollback()
+				tx.Rollback()
 				log.Errorf("failed to create share state: %s", err)
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
 				return

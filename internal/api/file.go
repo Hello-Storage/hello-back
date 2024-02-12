@@ -424,7 +424,6 @@ func PublishFile(router *gin.RouterGroup) {
 			tx.Rollback()
 			return
 		}
-		log.Printf("New file: %v", selectedShareFile)
 
 		// Create a new file with the same metadata
 		newFile := CreateNewFileFromMetadata(f, selectedShareFile)
@@ -454,9 +453,6 @@ func PublishFile(router *gin.RouterGroup) {
 		shareState, err := query.CreateShareStateUserShared(tx, newFile, shareWithUser.ID)
 		if err != nil {
 			log.Errorf("failed to create a new share state user shared: %s", err)
-			log.Printf("CIDOriginalDecrypted: %s", CIDOriginalDecrypted)
-			log.Printf("newFile: %v", newFile)
-			log.Printf("shareWithUser.ID: %v", shareWithUser.ID)
 			tx.Rollback()
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
 			return
