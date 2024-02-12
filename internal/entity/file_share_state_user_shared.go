@@ -7,7 +7,7 @@ import (
 
 type FileShareStatesUserShared struct {
 	ID                   uint                 `gorm:"primarykey"                          json:"id"`
-	FileUID              string               `gorm:"type:varchar(42);uniqueIndex;references:UID;referencedTable:files"              json:"file_uid"`
+	FileUID              string               `gorm:"type:varchar(42);index;references:UID;referencedTable:files"              json:"file_uid"`
 	UserID               uint                 `gorm:"type:int" json:"user_id"`
 	PublicFileUserShared PublicFileUserShared `gorm:"foreignKey:FileUID;references:FileUID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"public_files_user_shared"`
 }
@@ -24,10 +24,18 @@ func (m *FileShareStatesUserShared) Save() error {
 	return db.Db().Save(m).Error
 }
 
+func (m *FileShareStatesUserShared) TxSave(tx *gorm.DB) error {
+	return tx.Save(m).Error
+}
+
 func (m *FileShareStatesUserShared) TxCreate(tx *gorm.DB) error {
 	return tx.Create(m).Error
 }
 
 func (m *FileShareStatesUserShared) Delete() error {
 	return db.Db().Delete(m).Error
+}
+
+func (m *FileShareStatesUserShared) TxDelete(tx *gorm.DB) error {
+	return tx.Delete(m).Error
 }
