@@ -13,11 +13,12 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 var folderMutex = sync.Mutex{}
 
-func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayload *token.Payload, shareType string, accountIdentifier string, ctx *gin.Context, shareWithUser *entity.User) {
+func ShareWithUserHandler(tx *gorm.DB, formget form.SharedFolder, parentRoot string, authPayload *token.Payload, shareType string, accountIdentifier string, ctx *gin.Context, shareWithUser *entity.User) {
 
 	// Find the existing folder in the database
 	foundFolder, err := query.FindFolderByUID(formget.Uid)
@@ -36,6 +37,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 
 	// Update the folder's encryption status to 'public'
 	if err := foundFolder.UpdateEncryptionStatusAndCID(entity.Public, fmt.Sprintf("%d", authPayload.UserID)); err != nil {
+		tx.Rollback()
 		AbortBadRequest(ctx)
 		return
 	}
@@ -48,7 +50,8 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		IsInPool:         true,
 	}
 
-	if err := folder.Create(); err != nil {
+	if err := folder.TxCreate(tx); err != nil {
+		tx.Rollback()
 		AbortBadRequest(ctx)
 		return
 	}
@@ -59,7 +62,8 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		Permission: entity.SharedPermission,
 	}
 
-	if err := folder_user.Create(); err != nil {
+	if err := folder_user.TxCreate(tx); err != nil {
+		tx.Rollback()
 		AbortBadRequest(ctx)
 		return
 	}
@@ -67,8 +71,8 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 	// Find files in the folder based on its UID
 	filesInFolder, _ := query.FindFilesByRoot(foundFolder.UID)
 
-	if err := folder_user.Create(); err != nil {
-		fmt.Println("error: ", err)
+	if err := folder_user.TxCreate(tx); err != nil {
+		fmt.Println("error when creating folder_user: ", err)
 	}
 
 	// Validate that the number of files in the folder matches the number of files in the request payload
@@ -81,9 +85,9 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 	fmt.Println("Sharing folder:\n uid:", formget.Uid, "\n user:", authPayload.UserID)
 
 	// Start the transaction
-	tx := db.Db().Begin()
 
 	// Iterate through each file in the request payload
+	log.Printf("total files: %d", len(formget.Files))
 	for _, file := range formget.Files {
 
 		// Check if the file exists
@@ -123,6 +127,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		query.DeleteFileShareStatesUserShared(tx, f.UID, shareWithUser.ID)
 		shareState, err := query.CreateShareStateUserShared(tx, newFile, shareWithUser.ID)
 		if err != nil {
+			tx.Rollback()
 			log.Errorf("failed to create share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
 			return
@@ -131,6 +136,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		// PublishFile crea un nuevo PublicFile y lo devuelve
 		publicFile, err := query.PublishFileUserShared(tx, shareState, file)
 		if err != nil {
+			tx.Rollback()
 			log.Errorf("failed to publish file: %s", err)
 			// Devuelve un mensaje de error al cliente
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
@@ -141,8 +147,9 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		shareState.PublicFileUserShared = *publicFile
 
 		// Save the updated shareState.PublicFile
-		err = shareState.PublicFileUserShared.Save()
+		err = shareState.PublicFileUserShared.TxSave(tx)
 		if err != nil {
+			tx.Rollback()
 			log.Errorf("failed to save share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
 			return
@@ -150,11 +157,9 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 
 	}
 
-	// Commit the transaction
-	tx.Commit()
 
 	for _, child := range formget.Folders {
-		ShareWithUserHandler(child.Folder, folder.UID, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
+		ShareWithUserHandler(tx, child.Folder, folder.UID, authPayload, shareType, accountIdentifier, ctx, shareWithUser)
 	}
 }
 func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Context) {
@@ -351,6 +356,8 @@ func CreateFolder(router *gin.RouterGroup) {
 			return
 		}
 
+		tx := db.Db().Begin()
+
 		// Lock to ensure exclusive access to shared resources
 		folderMutex.Lock()
 		defer folderMutex.Unlock()
@@ -363,17 +370,21 @@ func CreateFolder(router *gin.RouterGroup) {
 		case "wallet":
 			shareWithUser = query.FindUserByWalletAddress(accountIdentifier)
 		default:
+			tx.Rollback()
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid share type"})
 			return
 		}
 
 		// Check if the user was found
 		if shareWithUser == nil {
+			tx.Rollback()
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
 		}
 
-		ShareWithUserHandler(formget, "/", authPayload, shareType, accountIdentifier, ctx, shareWithUser)
+		ShareWithUserHandler(tx, formget, "/", authPayload, shareType, accountIdentifier, ctx, shareWithUser)
+
+		tx.Commit()
 
 		// Respond
 		ctx.JSON(http.StatusOK, "success")
