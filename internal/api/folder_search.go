@@ -52,14 +52,8 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 				for _, file := range files {
 					fileShareState := entity.FileShareStatesUserShared{}
 					publicFile := entity.PublicFileUserShared{}
-					fileShareStateErr := db.Db().Where("file_uid = ?", file.UID).First(&fileShareState).Error
-					publicFileErr := db.Db().Where("file_uid = ?", file.UID).First(&publicFile).Error
-					if fileShareStateErr != nil {
-						log.Errorf("error fetching fileShareState: %v", fileShareStateErr)
-					}
-					if publicFileErr != nil {
-						log.Errorf("error fetching publicFile: %v", publicFileErr)
-					}
+					_ = db.Db().Where("file_uid = ?", file.UID).First(&fileShareState).Error
+					_ = db.Db().Where("file_uid = ?", file.UID).First(&publicFile).Error
 
 					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
 					if err == nil {
@@ -95,14 +89,9 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 				for _, file := range files {
 					fileShareState := entity.FileShareStatesUserShared{}
 					publicFile := entity.PublicFileUserShared{}
-					fileShareStateErr := db.Db().Where("file_uid = ?", file.UID).First(&fileShareState).Error
-					publicFileErr := db.Db().Where("file_uid = ?", file.UID).First(&publicFile).Error
-					if fileShareStateErr != nil {
-						log.Errorf("error fetching fileShareState: %v", fileShareStateErr)
-					}
-					if publicFileErr != nil {
-						log.Errorf("error fetching publicFile: %v", publicFileErr)
-					}
+					_ = db.Db().Where("file_uid = ?", file.UID).First(&fileShareState).Error
+					_ = db.Db().Where("file_uid = ?", file.UID).First(&publicFile).Error
+				
 
 					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
 					if err == nil {
