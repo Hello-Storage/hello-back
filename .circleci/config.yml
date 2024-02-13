@@ -1,8 +1,8 @@
 version: 2.1
 
 orbs:
-  aws-cli: circleci/aws-cli@4.0.0
-  slack: circleci/slack@4.12.5
+  aws-cli: circleci/aws-cli@4.1.2
+  slack: circleci/slack@4.12.6
 
 executors:
   go:
