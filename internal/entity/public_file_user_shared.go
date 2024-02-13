@@ -32,6 +32,10 @@ func (m *PublicFileUserShared) Save() error {
 	return db.Db().Save(m).Error
 }
 
+func (m *PublicFileUserShared) TxSave(tx *gorm.DB) error {
+	return tx.Save(m).Error
+}
+
 func (m *PublicFileUserShared) Delete() error {
 	return db.Db().Unscoped().Delete(m).Error
 }

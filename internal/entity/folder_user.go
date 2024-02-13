@@ -1,6 +1,9 @@
 package entity
 
-import "github.com/Hello-Storage/hello-back/internal/db"
+import (
+	"github.com/Hello-Storage/hello-back/internal/db"
+	"gorm.io/gorm"
+)
 
 // FolderUser represents a one-to-many relation between File and User.
 
@@ -18,6 +21,10 @@ func (FolderUser) TableName() string {
 
 func (m *FolderUser) Create() error {
 	return db.Db().Create(m).Error
+}
+
+func (m *FolderUser) TxCreate(tx *gorm.DB) error {
+	return tx.Create(m).Error
 }
 
 func (m *FolderUser) Save() error {
