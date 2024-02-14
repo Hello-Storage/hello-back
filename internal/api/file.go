@@ -8,11 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
+	"github.com/Hello-Storage/hello-back/pkg/mg"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-gonic/gin"
 )
@@ -381,6 +383,14 @@ func PublishFile(router *gin.RouterGroup) {
 
 		// Get the account identifier (email or wallet) from the parameters
 		accountIdentifier := ctx.Param("user")
+		//get auth payload
+		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+
+		// Check if the user is sharing with themselves
+		if shareType == "wallet" && accountIdentifier == authPayload.UserName {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Cannot share with yourself"})
+			return
+		}
 
 		// Get the file metadata from the request body
 		var selectedShareFile form.CustomFileMeta
@@ -476,6 +486,13 @@ func PublishFile(router *gin.RouterGroup) {
 		// Update the shareState with the new PublicFile
 		shareState.PublicFileUserShared = *publicFile
 
+		// Send email with the file link to the user if the share type is email
+		if shareType == "email" {
+
+			// Send email with the file link to the user and pass also the sender user's email
+			sendEmailLinkToUser(authPayload.UserName, shareWithUser, newFile, publicFile)
+		}
+
 		// Save the updated shareState.PublicFile
 		err = shareState.PublicFileUserShared.TxSave(tx)
 		if err != nil {
@@ -491,6 +508,50 @@ func PublishFile(router *gin.RouterGroup) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully",
 			"data": gin.H{"file": newFile, "shareState": shareState, "publicFile": publicFile}})
 	})
+
+}
+
+func formatBytes(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+func sendEmailLinkToUser(username string, user *entity.User, file *entity.File, publicFile *entity.PublicFileUserShared) {
+
+	mg := mg.Mailgun{
+		Domain: "hello.app",
+		ApiKey: config.Env().MailGunApiKey,
+	}
+
+	mg.Init()
+	log.Printf("Sending email to %s", user.Email.Email)
+	log.Printf("Sending filename to %s", file.Name)
+	id, err := mg.SendEmail(
+		"noreply@hello.app",
+		user.Email.Email, // Fix: Pass the string value of user.Email
+		"hello.app | Received file named "+file.Name+"",
+		"received-file",
+		map[string]interface{}{
+			"filename": file.Name,
+			"filesize": formatBytes(file.Size),
+			"filelink": "https://hello.app/space/shared/public/" + publicFile.ShareHash,
+			"username": user.Email.Email,
+		},
+	)
+
+	log.Infof("id: %s", id)
+
+	if err != nil {
+		log.Errorf("failed to send email: %v", err)
+	}
 
 }
 
@@ -626,7 +687,7 @@ func GetPublishedFile(router *gin.RouterGroup) {
 		defer fileMutex.Unlock()
 
 		// Get the public file
-		publicFile, err := query.FindPublicFileByHash(hash)
+		publicFile, publicFileUserShared, err := query.FindPublicFileByHash(hash)
 		if err != nil {
 			tx.Rollback()
 			log.Errorf("cannot get public file: %s", err)
@@ -634,46 +695,63 @@ func GetPublishedFile(router *gin.RouterGroup) {
 			return
 		}
 
-		// Check additional conditions
-		if publicFile.HasBeenOpened != nil && *publicFile.HasBeenOpened {
-			// If HasBeenOpened is true, the file has been accessed before, and access is not allowed
-			tx.Rollback()
-			c.JSON(http.StatusForbidden, gin.H{"error": "File has already been accessed"})
-			return
-		}
+		var f *entity.File
+		var res entity.File
 
-		if publicFile.ExpireAt != nil && !publicFile.ExpireAt.IsZero() && time.Now().After(*publicFile.ExpireAt) {
-			// If ExpireAt is a past date, the file has expired, and access is not allowed
-			tx.Rollback()
-			c.JSON(http.StatusForbidden, gin.H{"error": "File has expired"})
-			return
-		}
+		if publicFile.ID != 0 {
+			// Check additional conditions
+			if publicFile.HasBeenOpened != nil && *publicFile.HasBeenOpened {
+				// If HasBeenOpened is true, the file has been accessed before, and access is not allowed
+				tx.Rollback()
+				c.JSON(http.StatusForbidden, gin.H{"error": "File has already been accessed"})
+				return
+			}
 
-		// Update HasBeenOpened if necessary
-		if publicFile.HasBeenOpened != nil && !*publicFile.HasBeenOpened {
-			hasBeenOpened := true
-			publicFile.HasBeenOpened = &hasBeenOpened
-			// You could also update the access date here if necessary
-			publicFile.UpdatedAt = time.Now()
-			err = publicFile.TxSave(tx)
+			if publicFile.ExpireAt != nil && !publicFile.ExpireAt.IsZero() && time.Now().After(*publicFile.ExpireAt) {
+				// If ExpireAt is a past date, the file has expired, and access is not allowed
+				tx.Rollback()
+				c.JSON(http.StatusForbidden, gin.H{"error": "File has expired"})
+				return
+			}
+
+			// Update HasBeenOpened if necessary
+			if publicFile.HasBeenOpened != nil && !*publicFile.HasBeenOpened {
+				hasBeenOpened := true
+				publicFile.HasBeenOpened = &hasBeenOpened
+				// You could also update the access date here if necessary
+				publicFile.UpdatedAt = time.Now()
+				err = publicFile.TxSave(tx)
+				if err != nil {
+					log.Errorf("failed to update public file: %s", err)
+					tx.Rollback()
+					AbortEntityNotFound(c)
+					return
+				}
+			}
+
+			// get the original file
+			f, err = query.FindFileByUID(publicFile.FileUID)
 			if err != nil {
-				log.Errorf("failed to update public file: %s", err)
+				log.Errorf("cannot get publicFile's file: %s", err)
 				tx.Rollback()
 				AbortEntityNotFound(c)
 				return
 			}
-		}
+			res = CreateFileForSharedFile(*f, publicFile, nil)
+		} else {
+			log.Printf("publicFileUserShared is NOT empty: %v", publicFileUserShared)
+			log.Printf(":a %v", publicFile)
+			// get the original file
+			f, err = query.FindFileByUID(publicFileUserShared.FileUID)
+			if err != nil {
+				log.Errorf("cannot get publicFileUserShared's file: %s", err)
+				tx.Rollback()
+				AbortEntityNotFound(c)
+				return
+			}
 
-		// get the original file
-		f, err := query.FindFileByUID(publicFile.FileUID)
-		if err != nil {
-			log.Errorf("cannot get file: %s", err)
-			tx.Rollback()
-			AbortEntityNotFound(c)
-			return
+			res = CreateFileForSharedFile(*f, nil, publicFileUserShared)
 		}
-
-		res := CreateFileForSharedFile(*f, *publicFile)
 
 		tx.Commit()
 
@@ -696,21 +774,32 @@ func GetPublishedFileName(router *gin.RouterGroup) {
 		defer fileMutex.Unlock()
 
 		//get public file
-		public_file, err := query.FindPublicFileByHash(hash)
+		public_file, public_file_user_shared, err := query.FindPublicFileByHash(hash)
 		if err != nil {
 			log.Errorf("cannot get public file: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 		// get the original file
-		f, err := query.FindFileByUID(public_file.FileUID)
+		fileUid := ""
+
+		if public_file != nil {
+			fileUid = public_file.FileUID
+		} else {
+			fileUid = public_file_user_shared.FileUID
+		}
+
+		//print public file and public file user shared
+		log.Printf("public file: %v", public_file)
+		log.Printf("public file user shared: %v", public_file_user_shared)
+		f, err := query.FindFileByUID(fileUid)
 		if err != nil {
-			log.Errorf("cannot get file: %s", err)
+			log.Errorf("cannot get published file: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
-		res := CreateFileForSharedFile(*f, *public_file)
+		res := CreateFileForSharedFile(*f, public_file, public_file_user_shared)
 
 		c.JSON(http.StatusOK, res)
 	})

@@ -51,14 +51,23 @@ func PublishFile(tx *gorm.DB, share_state entity.FileShareState, selectedShareFi
 	return &publicFile, nil
 }
 
-func FindPublicFileByHash(shareHash string) (*entity.PublicFile, error) {
+func FindPublicFileByHash(shareHash string) (*entity.PublicFile, *entity.PublicFileUserShared, error) {
 	var publicFile entity.PublicFile
+	var publicFileUserShared entity.PublicFileUserShared
 	err := db.UnscopedDb().Where("share_hash = ?", shareHash).First(&publicFile).Error
 	if err != nil {
-		return nil, err
+		if err.Error() == "record not found" {
+			err = db.UnscopedDb().Where("share_hash = ?", shareHash).First(&publicFileUserShared).Error
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+
+			return nil, nil, err
+		}
 	}
 
-	return &publicFile, nil
+	return &publicFile, &publicFileUserShared, nil
 }
 
 // PublishFileUserShared creates a new public file.

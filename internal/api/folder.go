@@ -415,41 +415,46 @@ func CreateFolder(router *gin.RouterGroup) {
 
 		publicfilesInFolder, _ := query.FindPublicFilesByRoot(foundFolder.UID)
 
+		publicfilesUserSharedInFolder, _ := query.FindPublicFilesUserSharedByRoot(foundFolder.UID, authPayload.UserID)
+
 		var resFiles []entity.File
 
 		// check the size of the results
 		if len(filesInFolder) != len(publicfilesInFolder) {
-			fmt.Println("filesInFolder", filesInFolder)
-			fmt.Println("publicfilesInFolder", publicfilesInFolder)
-			Abort(ctx, http.StatusBadRequest, "files in folder are no shared")
-			return
-		}
-		for i, file := range filesInFolder {
-			publicFile := publicfilesInFolder[i]
-			resFiles = append(resFiles, CreateFileForSharedFile(file, publicFile))
+			
+			for i, file := range filesInFolder {
+				publicFileUserShared := publicfilesUserSharedInFolder[i]
+				resFiles = append(resFiles, CreateFileForSharedFile(file, nil, &publicFileUserShared))
 
-			// Check additional conditions
-			if publicFile.HasBeenOpened != nil && *publicFile.HasBeenOpened {
-				// If HasBeenOpened is true, the file has been accessed before, and access is not allowed
-				ctx.JSON(http.StatusForbidden, gin.H{"error": "File has already been accessed"})
-				return
 			}
+		} else {
+			for i, file := range filesInFolder {
+				publicFile := publicfilesInFolder[i]
+				resFiles = append(resFiles, CreateFileForSharedFile(file, &publicFile, nil))
 
-			if publicFile.ExpireAt != nil && !publicFile.ExpireAt.IsZero() && time.Now().After(*publicFile.ExpireAt) {
-				// If ExpireAt is a past date, the file has expired, and access is not allowed
-				ctx.JSON(http.StatusForbidden, gin.H{"error": "File has expired"})
-				return
+				// Check additional conditions
+				if publicFile.HasBeenOpened != nil && *publicFile.HasBeenOpened {
+					// If HasBeenOpened is true, the file has been accessed before, and access is not allowed
+					ctx.JSON(http.StatusForbidden, gin.H{"error": "File has already been accessed"})
+					return
+				}
+
+				if publicFile.ExpireAt != nil && !publicFile.ExpireAt.IsZero() && time.Now().After(*publicFile.ExpireAt) {
+					// If ExpireAt is a past date, the file has expired, and access is not allowed
+					ctx.JSON(http.StatusForbidden, gin.H{"error": "File has expired"})
+					return
+				}
+
+				// Update HasBeenOpened if necessary
+				if publicFile.HasBeenOpened != nil && !*publicFile.HasBeenOpened {
+					hasBeenOpened := true
+					publicFile.HasBeenOpened = &hasBeenOpened
+					// You could also update the access date here if necessary
+					publicFile.UpdatedAt = time.Now()
+					publicFile.Save()
+				}
+
 			}
-
-			// Update HasBeenOpened if necessary
-			if publicFile.HasBeenOpened != nil && !*publicFile.HasBeenOpened {
-				hasBeenOpened := true
-				publicFile.HasBeenOpened = &hasBeenOpened
-				// You could also update the access date here if necessary
-				publicFile.UpdatedAt = time.Now()
-				publicFile.Save()
-			}
-
 		}
 
 		// get folders in the folder
@@ -467,26 +472,47 @@ func CreateFolder(router *gin.RouterGroup) {
 	})
 }
 
-func CreateFileForSharedFile(originalFile entity.File, publicFile entity.PublicFile) entity.File {
+func CreateFileForSharedFile(originalFile entity.File, publicFile *entity.PublicFile, publicFileUserShared *entity.PublicFileUserShared) entity.File {
 	var isInPool bool = true
 	shareState, _ := query.FindShareStateByFileUID(originalFile.UID)
 
-	return entity.File{
-		ID:                   originalFile.ID,
-		UID:                  originalFile.UID,
-		CID:                  originalFile.CID,
-		CIDOriginalEncrypted: nil,
-		Name:                 publicFile.Name,
-		Root:                 "",
-		Mime:                 publicFile.Mime,
-		Size:                 publicFile.Size,
-		MediaType:            originalFile.MediaType,
-		EncryptionStatus:     entity.Public,
-		CreatedAt:            publicFile.CreatedAt,
-		UpdatedAt:            publicFile.UpdatedAt,
-		IsInPool:             &isInPool,
-		DeletedAt:            originalFile.DeletedAt,
-		Path:                 originalFile.Path,
-		FileShareState:       shareState,
+	if publicFile != nil {
+		return entity.File{
+			ID:                   originalFile.ID,
+			UID:                  originalFile.UID,
+			CID:                  originalFile.CID,
+			CIDOriginalEncrypted: nil,
+			Name:                 publicFile.Name,
+			Root:                 "",
+			Mime:                 publicFile.Mime,
+			Size:                 publicFile.Size,
+			MediaType:            originalFile.MediaType,
+			EncryptionStatus:     entity.Public,
+			CreatedAt:            publicFile.CreatedAt,
+			UpdatedAt:            publicFile.UpdatedAt,
+			IsInPool:             &isInPool,
+			DeletedAt:            originalFile.DeletedAt,
+			Path:                 originalFile.Path,
+			FileShareState:       shareState,
+		}
+	} else {
+		return entity.File{
+			ID:                   originalFile.ID,
+			UID:                  originalFile.UID,
+			CID:                  originalFile.CID,
+			CIDOriginalEncrypted: nil,
+			Name:                 publicFileUserShared.Name,
+			Root:                 "",
+			Mime:                 publicFileUserShared.Mime,
+			Size:                 publicFileUserShared.Size,
+			MediaType:            originalFile.MediaType,
+			EncryptionStatus:     entity.Public,
+			CreatedAt:            originalFile.CreatedAt,
+			UpdatedAt:            originalFile.UpdatedAt,
+			IsInPool:             &isInPool,
+			DeletedAt:            originalFile.DeletedAt,
+			Path:                 originalFile.Path,
+			FileShareState:       shareState,
+		}
 	}
 }

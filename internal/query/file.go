@@ -17,7 +17,7 @@ import (
 // FindFileByUID returns file for the given UID.
 func FindFileByUID(uid string) (*entity.File, error) {
 	if uid == "" {
-		return nil, fmt.Errorf("file uid required")
+		return nil, fmt.Errorf("file uid required to find by uid")
 	}
 
 	var file entity.File
@@ -101,6 +101,26 @@ func FindPublicFilesByRoot(root string) (publicFiles []entity.PublicFile, err er
 		}
 
 		publicFiles = append(publicFiles, publicFile)
+	}
+
+	return publicFiles, nil
+}
+
+func FindPublicFilesUserSharedByRoot(root string, userID uint) (publicFiles []entity.PublicFileUserShared, err error) {
+	files, err := FindFilesByRoot(root)
+	if err != nil {
+		return publicFiles, err
+	}
+
+	for _, file := range files {
+		var publicFileUserShared entity.PublicFileUserShared
+
+		if err := db.Db().Where("file_uid = ? AND user_id = ?",
+			file.UID, userID).First(&publicFileUserShared).Error; err != nil {
+			fmt.Println(err)
+		}
+
+		publicFiles = append(publicFiles, publicFileUserShared)
 	}
 
 	return publicFiles, nil
