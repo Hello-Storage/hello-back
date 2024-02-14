@@ -83,7 +83,6 @@ func GetUserDetail(router *gin.RouterGroup) {
 
 		for _, fileUser := range filesUser {
 			file, err := query.FindFileByID(fileUser.FileID)
-			log.Printf("file: %v", file)
 			if err != nil {
 				log.Errorf("error fetching file: %v", err)
 				if err != gorm.ErrRecordNotFound {

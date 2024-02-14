@@ -17,7 +17,7 @@ import (
 // FindFileByUID returns file for the given UID.
 func FindFileByUID(uid string) (*entity.File, error) {
 	if uid == "" {
-		return nil, fmt.Errorf("file uid required")
+		return nil, fmt.Errorf("file uid required to find by uid")
 	}
 
 	var file entity.File
@@ -57,8 +57,6 @@ func FindFileByID(id uint) (*entity.File, error) {
 
 	f.FileShareState = fileShareState
 
-	log.Printf("file_uid: %v", f)
-	log.Printf("File with preloaded sharestate: %v", f.FileShareState)
 
 	return f, nil
 }
@@ -101,6 +99,26 @@ func FindPublicFilesByRoot(root string) (publicFiles []entity.PublicFile, err er
 		}
 
 		publicFiles = append(publicFiles, publicFile)
+	}
+
+	return publicFiles, nil
+}
+
+func FindPublicFilesUserSharedByRoot(root string, userID uint) (publicFiles []entity.PublicFileUserShared, err error) {
+	files, err := FindFilesByRoot(root)
+	if err != nil {
+		return publicFiles, err
+	}
+
+	for _, file := range files {
+		var publicFileUserShared entity.PublicFileUserShared
+
+		if err := db.Db().Where("file_uid = ? AND user_id = ?",
+			file.UID, userID).First(&publicFileUserShared).Error; err != nil {
+			fmt.Println(err)
+		}
+
+		publicFiles = append(publicFiles, publicFileUserShared)
 	}
 
 	return publicFiles, nil
@@ -152,13 +170,21 @@ func CountTotalUsedStorage() (totalusedstorage int64, err error) {
 	return totalusedstorage, nil
 }
 
-func FindShareStateByFileUID(file_uid string) (file_share_state entity.FileShareState, err error) {
+func FindShareStateByFileUID(file_uid string) (file_share_state *entity.FileShareState, file_share_states_user_share *entity.FileShareStatesUserShared, err error) {
 	if err := db.Db().Preload("PublicFile").Where("file_uid = ?", file_uid).First(&file_share_state).Error; err != nil {
+		if err.Error() == "record not found" {
+			if err := db.Db().Preload("PublicFileUserShared").Where("file_uid = ?", file_uid).First(&file_share_states_user_share).Error; err != nil {
+				return nil, nil, err
+			}
+			return nil, file_share_states_user_share, nil
+		} else {
+			return nil, nil, err
+		}
 
-		return file_share_state, err
+		
 	}
 
-	return file_share_state, nil
+	return file_share_state, nil, nil
 }
 
 func CreateShareState(tx *gorm.DB, file *entity.File) (file_share_state entity.FileShareState, err error) {

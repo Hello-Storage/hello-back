@@ -192,7 +192,6 @@ func DeleteAllFilesInFolder(tx *gorm.DB, folderUID, userUID string, userID uint)
 							return err
 						} else {
 							//give the owner
-							log.Printf("next file user: %v", nextFileUser)
 							query.SetOwnerPermision(tx, nextFileUser.UserID, nextFileUser.FileID)
 							query.SetNextFileInPool(tx, nextFileUser.UserID, nextFileUser.FileID)
 						}
