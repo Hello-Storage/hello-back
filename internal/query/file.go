@@ -57,8 +57,6 @@ func FindFileByID(id uint) (*entity.File, error) {
 
 	f.FileShareState = fileShareState
 
-	log.Printf("file_uid: %v", f)
-	log.Printf("File with preloaded sharestate: %v", f.FileShareState)
 
 	return f, nil
 }

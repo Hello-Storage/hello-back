@@ -76,7 +76,6 @@ func GetNextFileUser(userID uint, cid string) (entity.FileUser, error) {
 		log.Errorf("get next files error: %v", err)
 		return entity.FileUser{}, err
 	}
-	log.Printf("files: %v", files)
 
 	var nextFileID uint
 	if len(files) > 1 {
@@ -85,7 +84,6 @@ func GetNextFileUser(userID uint, cid string) (entity.FileUser, error) {
 		nextFileID = files[0].ID
 	}
 
-	log.Printf("next file id: %v", nextFileID)
 
 	var fileUser entity.FileUser
 	if err := db.Db().Table("files_users").

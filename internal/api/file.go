@@ -542,8 +542,6 @@ func sendEmailLinkToUser(username string, user *entity.User, file *entity.File, 
 	}
 
 	mg.Init()
-	log.Printf("Sending email to %s", user.Email.Email)
-	log.Printf("Sending filename to %s", file.Name)
 	id, err := mg.SendEmail(
 		"noreply@hello.app",
 		user.Email.Email, // Fix: Pass the string value of user.Email
@@ -688,7 +686,6 @@ func GetPublishedFile(router *gin.RouterGroup) {
 	router.GET("/share/published/:hash", func(c *gin.Context) {
 		// Get the hash from the parameters
 		hash := c.Param("hash")
-		log.Print("GetPublishedFile: ", hash)
 
 		tx := db.Db().Begin()
 
@@ -749,8 +746,6 @@ func GetPublishedFile(router *gin.RouterGroup) {
 			}
 			res = CreateFileForSharedFile(*f, publicFile, nil)
 		} else {
-			log.Printf("publicFileUserShared is NOT empty: %v", publicFileUserShared)
-			log.Printf(":a %v", publicFile)
 			// get the original file
 			f, err = query.FindFileByUID(publicFileUserShared.FileUID)
 			if err != nil {
@@ -793,15 +788,18 @@ func GetPublishedFileName(router *gin.RouterGroup) {
 		// get the original file
 		fileUid := ""
 
-		if public_file != nil {
+
+		if public_file != nil && public_file.ID != 0 {
 			fileUid = public_file.FileUID
-		} else {
+		} else if (public_file_user_shared != nil && public_file_user_shared.ID != 0) {
 			fileUid = public_file_user_shared.FileUID
+		} else {
+			log.Errorf("cannot get published file, published file is null: %s", err)
+			AbortEntityNotFound(c)
+			return
 		}
 
 		//print public file and public file user shared
-		log.Printf("public file: %v", public_file)
-		log.Printf("public file user shared: %v", public_file_user_shared)
 		f, err := query.FindFileByUID(fileUid)
 		if err != nil {
 			log.Errorf("cannot get published file: %s", err)

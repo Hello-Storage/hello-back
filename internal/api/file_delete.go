@@ -139,7 +139,6 @@ func DeleteFile(router *gin.RouterGroup) {
 							return
 						} else {
 							//give the owner
-							log.Printf("next file user: %v", nextFileUser)
 							query.SetOwnerPermision(tx, nextFileUser.UserID, nextFileUser.FileID)
 							query.SetNextFileInPool(tx, nextFileUser.UserID, nextFileUser.FileID)
 						}

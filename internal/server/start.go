@@ -147,21 +147,18 @@ func Start(ctx context.Context) {
 		log.Errorf("cannot calculate initial weekly user stats: %s", err)
 	} else {
 		usersData.WeeklyStatistics = initialUsersStats
-		log.Println("Calculated initial weekly user stats")
 	}
 	initialStorageStats, err := storageData.CalculateWeeklyStorageStats()
 	if err != nil {
 		log.Errorf("cannot calculate initial weekly storage stats: %s", err)
 	} else {
 		storageData.WeeklyStatistics = initialStorageStats
-		log.Println("Calculated initial weekly storage stats")
 	}
 	initialStatistics, err := statisticsData.CalculateStatistics()
 	if err != nil {
 		log.Errorf("cannot calculate initial weekly stats: %s", err)
 	} else {
 		statisticsData.Statistics = initialStatistics
-		log.Println("Calculated initial stats")
 	}
 
 	// Graceful HTTP server shutdown.

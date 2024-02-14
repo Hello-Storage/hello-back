@@ -478,8 +478,6 @@ func CreateFileForSharedFile(originalFile entity.File, publicFile *entity.Public
 	if err != nil {
 		log.Errorf("failed to get share state: %s", err)
 	}
-	log.Printf("originalFile: %v", originalFile)
-	log.Printf("shareState: %v", shareState)
 
 	if publicFile != nil {
 
