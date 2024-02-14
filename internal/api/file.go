@@ -417,7 +417,9 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// Check if the user was found
+		var receiverNil bool
 		if shareWithUser == nil || shareWithUser.ID == 0 {
+			receiverNil = true
 			var user *entity.User
 			db.Db().Where("uid = ?", authPayload.UserUID).First(&user)
 			if user == nil || user.ID == 0 {
@@ -455,17 +457,18 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// Create a FilesUsers entry to share the file with the specified user
-		fileUser := &entity.FileUser{
-			FileID:     newFile.ID,
-			UserID:     shareWithUser.ID,
-			Permission: entity.SharedPermission,
-		}
-
-		if err := fileUser.TxCreate(tx); err != nil {
-			log.Errorf("create file_user relation: %s", err)
-			tx.Rollback()
-			AbortInternalServerError(ctx)
-			return
+		if !receiverNil {
+			fileUser := &entity.FileUser{
+				FileID:     newFile.ID,
+				UserID:     shareWithUser.ID,
+				Permission: entity.SharedPermission,
+			}
+			if err := fileUser.TxCreate(tx); err != nil {
+				log.Errorf("create file_user relation: %s", err)
+				tx.Rollback()
+				AbortInternalServerError(ctx)
+				return
+			}
 		}
 
 		// delete the file share state user shared in case it exists
@@ -548,10 +551,11 @@ func sendEmailLinkToUser(username string, user *entity.User, email string, file 
 		"hello.app | Received file named "+file.Name+"",
 		"received-file",
 		map[string]interface{}{
-			"filename": file.Name,
-			"filesize": formatBytes(file.Size),
-			"filelink": "https://hello.app/space/shared/public/" + publicFile.ShareHash,
-			"username": user.Email.Email,
+			"filename":   file.Name,
+			"filesize":   formatBytes(file.Size),
+			"filelink":   "https://hello.app/space/shared/public/" + publicFile.ShareHash,
+			"sendername": username,
+			"username":   email,
 		},
 	)
 
@@ -788,10 +792,9 @@ func GetPublishedFileName(router *gin.RouterGroup) {
 		// get the original file
 		fileUid := ""
 
-
 		if public_file != nil && public_file.ID != 0 {
 			fileUid = public_file.FileUID
-		} else if (public_file_user_shared != nil && public_file_user_shared.ID != 0) {
+		} else if public_file_user_shared != nil && public_file_user_shared.ID != 0 {
 			fileUid = public_file_user_shared.FileUID
 		} else {
 			log.Errorf("cannot get published file, published file is null: %s", err)
