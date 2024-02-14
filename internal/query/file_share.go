@@ -151,10 +151,10 @@ func DeleteFileShareStatesUserShared(tx *gorm.DB, fileUID string, userID uint) s
 
 	result := tx.Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
 	if result.Error == nil {
-		if err := tx.Unscoped().Delete(&fileShareState.PublicFileUserShared).Error; err != nil {
+		if err := tx.Unscoped().Where("file_uid = ? ", fileUID).Delete(&fileShareState.PublicFileUserShared).Error; err != nil {
 			log.Errorf("Error deleting public file user shared: %v", err)
 		}
-		if err := tx.Unscoped().Delete(&fileShareState).Error; err != nil {
+		if err := tx.Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).Delete(&fileShareState).Error; err != nil {
 			log.Errorf("Error deleting file share state user shared: %v", err)
 		}
 		cidOriginalDecrypted = fileShareState.PublicFileUserShared.CIDOriginalDecrypted

@@ -141,10 +141,10 @@ func GetShareState(router *gin.RouterGroup) {
 		tx := db.Db().Begin()
 
 		//get share state, if doesn't exist, create it
-		share_state, err := query.FindShareStateByFileUID(file_uid)
+		share_state, _, err := query.FindShareStateByFileUID(file_uid)
 		if err != nil {
 			log.Errorf("Error finding share state: %s", err)
-			share_state, err = query.CreateShareState(tx, f)
+			*share_state, err = query.CreateShareState(tx, f)
 			if err != nil {
 				log.Errorf("cannot create share state: %s", err)
 				tx.Rollback()
@@ -188,10 +188,10 @@ func GetShareState(router *gin.RouterGroup) {
 			}
 
 			// get share state, if doesn't exist, create it
-			shareState, err := query.FindShareStateByFileUID(fileUID)
+			shareState, _, err := query.FindShareStateByFileUID(fileUID)
 			if err != nil {
 				log.Errorf("Error finding share state: %s", err)
-				shareState, err = query.CreateShareState(tx, f)
+				*shareState, err = query.CreateShareState(tx, f)
 				if err != nil {
 					log.Errorf("cannot create share state: %s", err)
 					// skip this file if share state creation fails
@@ -199,7 +199,7 @@ func GetShareState(router *gin.RouterGroup) {
 				}
 			}
 
-			shareStates = append(shareStates, shareState)
+			shareStates = append(shareStates, *shareState)
 		}
 
 		tx.Commit()
@@ -321,9 +321,9 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// Get the sharing state; if it doesn't exist, create it
-		shareState, err := query.FindShareStateByFileUID(selectedShareFile.UID)
+		shareState, _, err := query.FindShareStateByFileUID(selectedShareFile.UID)
 		if err != nil {
-			shareState, err = query.CreateShareState(tx, f)
+			*shareState, err = query.CreateShareState(tx, f)
 			if err != nil {
 				log.Errorf("failed to create new share state: %s", err)
 				// Devuelve un mensaje de error al cliente
@@ -334,7 +334,7 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// PublishFile crea un nuevo PublicFile y lo devuelve
-		publicFile, err := query.PublishFile(tx, shareState, selectedShareFile)
+		publicFile, err := query.PublishFile(tx, *shareState, selectedShareFile)
 		if err != nil {
 			log.Errorf("failed to publish file: %s", err)
 			// Devuelve un mensaje de error al cliente
@@ -418,9 +418,19 @@ func PublishFile(router *gin.RouterGroup) {
 
 		// Check if the user was found
 		if shareWithUser == nil || shareWithUser.ID == 0 {
-			log.Errorf("user not found: %s", accountIdentifier)
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-			return
+			var user *entity.User
+			db.Db().Where("uid = ?", authPayload.UserUID).First(&user)
+			if user == nil || user.ID == 0 {
+				log.Errorf("user not found: %s", accountIdentifier)
+				ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+				return
+			}
+
+			shareWithUser = user
+			accountEmail := entity.Email{
+				Email: accountIdentifier,
+			}
+			shareWithUser.Email = &accountEmail
 		}
 
 		// Start the transaction
@@ -603,9 +613,9 @@ func UnpublishFile(router *gin.RouterGroup) {
 		}
 
 		// get share state, if doesn't exist, create it
-		shareState, err := query.FindShareStateByFileUID(selectedShareFile.UID)
+		shareState, _, err := query.FindShareStateByFileUID(selectedShareFile.UID)
 		if err != nil {
-			shareState, err = query.CreateShareState(tx, f)
+			*shareState, err = query.CreateShareState(tx, f)
 			if err != nil {
 				tx.Rollback()
 				log.Errorf("cannot create share state: %s", err)

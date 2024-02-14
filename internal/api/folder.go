@@ -211,9 +211,9 @@ func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Co
 		query.DeleteFileShareState(tx, f.UID)
 
 		// Find or create a sharing state for the file
-		shareState, err := query.FindShareStateByFileUID(file.UID)
+		shareState, _, err := query.FindShareStateByFileUID(file.UID)
 		if err != nil {
-			shareState, err = query.CreateShareState(tx, f)
+			*shareState, err = query.CreateShareState(tx, f)
 			if err != nil {
 				tx.Rollback()
 				log.Errorf("failed to create share state: %s", err)
@@ -223,7 +223,7 @@ func ShareFolderHandler(formget form.SharedFolder, shareType string, ctx *gin.Co
 		}
 
 		// Publish the file and get the corresponding PublicFile instance
-		publicFile, err := query.PublishFile(tx, shareState, file)
+		publicFile, err := query.PublishFile(tx, *shareState, file)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
 			return
@@ -421,7 +421,7 @@ func CreateFolder(router *gin.RouterGroup) {
 
 		// check the size of the results
 		if len(filesInFolder) != len(publicfilesInFolder) {
-			
+
 			for i, file := range filesInFolder {
 				publicFileUserShared := publicfilesUserSharedInFolder[i]
 				resFiles = append(resFiles, CreateFileForSharedFile(file, nil, &publicFileUserShared))
@@ -474,45 +474,100 @@ func CreateFolder(router *gin.RouterGroup) {
 
 func CreateFileForSharedFile(originalFile entity.File, publicFile *entity.PublicFile, publicFileUserShared *entity.PublicFileUserShared) entity.File {
 	var isInPool bool = true
-	shareState, _ := query.FindShareStateByFileUID(originalFile.UID)
+	shareState, shareStateUserShared, err := query.FindShareStateByFileUID(originalFile.UID)
+	if err != nil {
+		log.Errorf("failed to get share state: %s", err)
+	}
+	log.Printf("originalFile: %v", originalFile)
+	log.Printf("shareState: %v", shareState)
 
 	if publicFile != nil {
-		return entity.File{
-			ID:                   originalFile.ID,
-			UID:                  originalFile.UID,
-			CID:                  originalFile.CID,
-			CIDOriginalEncrypted: nil,
-			Name:                 publicFile.Name,
-			Root:                 "",
-			Mime:                 publicFile.Mime,
-			Size:                 publicFile.Size,
-			MediaType:            originalFile.MediaType,
-			EncryptionStatus:     entity.Public,
-			CreatedAt:            publicFile.CreatedAt,
-			UpdatedAt:            publicFile.UpdatedAt,
-			IsInPool:             &isInPool,
-			DeletedAt:            originalFile.DeletedAt,
-			Path:                 originalFile.Path,
-			FileShareState:       shareState,
+
+		if shareState != nil && shareState.ID != 0 {
+
+			return entity.File{
+				ID:                   originalFile.ID,
+				UID:                  originalFile.UID,
+				CID:                  originalFile.CID,
+				CIDOriginalEncrypted: nil,
+				Name:                 publicFile.Name,
+				Root:                 "",
+				Mime:                 publicFile.Mime,
+				Size:                 publicFile.Size,
+				MediaType:            originalFile.MediaType,
+				EncryptionStatus:     entity.Public,
+				CreatedAt:            publicFile.CreatedAt,
+				UpdatedAt:            publicFile.UpdatedAt,
+				IsInPool:             &isInPool,
+				DeletedAt:            originalFile.DeletedAt,
+				Path:                 originalFile.Path,
+				FileShareState:       *shareState,
+			}
+		} else {
+			return entity.File{
+				ID:                        originalFile.ID,
+				UID:                       originalFile.UID,
+				CID:                       originalFile.CID,
+				CIDOriginalEncrypted:      nil,
+				Name:                      publicFile.Name,
+				Root:                      "",
+				Mime:                      publicFile.Mime,
+				Size:                      publicFile.Size,
+				MediaType:                 originalFile.MediaType,
+				EncryptionStatus:          entity.Public,
+				CreatedAt:                 publicFile.CreatedAt,
+				UpdatedAt:                 publicFile.UpdatedAt,
+				IsInPool:                  &isInPool,
+				DeletedAt:                 originalFile.DeletedAt,
+				Path:                      originalFile.Path,
+				FileShareStatesUserShared: *shareStateUserShared,
+			}
+
 		}
 	} else {
-		return entity.File{
-			ID:                   originalFile.ID,
-			UID:                  originalFile.UID,
-			CID:                  originalFile.CID,
-			CIDOriginalEncrypted: nil,
-			Name:                 publicFileUserShared.Name,
-			Root:                 "",
-			Mime:                 publicFileUserShared.Mime,
-			Size:                 publicFileUserShared.Size,
-			MediaType:            originalFile.MediaType,
-			EncryptionStatus:     entity.Public,
-			CreatedAt:            originalFile.CreatedAt,
-			UpdatedAt:            originalFile.UpdatedAt,
-			IsInPool:             &isInPool,
-			DeletedAt:            originalFile.DeletedAt,
-			Path:                 originalFile.Path,
-			FileShareState:       shareState,
+
+		if shareState != nil &&
+			shareState.ID != 0 {
+
+			return entity.File{
+				ID:                   originalFile.ID,
+				UID:                  originalFile.UID,
+				CID:                  originalFile.CID,
+				CIDOriginalEncrypted: nil,
+				Name:                 publicFileUserShared.Name,
+				Root:                 "",
+				Mime:                 publicFileUserShared.Mime,
+				Size:                 publicFileUserShared.Size,
+				MediaType:            originalFile.MediaType,
+				EncryptionStatus:     entity.Public,
+				CreatedAt:            originalFile.CreatedAt,
+				UpdatedAt:            originalFile.UpdatedAt,
+				IsInPool:             &isInPool,
+				DeletedAt:            originalFile.DeletedAt,
+				Path:                 originalFile.Path,
+				FileShareState:       *shareState,
+			}
+		} else {
+			return entity.File{
+				ID:                        originalFile.ID,
+				UID:                       originalFile.UID,
+				CID:                       originalFile.CID,
+				CIDOriginalEncrypted:      nil,
+				Name:                      publicFileUserShared.Name,
+				Root:                      "",
+				Mime:                      publicFileUserShared.Mime,
+				Size:                      publicFileUserShared.Size,
+				MediaType:                 originalFile.MediaType,
+				EncryptionStatus:          entity.Public,
+				CreatedAt:                 originalFile.CreatedAt,
+				UpdatedAt:                 originalFile.UpdatedAt,
+				IsInPool:                  &isInPool,
+				DeletedAt:                 originalFile.DeletedAt,
+				Path:                      originalFile.Path,
+				FileShareStatesUserShared: *shareStateUserShared,
+			}
+
 		}
+
 	}
 }

@@ -172,13 +172,21 @@ func CountTotalUsedStorage() (totalusedstorage int64, err error) {
 	return totalusedstorage, nil
 }
 
-func FindShareStateByFileUID(file_uid string) (file_share_state entity.FileShareState, err error) {
+func FindShareStateByFileUID(file_uid string) (file_share_state *entity.FileShareState, file_share_states_user_share *entity.FileShareStatesUserShared, err error) {
 	if err := db.Db().Preload("PublicFile").Where("file_uid = ?", file_uid).First(&file_share_state).Error; err != nil {
+		if err.Error() == "record not found" {
+			if err := db.Db().Preload("PublicFileUserShared").Where("file_uid = ?", file_uid).First(&file_share_states_user_share).Error; err != nil {
+				return nil, nil, err
+			}
+			return nil, file_share_states_user_share, nil
+		} else {
+			return nil, nil, err
+		}
 
-		return file_share_state, err
+		
 	}
 
-	return file_share_state, nil
+	return file_share_state, nil, nil
 }
 
 func CreateShareState(tx *gorm.DB, file *entity.File) (file_share_state entity.FileShareState, err error) {
