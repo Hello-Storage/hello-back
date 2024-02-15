@@ -31,6 +31,11 @@ func (m *FileShareState) Save() error {
 	return db.Db().Save(m).Error
 }
 
+// TxSave saves the file share state in a transaction
+func (m *FileShareState) TxSave(tx *gorm.DB) error {
+	return tx.Save(m).Error
+}
+
 func (m *FileShareState) TxCreate(tx *gorm.DB) error {
 	return tx.Create(m).Error
 }

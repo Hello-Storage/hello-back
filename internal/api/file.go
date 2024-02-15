@@ -8,11 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
+	"github.com/Hello-Storage/hello-back/pkg/mg"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-gonic/gin"
 )
@@ -136,17 +138,22 @@ func GetShareState(router *gin.RouterGroup) {
 			return
 		}
 
+		tx := db.Db().Begin()
+
 		//get share state, if doesn't exist, create it
-		share_state, err := query.FindShareStateByFileUID(file_uid)
+		share_state, _, err := query.FindShareStateByFileUID(file_uid)
 		if err != nil {
 			log.Errorf("Error finding share state: %s", err)
-			share_state, err = query.CreateShareState(f)
+			*share_state, err = query.CreateShareState(tx, f)
 			if err != nil {
 				log.Errorf("cannot create share state: %s", err)
+				tx.Rollback()
 				AbortEntityNotFound(c)
 				return
 			}
 		}
+
+		tx.Commit()
 
 		c.JSON(http.StatusOK, share_state)
 	})
@@ -163,6 +170,9 @@ func GetShareState(router *gin.RouterGroup) {
 			fmt.Println("No file UIDs received")
 			AbortEntityNotFound(c)
 		}
+
+		tx := db.Db().Begin()
+
 		var shareStates []entity.FileShareState
 
 		fileMutex := sync.Mutex{}
@@ -180,7 +190,7 @@ func GetShareState(router *gin.RouterGroup) {
 			}
 
 			// get share state, if doesn't exist, create it
-			shareState, err := query.FindShareStateByFileUID(fileUID)
+			shareState, _, err := query.FindShareStateByFileUID(fileUID)
 			if err != nil {
 				log.Errorf("Error finding share state: %s", err)
 				if create == "true" {
@@ -193,9 +203,10 @@ func GetShareState(router *gin.RouterGroup) {
 				}
 			}
 
-			shareStates = append(shareStates, shareState)
+			shareStates = append(shareStates, *shareState)
 		}
 
+		tx.Commit()
 		c.JSON(http.StatusOK, shareStates)
 	})
 }
@@ -230,9 +241,12 @@ func PublishFile(router *gin.RouterGroup) {
 		fileMutex.Lock()
 		defer fileMutex.Unlock()
 
+		tx := db.Db().Begin()
+
 		// Create a new share group
 		shareGroup := entity.ShareGroup{}
-		if err := shareGroup.Create(); err != nil {
+		if err := shareGroup.TxCreate(tx); err != nil {
+			tx.Rollback()
 			c.JSON(500, gin.H{"error": "Failed to create share group"})
 			return
 		}
@@ -244,12 +258,13 @@ func PublishFile(router *gin.RouterGroup) {
 				ShareHash:      shareHash,
 			}
 
-			if err := publicFileShareGroup.Create(); err != nil {
+			if err := publicFileShareGroup.TxCreate(tx); err != nil {
+				tx.Rollback()
 				c.JSON(500, gin.H{"error": "Failed to associate share_hash with share group"})
 				return
 			}
 		}
-
+		tx.Commit()
 		c.JSON(200, gin.H{"share_group": shareGroup.Hash})
 	})
 
@@ -295,6 +310,8 @@ func PublishFile(router *gin.RouterGroup) {
 			return
 		}
 
+		tx := db.Db().Begin()
+
 		fileMutex := sync.Mutex{}
 		fileMutex.Lock()
 		defer fileMutex.Unlock()
@@ -308,22 +325,24 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// Get the sharing state; if it doesn't exist, create it
-		shareState, err := query.FindShareStateByFileUID(selectedShareFile.UID)
+		shareState, _, err := query.FindShareStateByFileUID(selectedShareFile.UID)
 		if err != nil {
-			shareState, err = query.CreateShareState(f)
+			*shareState, err = query.CreateShareState(tx, f)
 			if err != nil {
-				log.Errorf("failed to create share state: %s", err)
+				log.Errorf("failed to create new share state: %s", err)
 				// Devuelve un mensaje de error al cliente
+				tx.Rollback()
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
 				return
 			}
 		}
 
 		// PublishFile crea un nuevo PublicFile y lo devuelve
-		publicFile, err := query.PublishFile(shareState, selectedShareFile)
+		publicFile, err := query.PublishFile(tx, *shareState, selectedShareFile)
 		if err != nil {
 			log.Errorf("failed to publish file: %s", err)
 			// Devuelve un mensaje de error al cliente
+			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
 			return
 		}
@@ -349,12 +368,15 @@ func PublishFile(router *gin.RouterGroup) {
 		shareState.PublicFile.ExpireAt = expireDate
 
 		// Save the updated shareState.PublicFile
-		err = shareState.PublicFile.Save()
+		err = shareState.PublicFile.TxSave(tx)
 		if err != nil {
+			tx.Rollback()
 			log.Errorf("failed to save share state: %s", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
 			return
 		}
+
+		tx.Commit()
 
 		c.JSON(http.StatusOK, shareState)
 	})
@@ -365,6 +387,14 @@ func PublishFile(router *gin.RouterGroup) {
 
 		// Get the account identifier (email or wallet) from the parameters
 		accountIdentifier := ctx.Param("user")
+		//get auth payload
+		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+
+		// Check if the user is sharing with themselves
+		if shareType == "wallet" && accountIdentifier == authPayload.UserName {
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Cannot share with yourself"})
+			return
+		}
 
 		// Get the file metadata from the request body
 		var selectedShareFile form.CustomFileMeta
@@ -391,9 +421,22 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// Check if the user was found
-		if shareWithUser == nil {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-			return
+		var receiverNil bool
+		if shareWithUser == nil || shareWithUser.ID == 0 {
+			receiverNil = true
+			var user *entity.User
+			db.Db().Where("uid = ?", authPayload.UserUID).First(&user)
+			if user == nil || user.ID == 0 {
+				log.Errorf("user not found: %s", accountIdentifier)
+				ctx.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+				return
+			}
+
+			shareWithUser = user
+			accountEmail := entity.Email{
+				Email: accountIdentifier,
+			}
+			shareWithUser.Email = &accountEmail
 		}
 
 		// Start the transaction
@@ -421,24 +464,26 @@ func PublishFile(router *gin.RouterGroup) {
 		tx = db.Db().Begin() // Start a new transaction
 
 		// Create a FilesUsers entry to share the file with the specified user
-		fileUser := &entity.FileUser{
-			FileID:     newFile.ID,
-			UserID:     shareWithUser.ID,
-			Permission: entity.SharedPermission,
-		}
-
-		if err := fileUser.TxCreate(tx); err != nil {
-			log.Errorf("create file_user relation: %s", err)
-			tx.Rollback()
-			AbortInternalServerError(ctx)
-			return
+		if !receiverNil {
+			fileUser := &entity.FileUser{
+				FileID:     newFile.ID,
+				UserID:     shareWithUser.ID,
+				Permission: entity.SharedPermission,
+			}
+			if err := fileUser.TxCreate(tx); err != nil {
+				log.Errorf("create file_user relation: %s", err)
+				tx.Rollback()
+				AbortInternalServerError(ctx)
+				return
+			}
 		}
 
 		// delete the file share state user shared in case it exists
-		CIDOriginalDecrypted := query.DeleteFileShareStatesUserShared(f.UID, shareWithUser.ID)
-		shareState, err := query.CreateShareStateUserShared(newFile, shareWithUser.ID)
+		CIDOriginalDecrypted := query.DeleteFileShareStatesUserShared(tx, f.UID, shareWithUser.ID)
+		shareState, err := query.CreateShareStateUserShared(tx, newFile, shareWithUser.ID)
 		if err != nil {
-			log.Errorf("failed to create share state: %s", err)
+			log.Errorf("failed to create a new share state user shared: %s", err)
+			tx.Rollback()
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create share state"})
 			return
 		}
@@ -449,9 +494,10 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// PublishFile crea un nuevo PublicFile y lo devuelve
-		publicFile, err := query.PublishFileUserShared(shareState, selectedShareFile)
+		publicFile, err := query.PublishFileUserShared(tx, shareState, selectedShareFile)
 		if err != nil {
 			log.Errorf("failed to publish file: %s", err)
+			tx.Rollback()
 			// Devuelve un mensaje de error al cliente
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to publish file"})
 			return
@@ -460,9 +506,17 @@ func PublishFile(router *gin.RouterGroup) {
 		// Update the shareState with the new PublicFile
 		shareState.PublicFile = *publicFile
 
+		// Send email with the file link to the user if the share type is email
+		if shareType == "email" {
+
+			// Send email with the file link to the user and pass also the sender user's email
+			sendEmailLinkToUser(authPayload.UserName, shareWithUser, accountIdentifier, newFile, publicFile)
+		}
+
 		// Save the updated shareState.PublicFile
-		err = shareState.PublicFile.Save()
+		err = shareState.PublicFileUserShared.TxSave(tx)
 		if err != nil {
+			tx.Rollback()
 			log.Errorf("failed to save share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
 			return
@@ -474,6 +528,49 @@ func PublishFile(router *gin.RouterGroup) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully",
 			"data": gin.H{"file": newFile, "shareState": shareState, "publicFile": publicFile}})
 	})
+
+}
+
+func formatBytes(size int64) string {
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+}
+
+func sendEmailLinkToUser(username string, user *entity.User, email string, file *entity.File, publicFile *entity.PublicFileUserShared) {
+
+	mg := mg.Mailgun{
+		Domain: "hello.app",
+		ApiKey: config.Env().MailGunApiKey,
+	}
+
+	mg.Init()
+	id, err := mg.SendEmail(
+		"noreply@hello.app",
+		email,
+		"hello.app | Received file named "+file.Name+"",
+		"received-file",
+		map[string]interface{}{
+			"filename":   file.Name,
+			"filesize":   formatBytes(file.Size),
+			"filelink":   "https://hello.app/space/shared/public/" + publicFile.ShareHash,
+			"sendername": username,
+			"username":   email,
+		},
+	)
+
+	log.Infof("id: %s", id)
+
+	if err != nil {
+		log.Errorf("failed to send email: %v", err)
+	}
 
 }
 
@@ -510,6 +607,8 @@ func UnpublishFile(router *gin.RouterGroup) {
 			return
 		}
 
+		tx := db.Db().Begin()
+
 		fileMutex := sync.Mutex{}
 		fileMutex.Lock()
 		defer fileMutex.Unlock()
@@ -523,10 +622,11 @@ func UnpublishFile(router *gin.RouterGroup) {
 		}
 
 		// get share state, if doesn't exist, create it
-		shareState, err := query.FindShareStateByFileUID(selectedShareFile.UID)
+		shareState, _, err := query.FindShareStateByFileUID(selectedShareFile.UID)
 		if err != nil {
-			shareState, err = query.CreateShareState(f)
+			*shareState, err = query.CreateShareState(tx, f)
 			if err != nil {
+				tx.Rollback()
 				log.Errorf("cannot create share state: %s", err)
 				AbortEntityNotFound(c)
 				return
@@ -538,24 +638,27 @@ func UnpublishFile(router *gin.RouterGroup) {
 		// update share state
 		if shareState.PublicFile.ID != 0 { // Check if the PublicFile has a valid ID
 			// Delete the corresponding record in publicFileShareGroups
-			err = query.DeletePublicFileShareGroupByShareHash(shareState.PublicFile.ShareHash)
+			err = query.DeletePublicFileShareGroupByShareHash(tx, shareState.PublicFile.ShareHash)
 			if err != nil {
+				tx.Rollback()
 				log.Errorf("cannot delete public file share group: %s", err)
 				AbortEntityNotFound(c)
 				return
 			}
 
 			// Delete the PublicFile
-			err = shareState.PublicFile.Delete()
+			err = shareState.PublicFile.TxDelete(tx)
 			if err != nil {
+				tx.Rollback()
 				log.Errorf("cannot delete public file: %s", err)
 				AbortEntityNotFound(c)
 				return
 			}
 
 			// Check if the ShareGroup is empty after deleting the PublicFile
-			err = query.DeleteEmptyShareGroup(shareState.PublicFile.ShareHash)
+			err = query.DeleteEmptyShareGroup(tx, shareState.PublicFile.ShareHash)
 			if err != nil {
+				tx.Rollback()
 				log.Errorf("cannot delete empty share group: %s", err)
 				AbortEntityNotFound(c)
 				return
@@ -570,13 +673,16 @@ func UnpublishFile(router *gin.RouterGroup) {
 		// Update the share state
 		shareState.UpdatedAt = time.Now()
 
-		err = shareState.Save()
+		err = shareState.TxSave(tx)
 
 		if err != nil {
 			log.Errorf("cannot update share state: %s", err)
+			tx.Rollback()
 			AbortEntityNotFound(c)
 			return
 		}
+
+		tx.Commit()
 
 		c.JSON(http.StatusOK, shareState)
 	})
@@ -591,56 +697,79 @@ func GetPublishedFile(router *gin.RouterGroup) {
 	router.GET("/share/published/:hash", func(c *gin.Context) {
 		// Get the hash from the parameters
 		hash := c.Param("hash")
-		log.Print("GetPublishedFile: ", hash)
+
+		tx := db.Db().Begin()
 
 		fileMutex := sync.Mutex{}
 		fileMutex.Lock()
 		defer fileMutex.Unlock()
 
 		// Get the public file
-		publicFile, err := query.FindPublicFileByHash(hash)
+		publicFile, publicFileUserShared, err := query.FindPublicFileByHash(hash)
 		if err != nil {
+			tx.Rollback()
 			log.Errorf("cannot get public file: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
-		// Check additional conditions
-		if publicFile.HasBeenOpened != nil && *publicFile.HasBeenOpened {
-			// If HasBeenOpened is true, the file has been accessed before, and access is not allowed
-			c.JSON(http.StatusForbidden, gin.H{"error": "File has already been accessed"})
-			return
-		}
+		var f *entity.File
+		var res entity.File
 
-		if publicFile.ExpireAt != nil && !publicFile.ExpireAt.IsZero() && time.Now().After(*publicFile.ExpireAt) {
-			// If ExpireAt is a past date, the file has expired, and access is not allowed
-			c.JSON(http.StatusForbidden, gin.H{"error": "File has expired"})
-			return
-		}
+		if publicFile.ID != 0 {
+			// Check additional conditions
+			if publicFile.HasBeenOpened != nil && *publicFile.HasBeenOpened {
+				// If HasBeenOpened is true, the file has been accessed before, and access is not allowed
+				tx.Rollback()
+				c.JSON(http.StatusForbidden, gin.H{"error": "File has already been accessed"})
+				return
+			}
 
-		// Update HasBeenOpened if necessary
-		if publicFile.HasBeenOpened != nil && !*publicFile.HasBeenOpened {
-			hasBeenOpened := true
-			publicFile.HasBeenOpened = &hasBeenOpened
-			// You could also update the access date here if necessary
-			publicFile.UpdatedAt = time.Now()
-			err = publicFile.Save()
+			if publicFile.ExpireAt != nil && !publicFile.ExpireAt.IsZero() && time.Now().After(*publicFile.ExpireAt) {
+				// If ExpireAt is a past date, the file has expired, and access is not allowed
+				tx.Rollback()
+				c.JSON(http.StatusForbidden, gin.H{"error": "File has expired"})
+				return
+			}
+
+			// Update HasBeenOpened if necessary
+			if publicFile.HasBeenOpened != nil && !*publicFile.HasBeenOpened {
+				hasBeenOpened := true
+				publicFile.HasBeenOpened = &hasBeenOpened
+				// You could also update the access date here if necessary
+				publicFile.UpdatedAt = time.Now()
+				err = publicFile.TxSave(tx)
+				if err != nil {
+					log.Errorf("failed to update public file: %s", err)
+					tx.Rollback()
+					AbortEntityNotFound(c)
+					return
+				}
+			}
+
+			// get the original file
+			f, err = query.FindFileByUID(publicFile.FileUID)
 			if err != nil {
-				log.Errorf("failed to update public file: %s", err)
+				log.Errorf("cannot get publicFile's file: %s", err)
+				tx.Rollback()
 				AbortEntityNotFound(c)
 				return
 			}
+			res = CreateFileForSharedFile(*f, publicFile, nil)
+		} else {
+			// get the original file
+			f, err = query.FindFileByUID(publicFileUserShared.FileUID)
+			if err != nil {
+				log.Errorf("cannot get publicFileUserShared's file: %s", err)
+				tx.Rollback()
+				AbortEntityNotFound(c)
+				return
+			}
+
+			res = CreateFileForSharedFile(*f, nil, publicFileUserShared)
 		}
 
-		// get the original file
-		f, err := query.FindFileByUID(publicFile.FileUID)
-		if err != nil {
-			log.Errorf("cannot get file: %s", err)
-			AbortEntityNotFound(c)
-			return
-		}
-
-		res := CreateFileForSharedFile(*f, *publicFile)
+		tx.Commit()
 
 		c.JSON(http.StatusOK, res)
 	})
@@ -661,21 +790,34 @@ func GetPublishedFileName(router *gin.RouterGroup) {
 		defer fileMutex.Unlock()
 
 		//get public file
-		public_file, err := query.FindPublicFileByHash(hash)
+		public_file, public_file_user_shared, err := query.FindPublicFileByHash(hash)
 		if err != nil {
 			log.Errorf("cannot get public file: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 		// get the original file
-		f, err := query.FindFileByUID(public_file.FileUID)
-		if err != nil {
-			log.Errorf("cannot get file: %s", err)
+		fileUid := ""
+
+		if public_file != nil && public_file.ID != 0 {
+			fileUid = public_file.FileUID
+		} else if public_file_user_shared != nil && public_file_user_shared.ID != 0 {
+			fileUid = public_file_user_shared.FileUID
+		} else {
+			log.Errorf("cannot get published file, published file is null: %s", err)
 			AbortEntityNotFound(c)
 			return
 		}
 
-		res := CreateFileForSharedFile(*f, *public_file)
+		//print public file and public file user shared
+		f, err := query.FindFileByUID(fileUid)
+		if err != nil {
+			log.Errorf("cannot get published file: %s", err)
+			AbortEntityNotFound(c)
+			return
+		}
+
+		res := CreateFileForSharedFile(*f, public_file, public_file_user_shared)
 
 		c.JSON(http.StatusOK, res)
 	})

@@ -9,15 +9,15 @@ import (
 )
 
 // DeleteFileUser
-func DeleteFileUser(f_u entity.FileUser) error {
-	return db.Db().Table("files").
+func DeleteFileUser(tx *gorm.DB, f_u entity.FileUser) error {
+	return tx.Table("files").
 		Where("id = ?", f_u.FileID).
 		Update("deleted_at", time.Now()).
 		Error
 }
 
-func DeleteFilePermission(user_uid uint, file_id uint) error {
-	return db.Db().Table("files_users").
+func DeleteFilePermission(tx *gorm.DB, user_uid uint, file_id uint) error {
+	return tx.Table("files_users").
 		Where("file_id = ? AND user_id = ?", file_id, user_uid).
 		Update("permission", entity.DeletedPermission).
 		Error
@@ -62,7 +62,6 @@ func GetNextOwner(userUID uint, fileID uint) (entity.FileUser, error) {
 	return fileUser, nil
 }
 
-
 // GetNextFileUser returns the FileUser of the next file owned by the user.
 //
 // @param userID - The ID of the user who owns the file
@@ -77,7 +76,6 @@ func GetNextFileUser(userID uint, cid string) (entity.FileUser, error) {
 		log.Errorf("get next files error: %v", err)
 		return entity.FileUser{}, err
 	}
-	log.Printf("files: %v", files)
 
 	var nextFileID uint
 	if len(files) > 1 {
@@ -86,7 +84,6 @@ func GetNextFileUser(userID uint, cid string) (entity.FileUser, error) {
 		nextFileID = files[0].ID
 	}
 
-	log.Printf("next file id: %v", nextFileID)
 
 	var fileUser entity.FileUser
 	if err := db.Db().Table("files_users").
@@ -102,14 +99,14 @@ func GetNextFileUser(userID uint, cid string) (entity.FileUser, error) {
 	return fileUser, nil
 }
 
-func SetOwnerPermision(user_uid uint, file_id uint) error {
-	return db.Db().Table("files_users").
+func SetOwnerPermision(tx *gorm.DB, user_uid uint, file_id uint) error {
+	return tx.Table("files_users").
 		Where("file_id = ? AND user_id = ?", file_id, user_uid).
 		Update("permission", entity.OwnerPermission).
 		Error
 }
 
-func SetNextFileInPool(user_uid uint, file_id uint) error {
+func SetNextFileInPool(tx *gorm.DB, user_uid uint, file_id uint) error {
 	return db.Db().Table("files").
 		Where("id = ?", file_id).
 		Update("is_in_pool", false).

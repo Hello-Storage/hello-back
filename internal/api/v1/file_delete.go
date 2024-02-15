@@ -8,6 +8,7 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/api"
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
+	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/token"
@@ -35,6 +36,8 @@ func DeleteFile(router *gin.RouterGroup) {
 			fmt.Printf("file not found: %v", err)
 			return
 		}
+
+		tx := db.Db().Begin()
 
 		f_u := entity.FileUser{
 			FileID: f.ID,
@@ -76,30 +79,35 @@ func DeleteFile(router *gin.RouterGroup) {
 
 		fmt.Printf("Updating storage_used: Old Value=%d, Size to Remove=%d, New Value=%d", user_detail.StorageUsed, f.Size, updatedStorageUsed)
 
-		if err := user_detail.Update("storage_used", updatedStorageUsed); err != nil {
+		if err := user_detail.TxUpdate(tx, "storage_used", updatedStorageUsed); err != nil {
 			fmt.Printf("Error updating storage_used: %s", err)
 		}
 
 		// update the "deleted_at column" for this user
-		if err := query.DeleteFileUser(f_u); err != nil {
+		if err := query.DeleteFileUser(tx, f_u); err != nil {
+			tx.Rollback()
 			api.AbortInternalServerError(ctx)
 			fmt.Printf("delete file user error: %v", err)
 			return
 		}
 
 		// Delete the apikey file
-		if err := query.DeleteApiKeyFileByFileID(f_u.FileID); err != nil {
+		if err := query.DeleteApiKeyFileByFileID(tx, f_u.FileID); err != nil {
+			tx.Rollback()
 			api.AbortInternalServerError(ctx)
 			fmt.Printf("delete api key file error: %v", err)
 			return
 		}
 
 		// Delete file permission for the user
-		if err := query.DeleteFilePermission(f_u.UserID, f_u.FileID); err != nil {
+		if err := query.DeleteFilePermission(tx, f_u.UserID, f_u.FileID); err != nil {
+			tx.Rollback()
 			api.AbortInternalServerError(ctx)
 			fmt.Printf("delete file permission error: %v", err)
 			return
 		}
+
+		tx.Commit()
 
 		ctx.JSON(200, gin.H{
 			"message": "ok",

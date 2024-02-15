@@ -1,5 +1,3 @@
-
-
 package api
 
 import (
@@ -39,10 +37,13 @@ func DeleteFile(router *gin.RouterGroup) {
 			return
 		}
 
+		// Start the transaction
+		tx := db.Db().Begin()
+
 		// delete the file share state in case it exists
-		query.DeleteFileShareState(f.UID)
+		query.DeleteFileShareState(tx, f.UID)
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(f.UID, authPayload.UserID)
+		query.DeleteFileShareStatesUserShared(tx, f.UID, authPayload.UserID)
 
 		f_u := entity.FileUser{
 			FileID: f.ID,
@@ -65,6 +66,7 @@ func DeleteFile(router *gin.RouterGroup) {
 		usersWithFile, err := query.FindUsersByFileCID(f.CID)
 		// AbortInternalServerError if there is an error finding users by file CID
 		if err != nil {
+			tx.Rollback()
 			AbortInternalServerError(ctx)
 			log.Errorf("error finding users by file CID: %v", err)
 			return
@@ -73,6 +75,7 @@ func DeleteFile(router *gin.RouterGroup) {
 		filesWithUser, err := query.FindFilesByUserAndFileCID(authPayload.UserID, f.CID)
 		// AbortInternalServerError if there is an error finding files by user and file CID
 		if err != nil {
+			tx.Rollback()
 			AbortInternalServerError(ctx)
 			log.Errorf("error finding files by user and file CID: %v", err)
 			return
@@ -84,6 +87,7 @@ func DeleteFile(router *gin.RouterGroup) {
 			// Returns true if the entity is a file owner.
 			isOwner, err := entity.IsFileOwner(f_u.FileID, f_u.UserID)
 			if err != nil {
+				tx.Rollback()
 				AbortInternalServerError(ctx)
 				log.Errorf("error finding file owner: %v", err)
 				return
@@ -100,19 +104,21 @@ func DeleteFile(router *gin.RouterGroup) {
 					log.Warnf("File size (%d) is larger than current storage used (%d), setting storage_used to 0", f.Size, user_detail.StorageUsed)
 					newStorageUsed = 0
 				}
-				if err := user_detail.Update("storage_used", newStorageUsed); err != nil {
+				if err := user_detail.TxUpdate(tx, "storage_used", newStorageUsed); err != nil {
 					log.Errorf("removing storage_used: %s", err)
 				}
 
 				// update the "deleted_at column" for this user
-				if err := query.DeleteFileUser(f_u); err != nil {
+				if err := query.DeleteFileUser(tx, f_u); err != nil {
+					tx.Rollback()
 					AbortInternalServerError(ctx)
 					log.Errorf("delete file user error: %v", err)
 					return
 				}
 
 				// Delete file permission for the user
-				if err := query.DeleteFilePermission(f_u.UserID, f_u.FileID); err != nil {
+				if err := query.DeleteFilePermission(tx, f_u.UserID, f_u.FileID); err != nil {
+					tx.Rollback()
 					AbortInternalServerError(ctx)
 					log.Errorf("delete file permission error: %v", err)
 					return
@@ -127,38 +133,40 @@ func DeleteFile(router *gin.RouterGroup) {
 						log.Printf("users with file bigger than 1")
 						nextFileUser, err := query.GetNextFileUser(f_u.UserID, f.CID)
 						if err != nil {
+							tx.Rollback()
 							log.Errorf("get next file error: %v", err)
 							AbortInternalServerError(ctx)
 							return
 						} else {
 							//give the owner
-							log.Printf("next file user: %v", nextFileUser)
-							query.SetOwnerPermision(nextFileUser.UserID, nextFileUser.FileID)
-							query.SetNextFileInPool(nextFileUser.UserID, nextFileUser.FileID)
+							query.SetOwnerPermision(tx, nextFileUser.UserID, nextFileUser.FileID)
+							query.SetNextFileInPool(tx, nextFileUser.UserID, nextFileUser.FileID)
 						}
 					}
 				} else {
 					//give the owner
-					query.SetOwnerPermision(nextOwner.UserID, nextOwner.FileID)
+					query.SetOwnerPermision(tx, nextOwner.UserID, nextOwner.FileID)
 					// get the user details
 					user_detail_next := query.FindUserDetailByUserID(nextOwner.UserID)
 
 					// sums storage_used from the database.
-					if err := user_detail_next.Update("storage_used", user_detail_next.StorageUsed+uint(f.Size)); err != nil {
+					if err := user_detail_next.TxUpdate(tx, "storage_used", user_detail_next.StorageUsed+uint(f.Size)); err != nil {
 						log.Errorf("adding storage_used: %s", err)
 					}
 				}
 
 			} else {
 				// update the "deleted_at column" for this user
-				if err := query.DeleteFileUser(f_u); err != nil {
+				if err := query.DeleteFileUser(tx, f_u); err != nil {
+					tx.Rollback()
 					AbortInternalServerError(ctx)
 					log.Errorf("delete file user error: %v", err)
 					return
 				}
 
 				// Delete file permission for the user
-				if err := query.DeleteFilePermission(f_u.UserID, f_u.FileID); err != nil {
+				if err := query.DeleteFilePermission(tx, f_u.UserID, f_u.FileID); err != nil {
+					tx.Rollback()
 					AbortInternalServerError(ctx)
 					log.Errorf("delete file permission error: %v", err)
 					return
@@ -198,20 +206,24 @@ func DeleteFile(router *gin.RouterGroup) {
 			}
 
 			// update the "deleted_at column" for this user
-			if err := query.DeleteFileUser(f_u); err != nil {
+			if err := query.DeleteFileUser(tx, f_u); err != nil {
+				tx.Rollback()
 				AbortInternalServerError(ctx)
 				log.Errorf("delete file user error: %v", err)
 				return
 			}
 
 			// Delete file permission for the user
-			if err := query.DeleteFilePermission(f_u.UserID, f_u.FileID); err != nil {
+			if err := query.DeleteFilePermission(tx, f_u.UserID, f_u.FileID); err != nil {
+				tx.Rollback()
 				AbortInternalServerError(ctx)
 				log.Errorf("delete file permission error: %v", err)
 				return
 			}
 
 		}
+
+		tx.Commit()
 
 		ctx.JSON(200, gin.H{
 			"message": "ok",
@@ -254,62 +266,61 @@ func SetNextFileInPool(user_uid uint, file_id uint) error {
 //
 // GET /delete-duplicated-files
 func DeleteDuplicatedFiles() {
-		tx := db.Db().Begin()
+	tx := db.Db().Begin()
 
-		// Get all files that are not in pool
-		filesNotInPool, err := query.FindFilesNotInPool()
-		if err != nil {
-			log.Errorf("cannot get files: %s", err)
+	// Get all files that are not in pool
+	filesNotInPool, err := query.FindFilesNotInPool()
+	if err != nil {
+		log.Errorf("cannot get files: %s", err)
+		return
+	}
+
+	totalFiles := len(filesNotInPool)
+	log.Printf("Total files not in pool to delete: %d", totalFiles)
+
+	// Delete all files that are not in pool
+	for i, file := range filesNotInPool {
+		fileId := file.ID
+		fileUid := file.UID
+		var fileUser entity.FileUser
+		fileUser.FileID = fileId
+
+		if err := tx.Model(&fileUser).Where("file_id = ?", fileId).Delete(&entity.FileUser{}).Error; err != nil {
+			log.Errorf("cannot delete file user: %s", err)
+			tx.Rollback()
 			return
 		}
 
-		totalFiles := len(filesNotInPool)
-		log.Printf("Total files not in pool to delete: %d", totalFiles)
-
-		// Delete all files that are not in pool
-		for i, file := range filesNotInPool {
-			fileId := file.ID
-			fileUid := file.UID
-			var fileUser entity.FileUser
-			fileUser.FileID = fileId
-
-			if err := tx.Model(&fileUser).Where("file_id = ?", fileId).Delete(&entity.FileUser{}).Error; err != nil {
-				log.Errorf("cannot delete file user: %s", err)
-				tx.Rollback()
-				return
-			}
-
-			if err := tx.Model(&file).Where("id = ?", fileId).Delete(&entity.File{}).Error; err != nil {
-				log.Errorf("cannot delete file: %s", err)
-				tx.Rollback()
-				return
-			}
-
-			var fileShareState entity.FileShareState
-			if err := tx.Model(&fileShareState).Where("file_uid = ?", fileUid).Delete(&entity.FileShareState{}).Error; err != nil {
-				log.Errorf("cannot delete file permission: %s", err)
-				tx.Rollback()
-				return
-			}
-
-			var publicFile entity.PublicFile
-			if err := tx.Model(&publicFile).Where("file_uid = ?", fileUid).Delete(&entity.PublicFile{}).Error; err != nil {
-				log.Errorf("cannot delete public file: %s", err)
-				tx.Rollback()
-				return
-			}
-
-			if i%10 == 0 || i == totalFiles-1 {
-				log.Printf("Progress: %d of %d files deleted", i+1, totalFiles)
-			}
-
+		if err := tx.Model(&file).Where("id = ?", fileId).Delete(&entity.File{}).Error; err != nil {
+			log.Errorf("cannot delete file: %s", err)
+			tx.Rollback()
+			return
 		}
 
-		tx.Commit()
+		var fileShareState entity.FileShareState
+		if err := tx.Model(&fileShareState).Where("file_uid = ?", fileUid).Delete(&entity.FileShareState{}).Error; err != nil {
+			log.Errorf("cannot delete file permission: %s", err)
+			tx.Rollback()
+			return
+		}
 
-		log.Printf("Deletion process completed. %d files processed.", totalFiles)
+		var publicFile entity.PublicFile
+		if err := tx.Model(&publicFile).Where("file_uid = ?", fileUid).Delete(&entity.PublicFile{}).Error; err != nil {
+			log.Errorf("cannot delete public file: %s", err)
+			tx.Rollback()
+			return
+		}
 
-		//return length of files not in pool
-	
+		if i%10 == 0 || i == totalFiles-1 {
+			log.Printf("Progress: %d of %d files deleted", i+1, totalFiles)
+		}
+
+	}
+
+	tx.Commit()
+
+	log.Printf("Deletion process completed. %d files processed.", totalFiles)
+
+	//return length of files not in pool
+
 }
-

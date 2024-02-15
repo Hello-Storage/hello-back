@@ -4,6 +4,7 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/pkg/rnd"
+	"gorm.io/gorm"
 )
 
 func FindFolder(find entity.Folder) *entity.Folder {
@@ -100,8 +101,8 @@ func FindFolderByUID(uid string) (*entity.Folder, error) {
 }
 
 // DeleteFolderByUID deletes a folder by UID.
-func DeleteFolderByUID(uid string) error {
-	if err := db.Db().Where("uid = ?", uid).Delete(&entity.Folder{}).Error; err != nil {
+func DeleteFolderByUID(tx *gorm.DB, uid string) error {
+	if err := tx.Where("uid = ?", uid).Delete(&entity.Folder{}).Error; err != nil {
 		return err
 	}
 	return nil

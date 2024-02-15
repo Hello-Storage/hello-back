@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/Hello-Storage/hello-back/internal/constant"
+	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/token"
@@ -49,9 +50,19 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 			} else {
 				filesMaped := []entity.File{}
 				for _, file := range files {
+					fileShareState := entity.FileShareStatesUserShared{}
+					publicFile := entity.PublicFileUserShared{}
+					_ = db.Db().Where("file_uid = ?", file.UID).First(&fileShareState).Error
+					_ = db.Db().Where("file_uid = ?", file.UID).First(&publicFile).Error
+
 					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
 					if err == nil {
 						file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
+					}
+
+					if fileShareState.ID != 0 && publicFile.ID != 0 {
+						fileShareState.PublicFileUserShared = publicFile
+						file.FileShareStatesUserShared = fileShareState
 					}
 					filesMaped = append(filesMaped, file)
 				}
@@ -76,10 +87,22 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 			} else {
 				filesMaped := []entity.File{}
 				for _, file := range files {
+					fileShareState := entity.FileShareStatesUserShared{}
+					publicFile := entity.PublicFileUserShared{}
+					_ = db.Db().Where("file_uid = ?", file.UID).First(&fileShareState).Error
+					_ = db.Db().Where("file_uid = ?", file.UID).First(&publicFile).Error
+				
+
 					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
 					if err == nil {
 						file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
 					}
+
+					if fileShareState.ID != 0 && publicFile.ID != 0 {
+						fileShareState.PublicFileUserShared = publicFile
+						file.FileShareStatesUserShared = fileShareState
+					}
+
 					filesMaped = append(filesMaped, file)
 				}
 				resp.Files = filesMaped

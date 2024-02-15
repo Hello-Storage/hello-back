@@ -37,6 +37,10 @@ func (m *Folder) Create() error {
 	return db.Db().Create(m).Error
 }
 
+func (m *Folder) TxCreate(tx *gorm.DB) error {
+ return tx.Create(m).Error
+}
+
 // BeforeCreate creates a random UID if needed before inserting a new row to the database.
 func (m *Folder) BeforeCreate(db *gorm.DB) error {
 	if rnd.IsUnique(m.UID, 'd') {

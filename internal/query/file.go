@@ -17,7 +17,7 @@ import (
 // FindFileByUID returns file for the given UID.
 func FindFileByUID(uid string) (*entity.File, error) {
 	if uid == "" {
-		return nil, fmt.Errorf("file uid required")
+		return nil, fmt.Errorf("file uid required to find by uid")
 	}
 
 	var file entity.File
@@ -57,8 +57,6 @@ func FindFileByID(id uint) (*entity.File, error) {
 
 	f.FileShareState = fileShareState
 
-	log.Printf("file_uid: %v", f)
-	log.Printf("File with preloaded sharestate: %v", f.FileShareState)
 
 	return f, nil
 }
@@ -101,6 +99,26 @@ func FindPublicFilesByRoot(root string) (publicFiles []entity.PublicFile, err er
 		}
 
 		publicFiles = append(publicFiles, publicFile)
+	}
+
+	return publicFiles, nil
+}
+
+func FindPublicFilesUserSharedByRoot(root string, userID uint) (publicFiles []entity.PublicFileUserShared, err error) {
+	files, err := FindFilesByRoot(root)
+	if err != nil {
+		return publicFiles, err
+	}
+
+	for _, file := range files {
+		var publicFileUserShared entity.PublicFileUserShared
+
+		if err := db.Db().Where("file_uid = ? AND user_id = ?",
+			file.UID, userID).First(&publicFileUserShared).Error; err != nil {
+			fmt.Println(err)
+		}
+
+		publicFiles = append(publicFiles, publicFileUserShared)
 	}
 
 	return publicFiles, nil
@@ -152,21 +170,29 @@ func CountTotalUsedStorage() (totalusedstorage int64, err error) {
 	return totalusedstorage, nil
 }
 
-func FindShareStateByFileUID(file_uid string) (file_share_state entity.FileShareState, err error) {
+func FindShareStateByFileUID(file_uid string) (file_share_state *entity.FileShareState, file_share_states_user_share *entity.FileShareStatesUserShared, err error) {
 	if err := db.Db().Preload("PublicFile").Where("file_uid = ?", file_uid).First(&file_share_state).Error; err != nil {
+		if err.Error() == "record not found" {
+			if err := db.Db().Preload("PublicFileUserShared").Where("file_uid = ?", file_uid).First(&file_share_states_user_share).Error; err != nil {
+				return nil, nil, err
+			}
+			return nil, file_share_states_user_share, nil
+		} else {
+			return nil, nil, err
+		}
 
-		return file_share_state, err
+		
 	}
 
-	return file_share_state, nil
+	return file_share_state, nil, nil
 }
 
-func CreateShareState(file *entity.File) (file_share_state entity.FileShareState, err error) {
+func CreateShareState(tx *gorm.DB, file *entity.File) (file_share_state entity.FileShareState, err error) {
 	file_share_state = entity.FileShareState{
 		FileUID: file.UID,
 	}
 
-	if err := db.Db().Create(&file_share_state).Error; err != nil {
+	if err := file_share_state.TxCreate(tx); err != nil {
 		return file_share_state, err
 	}
 
@@ -245,13 +271,13 @@ func FindFilesByUserAndFileCID(userID uint, cid string) ([]entity.File, error) {
 }
 
 // DeleteFileByUID deletes a file by its UID.
-func DeleteFileByUID(file_uid string) error {
+func DeleteFileByUID(tx *gorm.DB, file_uid string) error {
 	if file_uid == "" {
 		return fmt.Errorf("file uid required")
 	}
 
 	// Get file_shared_state and delete it
-	DeleteFileShareState(file_uid)
+	DeleteFileShareState(tx, file_uid)
 
 	return db.Db().Where("uid = ?", file_uid).Delete(&entity.File{}).Error
 }
@@ -512,11 +538,11 @@ func QueryShareGroupByHash(shareGroupHash string) ([]string, error) {
 
 // DeletePublicFileShareGroupByShareHash deletes the record in publicFileShareGroups
 // based on the sharing hash.
-func DeletePublicFileShareGroupByShareHash(shareHash string) error {
+func DeletePublicFileShareGroupByShareHash(tx *gorm.DB, shareHash string) error {
 	var publicFileShareGroup entity.PublicFileShareGroup
 
 	// Find the record based on the sharing hash
-	result := db.Db().Where("share_hash = ?", shareHash).First(&publicFileShareGroup)
+	result := tx.Where("share_hash = ?", shareHash).First(&publicFileShareGroup)
 
 	// Check for errors during the query
 	if err := result.Error; err != nil {
@@ -529,7 +555,7 @@ func DeletePublicFileShareGroupByShareHash(shareHash string) error {
 	}
 
 	// Delete the record
-	if err := db.Db().Delete(&publicFileShareGroup).Error; err != nil {
+	if err := tx.Delete(&publicFileShareGroup).Error; err != nil {
 		return err
 	}
 
@@ -540,14 +566,14 @@ func DeleteFileShareStatesByFileUID(fileUID string) error {
 	return db.Db().Where("file_uid = ?", fileUID).Delete(&entity.FileShareState{}).Error
 }
 
-func DeleteEmptyShareGroup(shareGroupHash string) error {
+func DeleteEmptyShareGroup(tx *gorm.DB, shareGroupHash string) error {
 	var count int64
-	if err := db.Db().Model(&entity.PublicFileShareGroup{}).Where("share_group_hash = ?", shareGroupHash).Count(&count).Error; err != nil {
+	if err := tx.Model(&entity.PublicFileShareGroup{}).Where("share_group_hash = ?", shareGroupHash).Count(&count).Error; err != nil {
 		return err
 	}
 
 	if count == 0 {
-		return db.Db().Unscoped().Where("hash = ?", shareGroupHash).Delete(&entity.ShareGroup{}).Error
+		return tx.Unscoped().Where("hash = ?", shareGroupHash).Delete(&entity.ShareGroup{}).Error
 	}
 
 	return nil
