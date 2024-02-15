@@ -67,10 +67,6 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 	// Find files in the folder based on its UID
 	filesInFolder, _ := query.FindFilesByRoot(foundFolder.UID)
 
-	if err := folder_user.Create(); err != nil {
-		fmt.Println("error: ", err)
-	}
-
 	// Validate that the number of files in the folder matches the number of files in the request payload
 	if len(filesInFolder) != len(formget.Files) {
 		Abort(ctx, http.StatusBadRequest, "files in folder don't match with files in the database")
@@ -104,6 +100,10 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 			AbortInternalServerError(ctx)
 			return
 		}
+		
+		tx.Commit() // Commit the transaction after creating the new file
+
+		tx = db.Db().Begin() // Start a new transaction
 
 		// Create a FilesUsers entry to share the file with the specified user
 		fileUser := &entity.FileUser{
@@ -138,10 +138,10 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		}
 
 		// Update the shareState with the new PublicFile
-		shareState.PublicFileUserShared= *publicFile
+		shareState.PublicFile= *publicFile
 
 		// Save the updated shareState.PublicFile
-		err = shareState.PublicFileUserShared.Save()
+		err = shareState.PublicFile.Save()
 		if err != nil {
 			log.Errorf("failed to save share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})

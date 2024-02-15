@@ -151,9 +151,11 @@ func GetShareState(router *gin.RouterGroup) {
 		c.JSON(http.StatusOK, share_state)
 	})
 
-	router.GET("/share/states", func(c *gin.Context) {
+	router.GET("/share/states/:create", func(c *gin.Context) {
 		// Get file UIDs from query params
 		fileUIDs := c.QueryArray("file_uids")
+		// get if the request is for creating new share states
+		create := c.Param("create")
 
 		// Print for debugging
 
@@ -181,11 +183,13 @@ func GetShareState(router *gin.RouterGroup) {
 			shareState, err := query.FindShareStateByFileUID(fileUID)
 			if err != nil {
 				log.Errorf("Error finding share state: %s", err)
-				shareState, err = query.CreateShareState(f)
-				if err != nil {
-					log.Errorf("cannot create share state: %s", err)
-					// skip this file if share state creation fails
-					continue
+				if create == "true" {
+					shareState, err = query.CreateShareState(f)
+					if err != nil {
+						log.Errorf("cannot create share state: %s", err)
+						// skip this file if share state creation fails
+						continue
+					}
 				}
 			}
 
@@ -403,7 +407,6 @@ func PublishFile(router *gin.RouterGroup) {
 			tx.Rollback()
 			return
 		}
-		log.Printf("New file: %v", selectedShareFile)
 
 		// Create a new file with the same metadata
 		newFile := CreateNewFileFromMetadata(f, selectedShareFile)
@@ -413,6 +416,9 @@ func PublishFile(router *gin.RouterGroup) {
 			AbortInternalServerError(ctx)
 			return
 		}
+		tx.Commit() // Commit the transaction after creating the new file
+
+		tx = db.Db().Begin() // Start a new transaction
 
 		// Create a FilesUsers entry to share the file with the specified user
 		fileUser := &entity.FileUser{
@@ -442,7 +448,6 @@ func PublishFile(router *gin.RouterGroup) {
 			selectedShareFile.CIDOriginalEncrypted = CIDOriginalDecrypted
 		}
 
-
 		// PublishFile crea un nuevo PublicFile y lo devuelve
 		publicFile, err := query.PublishFileUserShared(shareState, selectedShareFile)
 		if err != nil {
@@ -453,10 +458,10 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// Update the shareState with the new PublicFile
-		shareState.PublicFileUserShared = *publicFile
+		shareState.PublicFile = *publicFile
 
 		// Save the updated shareState.PublicFile
-		err = shareState.PublicFileUserShared.Save()
+		err = shareState.PublicFile.Save()
 		if err != nil {
 			log.Errorf("failed to save share state: %s", err)
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save share state"})
@@ -467,7 +472,7 @@ func PublishFile(router *gin.RouterGroup) {
 		tx.Commit()
 
 		ctx.JSON(http.StatusOK, gin.H{"message": "File shared successfully",
-		"data": gin.H{"file": newFile, "shareState": shareState, "publicFile": publicFile}})
+			"data": gin.H{"file": newFile, "shareState": shareState, "publicFile": publicFile}})
 	})
 
 }
