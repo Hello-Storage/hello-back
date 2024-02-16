@@ -119,7 +119,6 @@ func GetUserDetail(router *gin.RouterGroup) {
 
 					if fileShareState.ID != 0 && publicFile.ID != 0 {
 						fileShareState.PublicFileUserShared = publicFile
-						file.FileShareStatesUserShared = fileShareState
 					}
 
 					sharedWithUser = append(sharedWithUser, *file)

@@ -104,7 +104,7 @@ func FindPublicFilesByRoot(root string) (publicFiles []entity.PublicFile, err er
 	return publicFiles, nil
 }
 
-func FindPublicFilesUserSharedByRoot(root string, userID uint) (publicFiles []entity.PublicFileUserShared, err error) {
+func FindPublicFilesUserSharedByRoot(root string) (publicFiles []entity.PublicFileUserShared, err error) {
 	files, err := FindFilesByRoot(root)
 	if err != nil {
 		return publicFiles, err
@@ -113,8 +113,8 @@ func FindPublicFilesUserSharedByRoot(root string, userID uint) (publicFiles []en
 	for _, file := range files {
 		var publicFileUserShared entity.PublicFileUserShared
 
-		if err := db.Db().Where("file_uid = ? AND user_id = ?",
-			file.UID, userID).First(&publicFileUserShared).Error; err != nil {
+		if err := db.Db().Where("file_uid = ?",
+			file.UID).First(&publicFileUserShared).Error; err != nil {
 			fmt.Println(err)
 		}
 
@@ -187,8 +187,8 @@ func FindShareStateByFileUID(file_uid string) (file_share_state *entity.FileShar
 	return file_share_state, nil, nil
 }
 
-func CreateShareState(tx *gorm.DB, file *entity.File) (file_share_state entity.FileShareState, err error) {
-	file_share_state = entity.FileShareState{
+func CreateShareState(tx *gorm.DB, file *entity.File) (file_share_state *entity.FileShareState, err error) {
+	file_share_state = &entity.FileShareState{
 		FileUID: file.UID,
 	}
 
