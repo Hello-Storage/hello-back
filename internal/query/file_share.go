@@ -116,7 +116,7 @@ func PublishFileUserShared(tx *gorm.DB, share_state entity.FileShareStatesUserSh
 func GetFileShareStateByFileUIDAndUserID(fileUID string, userID uint) (*entity.FileShareStatesUserShared, error) {
 	var fileShareState entity.FileShareStatesUserShared
 	// Search for the sharing state by fileUID and userID
-	result := db.Db().Preload("PublicFile").Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
+	result := db.Db().Preload("PublicFileUserShared").Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -131,43 +131,35 @@ func ConvertToDomainEntities(fileShareStatesUserShared *entity.FileShareStatesUs
 		ID: 	1, // if the ID is not set, it will be 0, the entire sharestate wont be able to be used in frontend
         FileUID:    fileShareStatesUserShared.FileUID,
         PublicFile: entity.PublicFile{
-            FileUID:              fileShareStatesUserShared.PublicFile.FileUID,
-            ShareHash:            fileShareStatesUserShared.PublicFile.ShareHash,
-            Name:                 fileShareStatesUserShared.PublicFile.Name,
-            Mime:                 fileShareStatesUserShared.PublicFile.Mime,
-            Size:                 fileShareStatesUserShared.PublicFile.Size,
-            CID:                  fileShareStatesUserShared.PublicFile.CID,
-            CIDOriginalDecrypted: fileShareStatesUserShared.PublicFile.CIDOriginalDecrypted,
+            FileUID:              fileShareStatesUserShared.PublicFileUserShared.FileUID,
+            ShareHash:            fileShareStatesUserShared.PublicFileUserShared.ShareHash,
+            Name:                 fileShareStatesUserShared.PublicFileUserShared.Name,
+            Mime:                 fileShareStatesUserShared.PublicFileUserShared.Mime,
+            Size:                 fileShareStatesUserShared.PublicFileUserShared.Size,
+            CID:                  fileShareStatesUserShared.PublicFileUserShared.CID,
+            CIDOriginalDecrypted: fileShareStatesUserShared.PublicFileUserShared.CIDOriginalDecrypted,
         },
     }
     return fileShareState
 }
 
+
 // DeleteFileShareStatesUserShared deletes the sharing state of a file based on its UID.
-func DeleteFileShareStatesUserShared(tx *gorm.DB, fileUID string, userID uint) string {
+func DeleteFileShareStatesUserShared(tx *gorm.DB,fileUID string, userID uint) {
 	var fileShareState entity.FileShareStatesUserShared
 	var filepublicf entity.PublicFileUserShared
-	var cidOriginalDecrypted string
 
 	result := tx.Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
 	if result.Error == nil {
-		if err := tx.Unscoped().Where("file_uid = ? ", fileUID).Delete(&fileShareState.PublicFileUserShared).Error; err != nil {
-			log.Errorf("Error deleting public file user shared: %v", err)
-		}
-		if err := tx.Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).Delete(&fileShareState).Error; err != nil {
-			log.Errorf("Error deleting file share state user shared: %v", err)
-		}
-		cidOriginalDecrypted = fileShareState.PublicFileUserShared.CIDOriginalDecrypted
+		tx.Unscoped().Delete(&fileShareState.PublicFileUserShared)
+		tx.Unscoped().Delete(&fileShareState)
 	}
-	if err := tx.Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf).Error; err != nil {
-		log.Errorf("Error deleting orphan PublicFileUserShared records: %v", err)
-	}
-
-	return cidOriginalDecrypted
+	tx.Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf)
 }
 
+
 // DeleteFileShareState deletes the sharing state of a file based on its UID.
-func DeleteFileShareState(tx *gorm.DB, fileUID string) {
+func DeleteFileShareState(tx *gorm.DB,fileUID string) {
 	var fileShareState entity.FileShareState
 	// Search for the sharing state by the file UID
 	result := tx.Unscoped().Where("file_uid = ?", fileUID).First(&fileShareState)
@@ -183,9 +175,9 @@ func CreateShareStateUserShared(tx *gorm.DB, file *entity.File, userID uint) (fi
 		UserID:  userID,
 	}
 
-	err = db.Db().Create(&filesharestate).Error
+	err = tx.Create(&fileShareState).Error
 	if err != nil {
-		return filesharestate, err
+		return fileShareState, err
 	}
-	return filesharestate, nil
+	return fileShareState, nil
 }
