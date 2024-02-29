@@ -50,7 +50,33 @@ func getAllFiles(folderUID string, allFiles *[]entity.File, currentPath string) 
 	return nil
 }
 
-// DownloadFolder downloads all files of a folder as a ZIP
+// GetFolderFiles returns all files of a folder
+//
+// GET /api/folder/files/:uid
+func GetFolderFiles(router *gin.RouterGroup) {
+	router.GET("/folder/files/:uid", func(ctx *gin.Context) {
+		folderUID := ctx.Param("uid")
+		log.Printf("folderUID: %s", folderUID)
+
+		// Find all files inside the folder
+		var allFiles []entity.File
+		if err := getAllFiles(folderUID, &allFiles, ""); err != nil {
+			log.Errorf("error getting all files: %s", err.Error())
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Unable to retrieve files",
+			})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"files":   allFiles,
+		})
+	})
+
+}
+
+// DownloadFolder downloads all files of a folder
 //
 // GET /api/folder/download/:uid
 func DownloadFolder(router *gin.RouterGroup) {
@@ -58,19 +84,12 @@ func DownloadFolder(router *gin.RouterGroup) {
 		// authPayload no needed for now
 		// authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 		folderUID := ctx.Param("uid")
-
-		// Find the folder by UID
-		var folder entity.Folder
-		if err := db.Db().Where("uid = ?", folderUID).First(&folder).Error; err != nil {
-			ctx.JSON(http.StatusNotFound, gin.H{
-				"message": "Folder not found",
-			})
-			return
-		}
+		log.Printf("folderUID: %s", folderUID)
 
 		// Find all files inside the folder
 		var allFiles []entity.File
 		if err := getAllFiles(folderUID, &allFiles, ""); err != nil {
+			log.Errorf("error getting all files: %s", err.Error())
 			ctx.JSON(http.StatusInternalServerError, gin.H{
 				"message": "Unable to retrieve files",
 			})
@@ -83,6 +102,7 @@ func DownloadFolder(router *gin.RouterGroup) {
 			keyPath := file.CID // keypath is the CID of the file
 			out, err := DownloadFileFromS3(keyPath)
 			if err != nil {
+				log.Errorf("error downloading from s3: %s", err.Error())
 				ctx.JSON(http.StatusInternalServerError, gin.H{
 					"message": err.Error(),
 				})
@@ -92,6 +112,7 @@ func DownloadFolder(router *gin.RouterGroup) {
 			// Read the body into bytes
 			bodyBytes, err := io.ReadAll(out.Body)
 			if err != nil {
+				log.Errorf("error: %s", err.Error())
 				ctx.JSON(http.StatusInternalServerError, gin.H{
 					"message": err.Error(),
 				})
@@ -102,19 +123,19 @@ func DownloadFolder(router *gin.RouterGroup) {
 			base64Data := base64.StdEncoding.EncodeToString(bodyBytes)
 
 			fileData[i] = map[string]interface{}{
-				"name":       file.Name,
-				"data":       base64Data,
-				"mime":       file.Mime,
-				"size":       file.Size,
-				"uid":        file.UID,
-				"root":       file.Root,
-				"date":       file.CreatedAt,
-				"media_type": file.MediaType,
-				"mime_type":  file.Mime,
-				"updated_at": file.UpdatedAt,
-				"path": file.Path,
-				"encryption_status": file.EncryptionStatus,
-				"cid": file.CID,
+				"name":                   file.Name,
+				"data":                   base64Data,
+				"mime":                   file.Mime,
+				"size":                   file.Size,
+				"uid":                    file.UID,
+				"root":                   file.Root,
+				"date":                   file.CreatedAt,
+				"media_type":             file.MediaType,
+				"mime_type":              file.Mime,
+				"updated_at":             file.UpdatedAt,
+				"path":                   file.Path,
+				"encryption_status":      file.EncryptionStatus,
+				"cid":                    file.CID,
 				"cid_original_encrypted": file.CIDOriginalEncrypted,
 			}
 		}

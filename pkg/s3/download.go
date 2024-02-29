@@ -21,6 +21,8 @@ func DownloadObject(s3Config aws.Config, bucket, key string) (*s3.GetObjectOutpu
 	// create a s3 client session
 	s3Client := s3.New(goSession)
 
+		
+
 	// create put object input
 	getObjectInput := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),

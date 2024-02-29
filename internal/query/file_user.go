@@ -76,6 +76,7 @@ func GetNextFileUser(userID uint, cid string) (entity.FileUser, error) {
 		log.Errorf("get next files error: %v", err)
 		return entity.FileUser{}, err
 	}
+	log.Printf("files: %v", files)
 
 	var nextFileID uint
 	if len(files) > 1 {
@@ -84,6 +85,7 @@ func GetNextFileUser(userID uint, cid string) (entity.FileUser, error) {
 		nextFileID = files[0].ID
 	}
 
+	log.Printf("next file id: %v", nextFileID)
 
 	var fileUser entity.FileUser
 	if err := db.Db().Table("files_users").
@@ -98,6 +100,42 @@ func GetNextFileUser(userID uint, cid string) (entity.FileUser, error) {
 
 	return fileUser, nil
 }
+
+// GetNextFile returns the ID of the next file owned by the user.
+//
+// @param userUID - The UID of the user who owns the file
+// @param fileID - The ID of the file to look for
+func GetNextFile(userUID uint, fileID uint) (entity.File, error) {
+	var file entity.File
+	if err := db.Db().Table("files").Where("id = ?", fileID).First(&file).Error; err != nil {
+		return entity.File{}, err
+	}
+
+	var files []entity.File
+	if err := db.Db().Table("files").
+		Where("c_id = ? AND deleted_at IS NULL", file.CID).
+		Order("created_at DESC").
+		Find(&files).Error; err != nil {
+		return entity.File{}, err
+	}
+
+	var nextFileID uint
+	if len(files) > 1 {
+		nextFileID = files[1].ID
+	} else {
+		return entity.File{}, nil
+	}
+
+	var nextFile entity.File
+	if err := db.Db().Table("files").
+		Where("id = ?", nextFileID).
+		First(&nextFile).Error; err != nil {
+		return entity.File{}, err
+	}
+
+	return nextFile, nil
+}
+
 
 func SetOwnerPermision(tx *gorm.DB, user_uid uint, file_id uint) error {
 	return tx.Table("files_users").

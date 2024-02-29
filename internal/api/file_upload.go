@@ -168,6 +168,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 	})
 }
 
+
 // UploadFiles upload files to wasabi using s3
 //
 // POST /api/file/upload
@@ -284,6 +285,7 @@ func PutUploadFiles(router *gin.RouterGroup) {
 			keyPath := f.CID
 
 			// upload file
+
 			go func(file *multipart.FileHeader, keyPath string) {
 				if err := UploadFileToS3(file, keyPath); err != nil {
 					log.Errorf("uploading file to s3: %s", err)
@@ -446,7 +448,6 @@ func GetAndProcessFileRoot(file_path, root string, user_id uint, encryption_stat
 
 	f := query.FindFolderByTitleAndRoot(sub_title, root)
 
-	log.Infof("folder find by title and root: %v", f)
 	if f == nil {
 		f = &entity.Folder{
 			Title:            sub_title,

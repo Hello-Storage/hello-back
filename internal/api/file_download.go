@@ -31,7 +31,15 @@ func DownloadFile(router *gin.RouterGroup) {
 		file_uid := ctx.Param("uid")
 
 		// Multipart form
-		keyPath := authPayload.UserUID + "/" + file_uid
+		f, err := query.FindFileByUID(file_uid)
+		if err != nil {
+			log.Errorf("find file by uid: %s", err)
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+		keyPath := f.CID
 		out, error := DownloadFileFromS3(keyPath)
 		//if error contains "NoSuchKey" then set keyPath without the userUID
 		if error != nil {
