@@ -41,9 +41,16 @@ func DeleteFile(router *gin.RouterGroup) {
 		tx := db.Db().Begin()
 
 		// delete the file share state in case it exists
-		query.DeleteFileShareState(tx, f.UID)
+		query.DeleteFileShareState(db.Db(), f.UID)
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(tx, f.UID, authPayload.UserID)
+		err = query.DeleteFileShareStatesUserShared(db.Db(), f.UID, authPayload.UserID)
+
+		if err != nil {
+			tx.Rollback()
+			log.Errorf("error deleting file share state user shared: %v", err)
+			AbortInternalServerError(ctx)
+			return
+		}
 
 		f_u := entity.FileUser{
 			FileID: f.ID,
@@ -67,8 +74,8 @@ func DeleteFile(router *gin.RouterGroup) {
 		// AbortInternalServerError if there is an error finding users by file CID
 		if err != nil {
 			tx.Rollback()
-			AbortInternalServerError(ctx)
 			log.Errorf("error finding users by file CID: %v", err)
+			AbortInternalServerError(ctx)
 			return
 		}
 
@@ -76,8 +83,8 @@ func DeleteFile(router *gin.RouterGroup) {
 		// AbortInternalServerError if there is an error finding files by user and file CID
 		if err != nil {
 			tx.Rollback()
-			AbortInternalServerError(ctx)
 			log.Errorf("error finding files by user and file CID: %v", err)
+			AbortInternalServerError(ctx)
 			return
 		}
 
@@ -88,8 +95,8 @@ func DeleteFile(router *gin.RouterGroup) {
 			isOwner, err := entity.IsFileOwner(f_u.FileID, f_u.UserID)
 			if err != nil {
 				tx.Rollback()
-				AbortInternalServerError(ctx)
 				log.Errorf("error finding file owner: %v", err)
+				AbortInternalServerError(ctx)
 				return
 			}
 			if isOwner {
@@ -105,7 +112,9 @@ func DeleteFile(router *gin.RouterGroup) {
 					newStorageUsed = 0
 				}
 				if err := user_detail.TxUpdate(tx, "storage_used", newStorageUsed); err != nil {
-					log.Errorf("removing storage_used: %s", err)
+					log.Errorf("updating storage_used: %s", err)
+					log.Printf("user_detail.StorageUsed: %v", user_detail.StorageUsed)
+					log.Printf("newStorageUsed: %v", newStorageUsed)
 				}
 
 				// update the "deleted_at column" for this user
@@ -202,7 +211,7 @@ func DeleteFile(router *gin.RouterGroup) {
 				newStorageUsed = 0
 			}
 			if err := user_detail.Update("storage_used", newStorageUsed); err != nil {
-				log.Errorf("removing storage_used: %s", err)
+				log.Errorf("updating newStorageUsed: %s", err)
 			}
 
 			// update the "deleted_at column" for this user

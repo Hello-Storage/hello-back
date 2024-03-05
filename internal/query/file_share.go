@@ -1,6 +1,8 @@
 package query
 
 import (
+	"errors"
+
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
@@ -145,16 +147,45 @@ func ConvertToDomainEntities(fileShareStatesUserShared *entity.FileShareStatesUs
 
 
 // DeleteFileShareStatesUserShared deletes the sharing state of a file based on its UID.
-func DeleteFileShareStatesUserShared(tx *gorm.DB,fileUID string, userID uint) {
-	var fileShareState entity.FileShareStatesUserShared
-	var filepublicf entity.PublicFileUserShared
+// It returns an error, allowing the caller to decide how to handle it.
+func DeleteFileShareStatesUserShared(tx *gorm.DB, fileUID string, userID uint) error {
+    var fileShareState entity.FileShareStatesUserShared
+    var filepublicf entity.PublicFileUserShared
 
-	result := tx.Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
-	if result.Error == nil {
-		tx.Unscoped().Delete(&fileShareState.PublicFileUserShared)
-		tx.Unscoped().Delete(&fileShareState)
-	}
-	tx.Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf)
+    // Attempt to find the specific file share state.
+    result := tx.Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
+    if result.Error != nil {
+        // Check if the error is due to the record not being found, which isn't considered an error in this context.
+        if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+            // Possibly log this as info or debug, as it's an expected situation that doesn't require an action.
+            log.Infof("No file share state found for UID: %s, UserID: %d. Nothing to delete.", fileUID, userID)
+            // Return nil to continue the transaction without considering this as an error.
+            return nil
+        } else {
+            // For any other errors, log and return the error.
+            log.Errorf("Error while finding file share state: %v", result.Error)
+            return result.Error
+        }
+    }
+
+    if err := tx.Unscoped().Delete(&fileShareState.PublicFileUserShared).Error; err != nil {
+        log.Errorf("Error while deleting PublicFileUserShared: %v", err)
+        return err
+    }
+
+    if err := tx.Unscoped().Delete(&fileShareState).Error; err != nil {
+        log.Errorf("Error while deleting FileShareStatesUserShared: %v", err)
+        return err
+    }
+
+    // Perform the second delete operation only if the previous operations were successful.
+    if err := tx.Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf).Error; err != nil {
+        log.Errorf("Error while deleting PublicFileUserShared by file UID: %v", err)
+        return err
+    }
+
+    // If everything was successful, return nil indicating no error occurred.
+    return nil
 }
 
 
@@ -166,6 +197,9 @@ func DeleteFileShareState(tx *gorm.DB,fileUID string) {
 	if result.Error == nil {
 		tx.Unscoped().Delete(&fileShareState.PublicFile)
 		tx.Unscoped().Delete(&fileShareState)
+	} else {
+			log.Errorf("Error while deleting file share state: %v", result.Error)
+			tx.Rollback()
 	}
 }
 
