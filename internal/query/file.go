@@ -277,7 +277,7 @@ func DeleteFileByUID(tx *gorm.DB, file_uid string) error {
 	}
 
 	// Get file_shared_state and delete it
-	DeleteFileShareState(tx, file_uid)
+	DeleteFileShareState(db.Db(), file_uid)
 
 	return db.Db().Where("uid = ?", file_uid).Delete(&entity.File{}).Error
 }

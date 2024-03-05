@@ -128,7 +128,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 		tx = db.Db().Begin()
 
 		// Delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(tx, f.UID, shareWithUser.ID)
+		query.DeleteFileShareStatesUserShared(db.Db(), f.UID, shareWithUser.ID)
 
 		tx.Commit() // Commit the transaction after deleting the file share state
 
@@ -231,7 +231,7 @@ func ShareFolderHandler(formget form.SharedFolder, shareType string) bool {
 			log.Errorf("failed to get file: %s", err)
 			continue
 		}
-		query.DeleteFileShareState(tx, f.UID)
+		query.DeleteFileShareState(db.Db(), f.UID)
 		tx.Commit()          // Commit the transaction
 		tx = db.Db().Begin() // Start a new transaction
 

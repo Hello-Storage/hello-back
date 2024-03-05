@@ -458,7 +458,7 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(tx,f.UID, shareWithUser.ID)
+		query.DeleteFileShareStatesUserShared(db.Db(),f.UID, shareWithUser.ID)
 		// create a new share state user shared
 		shareState, err := query.CreateShareStateUserShared(tx, newFile, shareWithUser.ID)
 		if err != nil {
