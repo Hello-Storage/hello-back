@@ -484,7 +484,7 @@ func PublishFile(router *gin.RouterGroup) {
 		// Send email with the file link to the user if the share type is email
 		if shareType == "email" {
 			// Send email with the file link to the user and pass also the sender user's email
-			sendEmailLinkToUser(authPayload.UserName, shareWithUser, accountIdentifier, newFile, publicFile)
+			sendEmailLinkToUser(authPayload.UserName, accountIdentifier, newFile, publicFile)
 		}
 
 		// Save the updated shareState.PublicFile
@@ -518,7 +518,7 @@ func formatBytes(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
-func sendEmailLinkToUser(username string, user *entity.User, email string, file *entity.File, publicFile *entity.PublicFileUserShared) {
+func sendEmailLinkToUser(username string, email string, file *entity.File, publicFile *entity.PublicFileUserShared) {
 
 	mg := mg.Mailgun{
 		Domain: "hello.app",
