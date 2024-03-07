@@ -50,6 +50,31 @@ func getAllFiles(folderUID string, allFiles *[]entity.File, currentPath string) 
 	return nil
 }
 
+// GetFolderFiles returns all files of a folder
+//
+// GET /api/folder/files/:uid
+func GetFolderFiles(router *gin.RouterGroup) {
+	router.GET("/folder/files/:uid", func(ctx *gin.Context) {
+		folderUID := ctx.Param("uid")
+		log.Printf("folderUID: %s", folderUID)
+
+		// Find all files inside the folder
+		var allFiles []entity.File
+		if err := getAllFiles(folderUID, &allFiles, ""); err != nil {
+			log.Errorf("error getting all files: %s", err.Error())
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Unable to retrieve files",
+			})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"files":   allFiles,
+		})
+	})
+
+}
 // DownloadFolder downloads all files of a folder as a ZIP
 //
 // GET /api/folder/download/:uid
