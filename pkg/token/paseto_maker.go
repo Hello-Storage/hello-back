@@ -74,9 +74,10 @@ func (maker *PasetoMaker) CreateApiKey(user_id uint, user_uid, user_name string)
 // VerifyApiKey checks if the API key is valid or not
 func (maker *PasetoMaker) VerifyApiKey(apiKey string) (*Payload, error) {
 	payload := &Payload{}
-
+	fmt.Println("Verifying API key: ", apiKey)
 	err := maker.paseto.Decrypt(apiKey, maker.symmetricKey, payload, nil)
 	if err != nil {
+		fmt.Println("Error in VerifyApiKey: ")
 		spew.Dump(err)
 		return nil, ErrInvalidToken
 	}
