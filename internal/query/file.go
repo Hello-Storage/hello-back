@@ -11,6 +11,7 @@ import (
 	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/davecgh/go-spew/spew"
 	"gorm.io/gorm"
 )
 
@@ -56,7 +57,6 @@ func FindFileByID(id uint) (*entity.File, error) {
 	fileShareState.PublicFile = publicFile
 
 	f.FileShareState = fileShareState
-
 
 	return f, nil
 }
@@ -181,7 +181,6 @@ func FindShareStateByFileUID(file_uid string) (file_share_state *entity.FileShar
 			return nil, nil, err
 		}
 
-		
 	}
 
 	return file_share_state, nil, nil
@@ -645,4 +644,45 @@ func FindFilesNotInPool() (files entity.Files, err error) {
 	}
 
 	return filesNotInPool, nil
+}
+
+// get if file is in a shared folder or not
+func IsInSharedFolder(fileRoot string, userID uint) (bool) {
+
+	// if file root is empty or user id is 0, return false
+	if fileRoot == "" || userID == 0 || fileRoot == "/" {
+		return false
+	}
+
+	// get folder id by file root (folder uid)
+	query := db.Db().
+		Table("folders").
+		Select("id").
+		Where("uid=?", fileRoot)
+
+	var folderID uint
+
+	if err := query.Scan(&folderID).Error; err != nil {
+		return false
+	}
+
+	// get folder user by folder id and user id
+	query = db.Db().Table("folder_users").Select("*").
+	Where("user_id = ? AND folder_id = ?", userID, folderID)
+
+	var folderUser entity.FolderUser
+
+	if err := query.Scan(&folderUser) .Error; err != nil {
+		return false
+	}
+
+	spew.Dump(folderUser)
+
+	// if folder user is shared, return true
+	if folderUser.Permission == "shared" {
+		return true
+	}
+
+	// else return false
+	return false
 }

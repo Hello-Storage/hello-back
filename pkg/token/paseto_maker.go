@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/o1egl/paseto"
 	"golang.org/x/crypto/chacha20poly1305"
 )
@@ -45,14 +44,11 @@ func (maker *PasetoMaker) VerifyToken(token string) (*Payload, error) {
 
 	err := maker.paseto.Decrypt(token, maker.symmetricKey, payload, nil)
 	if err != nil {
-		// print error for debug 
-		spew.Dump(err)
 		return nil, ErrInvalidToken
 	}
 
 	err = payload.Valid()
 	if err != nil {
-		spew.Dump(err)
 		return nil, err
 	}
 
@@ -74,20 +70,14 @@ func (maker *PasetoMaker) CreateApiKey(user_id uint, user_uid, user_name string)
 // VerifyApiKey checks if the API key is valid or not
 func (maker *PasetoMaker) VerifyApiKey(apiKey string) (*Payload, error) {
 	payload := &Payload{}
-	fmt.Println("Verifying API key: ", apiKey)
-	fmt.Println("Symmetric key: ", maker.symmetricKey)
-	fmt.Println("Payload: ")
-	spew.Dump(payload)
+
 	err := maker.paseto.Decrypt(apiKey, maker.symmetricKey, payload, nil)
 	if err != nil {
-		fmt.Println("Error in VerifyApiKey: ")
-		spew.Dump(err)
 		return nil, ErrInvalidToken
 	}
 
 	err = payload.Valid()
 	if err != nil {
-		spew.Dump(err)
 		return nil, err
 	}
 
