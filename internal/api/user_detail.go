@@ -117,7 +117,7 @@ func GetUserDetail(router *gin.RouterGroup) {
 				if fileUser.Permission == entity.SharedPermission && len(usersWithFileFiltered) > 0 {
 					// if the file is shared to current user and its more than one user with the file
 					// then it's a shared (with the user) file
-					if file.Root == "/" || !query.IsInSharedFolder(file.Root, authPayload.UserID) {
+					if file.Root == "/" /*|| !query.IsInSharedFolder(file.Root, authPayload.UserID) */{
 						// if the file was shared by email or wallet, we need to get
 						// the public file and its share state
 						sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
@@ -129,7 +129,9 @@ func GetUserDetail(router *gin.RouterGroup) {
 				} else if fileUser.Permission == entity.OwnerPermission && len(usersWithFileFiltered) > 0 {
 					// if the file owned by current user and its more than one user with the file
 					// then it's a shared (by the user) file
-					if file.Root == "/" || !query.IsInSharedFolder(file.Root, authPayload.UserID) {
+					if file.Root == "/" /*|| !query.IsInSharedFolder(file.Root, authPayload.UserID) */{
+						// TODO: check if the file/forder is in a shared folder or not 
+						// (because if we only show the files in Root, the elements in a non-shared folder will not be shown)
 						sharedByUser = append(sharedByUser, *file)
 					}
 				}
@@ -182,11 +184,13 @@ func GetUserDetail(router *gin.RouterGroup) {
 			// then it's a shared (with the user) folder
 			if folder.ID != 0 {
 				if folderUser.Permission == entity.SharedPermission && len(usersWithFolderFiltered) > 0 {
-					if folder.Root == "/" || !query.IsInSharedFolder(folder.Root, authPayload.UserID) {
+					if folder.Root == "/" /*|| !query.IsInSharedFolder(folder.Root, authPayload.UserID)*/ {
+						// TODO: check if the file/forder is in a shared folder or not 
+						// (because if we only show the files in Root, the elements in a non-shared folder will not be shown)
 						FoldersharedwithUser = append(FoldersharedwithUser, *folder)
 					}
 				} else if folderUser.Permission == entity.OwnerPermission && len(usersWithFolderFiltered) > 0 {
-					if folder.Root == "/" || !query.IsInSharedFolder(folder.Root, authPayload.UserID) {
+					if folder.Root == "/" /*|| !query.IsInSharedFolder(folder.Root, authPayload.UserID)*/ {
 						FoldersharedByUser = append(FoldersharedByUser, *folder)
 					}
 				}

@@ -11,6 +11,7 @@ import (
 	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/davecgh/go-spew/spew"
 	"gorm.io/gorm"
 )
 
@@ -674,6 +675,8 @@ func IsInSharedFolder(fileRoot string, userID uint) (bool) {
 	if err := query.Scan(&folderUser) .Error; err != nil {
 		return false
 	}
+
+	spew.Dump(folderUser)
 
 	// if folder user is shared, return true
 	if folderUser.Permission == "shared" {
