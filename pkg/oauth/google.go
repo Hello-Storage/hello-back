@@ -51,16 +51,30 @@ func GetGoogleUser(token string) (*GoogleUser, error) {
 		return nil, err
 	}
 
-	userBody := &GoogleUser{
-		Sub:           GoogleUserRes["sub"].(string),
-		Name:          GoogleUserRes["name"].(string),
-		Email:         GoogleUserRes["email"].(string),
-		EmailVerified: GoogleUserRes["email_verified"].(bool),
-		// GivenName:     GoogleUserRes["given_name"].(string),
-		// FamilyName:    GoogleUserRes["family_name"].(string),
-		Picture: GoogleUserRes["picture"].(string),
-		Locale:  GoogleUserRes["locale"].(string),
+	user := &GoogleUser{
+		Sub:           getStringValue(GoogleUserRes, "sub"),
+		Name:          getStringValue(GoogleUserRes, "name"),
+		Email:         getStringValue(GoogleUserRes, "email"),
+		EmailVerified: getBoolValue(GoogleUserRes, "email_verified"),
+		Picture:       getStringValue(GoogleUserRes, "picture"),
+		Locale:        getStringValue(GoogleUserRes, "locale"),
 	}
 
-	return userBody, nil
+	return user, nil
+}
+
+// Helper function to safely get string values from map
+func getStringValue(m map[string]interface{}, key string) string {
+	if val, ok := m[key].(string); ok {
+		return val
+	}
+	return ""
+}
+
+// Helper function to safely get bool values from map
+func getBoolValue(m map[string]interface{}, key string) bool {
+	if val, ok := m[key].(bool); ok {
+		return val
+	}
+	return false
 }
