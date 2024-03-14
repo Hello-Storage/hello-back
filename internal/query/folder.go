@@ -154,6 +154,10 @@ func FindUsersByFolderCID(cid string) ([]uint, error) {
 	var folderUsers []entity.FolderUser
 	var usersWF []uint
 
+	if cid == "" {
+		return nil, nil
+	}
+
 	// Join File and FileUser tables and find records by CID
 	err := db.Db().
 		Table("folders_users").
