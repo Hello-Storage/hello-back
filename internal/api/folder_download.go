@@ -6,10 +6,8 @@ import (
 	"net/http"
 	"path"
 
-	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
-	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-gonic/gin"
 )
 
@@ -52,12 +50,38 @@ func getAllFiles(folderUID string, allFiles *[]entity.File, currentPath string) 
 	return nil
 }
 
+// GetFolderFiles returns all files of a folder
+//
+// GET /api/folder/files/:uid
+func GetFolderFiles(router *gin.RouterGroup) {
+	router.GET("/folder/files/:uid", func(ctx *gin.Context) {
+		folderUID := ctx.Param("uid")
+		log.Printf("folderUID: %s", folderUID)
+
+		// Find all files inside the folder
+		var allFiles []entity.File
+		if err := getAllFiles(folderUID, &allFiles, ""); err != nil {
+			log.Errorf("error getting all files: %s", err.Error())
+			ctx.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Unable to retrieve files",
+			})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"files":   allFiles,
+		})
+	})
+
+}
 // DownloadFolder downloads all files of a folder as a ZIP
 //
 // GET /api/folder/download/:uid
 func DownloadFolder(router *gin.RouterGroup) {
 	router.GET("/folder/download/:uid", func(ctx *gin.Context) {
-		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+		// authPayload no needed for now
+		// authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 		folderUID := ctx.Param("uid")
 
 		// Find the folder by UID
@@ -81,7 +105,7 @@ func DownloadFolder(router *gin.RouterGroup) {
 		fileData := make([]map[string]interface{}, len(allFiles))
 
 		for i, file := range allFiles {
-			keyPath := authPayload.UserUID + "/" + file.UID
+			keyPath := file.CID // keypath is the CID of the file
 			out, err := DownloadFileFromS3(keyPath)
 			if err != nil {
 				ctx.JSON(http.StatusInternalServerError, gin.H{

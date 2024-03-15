@@ -11,13 +11,14 @@ import (
 	"github.com/Hello-Storage/hello-back/pkg/s3"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/davecgh/go-spew/spew"
 	"gorm.io/gorm"
 )
 
 // FindFileByUID returns file for the given UID.
 func FindFileByUID(uid string) (*entity.File, error) {
 	if uid == "" {
-		return nil, fmt.Errorf("file uid required")
+		return nil, fmt.Errorf("file uid required to find by uid")
 	}
 
 	var file entity.File
@@ -56,9 +57,6 @@ func FindFileByID(id uint) (*entity.File, error) {
 	fileShareState.PublicFile = publicFile
 
 	f.FileShareState = fileShareState
-
-	log.Printf("file_uid: %v", f)
-	log.Printf("File with preloaded sharestate: %v", f.FileShareState)
 
 	return f, nil
 }
@@ -101,6 +99,26 @@ func FindPublicFilesByRoot(root string) (publicFiles []entity.PublicFile, err er
 		}
 
 		publicFiles = append(publicFiles, publicFile)
+	}
+
+	return publicFiles, nil
+}
+
+func FindPublicFilesUserSharedByRoot(root string) (publicFiles []entity.PublicFileUserShared, err error) {
+	files, err := FindFilesByRoot(root)
+	if err != nil {
+		return publicFiles, err
+	}
+
+	for _, file := range files {
+		var publicFileUserShared entity.PublicFileUserShared
+
+		if err := db.Db().Where("file_uid = ?",
+			file.UID).First(&publicFileUserShared).Error; err != nil {
+			fmt.Println(err)
+		}
+
+		publicFiles = append(publicFiles, publicFileUserShared)
 	}
 
 	return publicFiles, nil
@@ -152,17 +170,24 @@ func CountTotalUsedStorage() (totalusedstorage int64, err error) {
 	return totalusedstorage, nil
 }
 
-func FindShareStateByFileUID(file_uid string) (file_share_state entity.FileShareState, err error) {
+func FindShareStateByFileUID(file_uid string) (file_share_state *entity.FileShareState, file_share_states_user_share *entity.FileShareStatesUserShared, err error) {
 	if err := db.Db().Preload("PublicFile").Where("file_uid = ?", file_uid).First(&file_share_state).Error; err != nil {
+		if err.Error() == "record not found" {
+			if err := db.Db().Preload("PublicFileUserShared").Where("file_uid = ?", file_uid).First(&file_share_states_user_share).Error; err != nil {
+				return nil, nil, err
+			}
+			return nil, file_share_states_user_share, nil
+		} else {
+			return nil, nil, err
+		}
 
-		return file_share_state, err
 	}
 
-	return file_share_state, nil
+	return file_share_state, nil, nil
 }
 
-func CreateShareState(tx *gorm.DB, file *entity.File) (file_share_state entity.FileShareState, err error) {
-	file_share_state = entity.FileShareState{
+func CreateShareState(tx *gorm.DB, file *entity.File) (file_share_state *entity.FileShareState, err error) {
+	file_share_state = &entity.FileShareState{
 		FileUID: file.UID,
 	}
 
@@ -251,7 +276,7 @@ func DeleteFileByUID(tx *gorm.DB, file_uid string) error {
 	}
 
 	// Get file_shared_state and delete it
-	DeleteFileShareState(tx, file_uid)
+	DeleteFileShareState(db.Db(), file_uid)
 
 	return db.Db().Where("uid = ?", file_uid).Delete(&entity.File{}).Error
 }
@@ -619,4 +644,45 @@ func FindFilesNotInPool() (files entity.Files, err error) {
 	}
 
 	return filesNotInPool, nil
+}
+
+// get if file is in a shared folder or not
+func IsInSharedFolder(fileRoot string, userID uint) (bool) {
+
+	// if file root is empty or user id is 0, return false
+	if fileRoot == "" || userID == 0 || fileRoot == "/" {
+		return false
+	}
+
+	// get folder id by file root (folder uid)
+	query := db.Db().
+		Table("folders").
+		Select("id").
+		Where("uid=?", fileRoot)
+
+	var folderID uint
+
+	if err := query.Scan(&folderID).Error; err != nil {
+		return false
+	}
+
+	// get folder user by folder id and user id
+	query = db.Db().Table("folder_users").Select("*").
+	Where("user_id = ? AND folder_id = ?", userID, folderID)
+
+	var folderUser entity.FolderUser
+
+	if err := query.Scan(&folderUser) .Error; err != nil {
+		return false
+	}
+
+	spew.Dump(folderUser)
+
+	// if folder user is shared, return true
+	if folderUser.Permission == "shared" {
+		return true
+	}
+
+	// else return false
+	return false
 }

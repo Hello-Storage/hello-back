@@ -128,9 +128,9 @@ func DeleteAllFilesInFolder(tx *gorm.DB, folderUID, userUID string, userID uint)
 		}
 
 		// delete the file share state in case it exists
-		query.DeleteFileShareState(tx, file.UID)
+		query.DeleteFileShareState(db.Db(), file.UID)
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(tx, file.UID, userID)
+		query.DeleteFileShareStatesUserShared(db.Db(), file.UID, userID)
 
 		// Check if other users have the file
 		usersWithFile, err := query.FindUsersByFileCID(file.CID)
@@ -192,7 +192,6 @@ func DeleteAllFilesInFolder(tx *gorm.DB, folderUID, userUID string, userID uint)
 							return err
 						} else {
 							//give the owner
-							log.Printf("next file user: %v", nextFileUser)
 							query.SetOwnerPermision(tx, nextFileUser.UserID, nextFileUser.FileID)
 							query.SetNextFileInPool(tx, nextFileUser.UserID, nextFileUser.FileID)
 						}

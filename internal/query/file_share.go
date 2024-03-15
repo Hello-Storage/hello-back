@@ -1,6 +1,8 @@
 package query
 
 import (
+	"errors"
+
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
@@ -51,14 +53,23 @@ func PublishFile(tx *gorm.DB, share_state entity.FileShareState, selectedShareFi
 	return &publicFile, nil
 }
 
-func FindPublicFileByHash(shareHash string) (*entity.PublicFile, error) {
+func FindPublicFileByHash(shareHash string) (*entity.PublicFile, *entity.PublicFileUserShared, error) {
 	var publicFile entity.PublicFile
+	var publicFileUserShared entity.PublicFileUserShared
 	err := db.UnscopedDb().Where("share_hash = ?", shareHash).First(&publicFile).Error
 	if err != nil {
-		return nil, err
+		if err.Error() == "record not found" {
+			err = db.UnscopedDb().Where("share_hash = ?", shareHash).First(&publicFileUserShared).Error
+			if err != nil {
+				return nil, nil, err
+			}
+		} else {
+
+			return nil, nil, err
+		}
 	}
 
-	return &publicFile, nil
+	return &publicFile, &publicFileUserShared, nil
 }
 
 // PublishFileUserShared creates a new public file.
@@ -107,7 +118,7 @@ func PublishFileUserShared(tx *gorm.DB, share_state entity.FileShareStatesUserSh
 func GetFileShareStateByFileUIDAndUserID(fileUID string, userID uint) (*entity.FileShareStatesUserShared, error) {
 	var fileShareState entity.FileShareStatesUserShared
 	// Search for the sharing state by fileUID and userID
-	result := db.Db().Preload("PublicFile").Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
+	result := db.Db().Preload("PublicFileUserShared").Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -135,26 +146,33 @@ func ConvertToDomainEntities(fileShareStatesUserShared *entity.FileShareStatesUs
 }
 
 // DeleteFileShareStatesUserShared deletes the sharing state of a file based on its UID.
-func DeleteFileShareStatesUserShared(tx *gorm.DB, fileUID string, userID uint) string {
+// It returns an error, allowing the caller to decide how to handle it.
+func DeleteFileShareStatesUserShared(db *gorm.DB, fileUID string, userID uint) error {
 	var fileShareState entity.FileShareStatesUserShared
 	var filepublicf entity.PublicFileUserShared
-	var cidOriginalDecrypted string
 
-	result := tx.Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
-	if result.Error == nil {
-		if err := tx.Unscoped().Delete(&fileShareState.PublicFileUserShared).Error; err != nil {
-			log.Errorf("Error deleting public file user shared: %v", err)
+	// Attempt to find the specific file share state.
+	result := db.Unscoped().Where("file_uid = ? AND user_id = ?", fileUID, userID).First(&fileShareState)
+	if result.Error != nil {
+		// Check if the error is due to the record not being found, which isn't considered an error in this context.
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			// Possibly log this as info or debug, as it's an expected situation that doesn't require an action.
+			log.Infof("No file share state found for UID: %s, UserID: %d. Nothing to delete.", fileUID, userID)
+			// Return nil to continue the transaction without considering this as an error.
+			return nil
+		} else {
+			// For any other errors, log and return the error.
+			log.Errorf("Error while finding file share state: %v", result.Error)
+			return result.Error
 		}
-		if err := tx.Unscoped().Delete(&fileShareState).Error; err != nil {
-			log.Errorf("Error deleting file share state user shared: %v", err)
-		}
-		cidOriginalDecrypted = fileShareState.PublicFileUserShared.CIDOriginalDecrypted
-	}
-	if err := tx.Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf).Error; err != nil {
-		log.Errorf("Error deleting orphan PublicFileUserShared records: %v", err)
 	}
 
-	return cidOriginalDecrypted
+	db.Unscoped().Delete(&fileShareState.PublicFileUserShared)
+	db.Unscoped().Delete(&fileShareState);	// Perform the second delete operation only if the previous operations were successful.
+	db.Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf)
+		
+	// If everything was successful, return nil indicating no error occurred.
+	return nil
 }
 
 // DeleteFileShareState deletes the sharing state of a file based on its UID.
@@ -165,6 +183,9 @@ func DeleteFileShareState(tx *gorm.DB, fileUID string) {
 	if result.Error == nil {
 		tx.Unscoped().Delete(&fileShareState.PublicFile)
 		tx.Unscoped().Delete(&fileShareState)
+	// if error is record not found, ignore it
+	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		log.Errorf("Error while finding file share state: %v", result.Error)
 	}
 }
 
@@ -174,9 +195,9 @@ func CreateShareStateUserShared(tx *gorm.DB, file *entity.File, userID uint) (fi
 		UserID:  userID,
 	}
 
-	if err := fileShareState.TxCreate(tx); err != nil {
+	err = tx.Create(&fileShareState).Error
+	if err != nil {
 		return fileShareState, err
 	}
-
 	return fileShareState, nil
 }

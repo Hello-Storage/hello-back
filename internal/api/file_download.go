@@ -75,7 +75,6 @@ func DownloadFile(router *gin.RouterGroup) {
 		}
 		// Set the correct content type and file name
 		ctx.Header("Content-Type", *out.ContentType)
-		log.Printf("Content-Type: %s", *out.ContentType)
 		ctx.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", file_uid))
 
 		// Copy the file data to the response

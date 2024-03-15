@@ -41,9 +41,16 @@ func DeleteFile(router *gin.RouterGroup) {
 		tx := db.Db().Begin()
 
 		// delete the file share state in case it exists
-		query.DeleteFileShareState(tx, f.UID)
+		query.DeleteFileShareState(db.Db(), f.UID)
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(tx, f.UID, authPayload.UserID)
+		err = query.DeleteFileShareStatesUserShared(db.Db(), f.UID, authPayload.UserID)
+
+		if err != nil {
+			tx.Rollback()
+			log.Errorf("error deleting file share state user shared: %v", err)
+			AbortInternalServerError(ctx)
+			return
+		}
 
 		f_u := entity.FileUser{
 			FileID: f.ID,
@@ -139,7 +146,6 @@ func DeleteFile(router *gin.RouterGroup) {
 							return
 						} else {
 							//give the owner
-							log.Printf("next file user: %v", nextFileUser)
 							query.SetOwnerPermision(tx, nextFileUser.UserID, nextFileUser.FileID)
 							query.SetNextFileInPool(tx, nextFileUser.UserID, nextFileUser.FileID)
 						}

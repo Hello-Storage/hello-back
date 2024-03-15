@@ -41,8 +41,6 @@ type File struct {
 	IsInPool             *bool          `gorm:"type:boolean;default:false;"         json:"is_in_pool"`
 	//sharestates are referenced by this file's UID at file share state
 	FileShareState FileShareState `gorm:"foreignKey:FileUID;references:UID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"file_share_state"`
-	FileShareStatesUserShared FileShareStatesUserShared `gorm:"foreignKey:FileUID;references:UID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"file_share_states_user_shared"`
-
 	EncryptionStatus EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"encryption_status"`
 }
 
