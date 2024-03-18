@@ -36,32 +36,7 @@ func Start(ctx context.Context) {
 	//cors protection
 	ApiKeyAPIv1CorsConfig := cors.New(cors.Config{
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
-		AllowOrigins: []string{
-			//development
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-			//production
-			"https://ipfs.hello.app",
-			"https://www.ipfs.hello.app",
-			"https://joinhello.app",
-			"https://staging.joinhello.app",
-			"https://www.staging.joinhello.app",
-			"https://www.joinhello.app",
-			"https://joinhello.vercel.app",
-			"https://www.joinhello.vercel.app",
-			"https://hello.storage",
-			"https://www.hello.storage",
-			"https://space.hello.app",
-			"https://hello.app",
-			"https://www.hello.app",
-			"https://stats.hello.app",
-			"https://www.stats.hello.app",
-			"https://www.space.hello.app",
-			"https://space.hello.storage",
-			"https://www.space.hello.storage",
-			"https://space.hello.ws",
-			"https://www.space.hello.ws",
-		},
+		AllowAllOrigins: true,
 		AllowHeaders: []string{
 			"Origin",
 			"Content-Length",
@@ -77,6 +52,8 @@ func Start(ctx context.Context) {
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
 			//production
+			"https://ipfs.hello.app",
+			"https://www.ipfs.hello.app",
 			"https://joinhello.app",
 			"https://staging.joinhello.app",
 			"https://www.staging.joinhello.app",
