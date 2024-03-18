@@ -47,6 +47,19 @@ services:
       timeout: 5s
       retries: 5
 
+  nodejs-server:
+    container_name: nodejs-server-dev
+    build:
+      context: ./node
+      dockerfile: ./Dockerfile.dev # Adjust if your Dockerfile has a different name or path
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./arweave-wallet.json:/usr/src/app/arweave-wallet.json:ro
+    networks:
+      - network-backend
+
 networks:
   network-backend:
 volumes:

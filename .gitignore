@@ -8,6 +8,8 @@
 *.so
 *.dylib
 
+arweave-wallet.json
+
 # Test binary, built with `go test -c`
 *.test
 
