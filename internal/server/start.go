@@ -53,6 +53,10 @@ func Start(ctx context.Context) {
 			"http://127.0.0.1:5173",
 			//production
 			"https://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.cf-ipfs.com",
+			"https://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.dweb.link",
+			"https://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.infura-ipfs.io",
+			"https://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.localhost",
+			"https://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.localhost:8080",
 			"https://helloapp.eth",
 			"https://www.helloapp.eth",
 			"https://ipfs.hello.app",
