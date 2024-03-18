@@ -52,6 +52,9 @@ func Start(ctx context.Context) {
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
 			//production
+			"https://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.cf-ipfs.com",
+			"https://helloapp.eth",
+			"https://www.helloapp.eth",
 			"https://ipfs.hello.app",
 			"https://www.ipfs.hello.app",
 			"https://joinhello.app",
