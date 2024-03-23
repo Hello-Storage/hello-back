@@ -60,11 +60,11 @@ func (s *SharedArweaveDBBackupData) startArweaveDBBackupBackgroundJob() {
 	for {
 		now := time.Now()
 		// Get the start of today (midnight)
-		today := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute(), 0, 0, now.Location())
+		today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 		// Get  the start of the day of the last transaction
-		lastTransactionMinute := time.Date(s.LastTransaction.Date.Year(), s.LastTransaction.Date.Month(), s.LastTransaction.Date.Day(), s.LastTransaction.Date.Hour(), s.LastTransaction.Date.Minute(), 0, 0, s.LastTransaction.Date.Location())
+		lastTransactionDay := time.Date(s.LastTransaction.Date.Year(), s.LastTransaction.Date.Month(), s.LastTransaction.Date.Day(), 0, 0, 0, 0, s.LastTransaction.Date.Location())
 
-		if today.After(lastTransactionMinute) {
+		if today.After(lastTransactionDay) {
 			// Perform the backup
 			if initialArweaveDbData, err := s.BackupDBToArweave(); err != nil {
 				log.Error("Error backing up to Arweave!: ", err)
@@ -76,7 +76,7 @@ func (s *SharedArweaveDBBackupData) startArweaveDBBackupBackgroundJob() {
 		}
 
 		// Calculate the start of the next day to determine sleep duration
-		nextDay := today.Add(1 * time.Minute)
+		nextDay := today.Add(1 * time.Hour * 24)
 		timeUntilNextBackup := nextDay.Sub(now)
 		time.Sleep(timeUntilNextBackup)
 	}
