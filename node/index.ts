@@ -3,8 +3,14 @@ import os from 'os';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 
+import multicodec, { SHA2_256 } from 'multicodec';
 import { CID } from 'multiformats/cid';
+import bs58 from 'bs58';
+
 import { sha256 } from 'multiformats/hashes/sha2';
+import { base58btc } from 'multiformats/bases/base58';
+
+import { PutObjectCommand, PutObjectCommandInput, S3Client } from '@aws-sdk/client-s3';
 
 
 import { FileStreamFactory, TurboFactory } from '@ardrive/turbo-sdk/node';
@@ -33,6 +39,57 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
+
+const client = new S3Client({ region: 'us-east-1', endpoint: 'https://s3.filebase.com' });
+
+
+
+const Upload = async (bucket: string, name: string, filePath: string) => {
+    var params: PutObjectCommandInput = {
+        Bucket: bucket,
+        Key: name,
+        Body: fs.createReadStream(filePath),
+    };
+    const command = new PutObjectCommand(params)
+    // TODO: do not depend on filebase CID server generation, use locally generated CID
+    // Right now Filebase's generated CIDs don't match any of the combinations I tried to generate, not even with CID Inspection Tool online.
+    let cidOutput = "";
+    command.middlewareStack.add(
+        (next, context) => async (args) => {
+            const request = await next(args);
+            // Perform type check here
+            const response = request.response as any;
+
+            const statusCode = response.statusCode;
+            if (!statusCode) return request;
+            const cid = response.headers["x-amz-meta-cid"];
+            console.log("Filebase cid: " + cid);
+            console.log("statusCode: " + statusCode);
+            // Optionally, attach the CID to the response object if you need it later
+
+            cidOutput = cid;
+            return request;
+        },
+        {
+            step: "build",
+            name: "addCidToOutput",
+        }
+    );
+
+    try {
+        const response = await client.send(command);
+        console.log("Upload response:")
+        console.log(response);
+        if (cidOutput == "") {
+            throw new Error("CID not found in response headers");
+        }
+        return cidOutput;
+    } catch (err) {
+        console.log("Error sending command:")
+        console.error(err)
+    }
+}
+
 
 
 const POSTGRES_DB = process.env.POSTGRES_DB;
@@ -120,29 +177,49 @@ app.post('/arweave/upload/string', async (req, res) => {
         encrypted += cipher.final('hex');
         const encryptedOutput = iv.toString('hex') + ':' + encrypted; // Prepend the IV for decryption purposes
 
-        // Generate CIDv1 for the encrypted output
-        const contentBytes = Buffer.from(encryptedOutput, 'utf8');
-        const hash = await sha256.digest(contentBytes);
-        const cid = CID.create(1, 0x55, hash) // 0x55 is the code for raw binary data
+        // CID generation
+        /*
+        const hash = await sha256.digest(new TextEncoder().encode(encryptedOutput));
+        const cidV1 = CID.create(1, multicodec.DAG_PB, hash);
+        console.log("cidV1:")
+        console.log(cidV1.toString())
+
+        const cidV0 = cidV1.toV0();
+        console.log("cidV0:")
+        console.log(cidV0.toString())
+
+        const cid = cidV0.toString();
+        */
+
 
         const timestamp = Date.now();
-        console.log(`DB dump and encryption successful at ${timestamp}`);
-        console.log(`CIDv1: ${cid.toString()}`);
-
-
         const encryptedFilename = `encrypted_db_dump_${timestamp}.txt`;
+        const filePath = path.join(os.tmpdir(), encryptedFilename);
+
         const cidFilename = `cid_${Date.now()}.txt`;
         const cidFilePath = path.join(os.tmpdir(), cidFilename);
-        const filePath = path.join(__dirname, encryptedFilename);
+        // Save encrypted output to a file
+        fs.writeFileSync(filePath, encryptedOutput);
+
+
+        // Upload the encrypted output to S3
+        const cid = await Upload('hello-app', encryptedFilename, filePath)
+        if (cid == "" || !cid) {
+            throw new Error("CID not found in response headers")
+        }
+
+        console.log(`DB dump and encryption successful at ${new Date(timestamp).toLocaleString()}`);
+        //print formatted date:
+        console.log(`CIDv0: ${cid.toString()}`);
+
+
 
 
         try {
-            // Save encrypted output to a file
-            fs.writeFileSync(filePath, encryptedOutput);
-            fs.writeFileSync(cidFilePath, cid.toString());
 
             console.log(`Encrypted DB dump saved to ${filePath}`);
 
+            fs.writeFileSync(cidFilePath, cid.toString());
             // Preparing for upload to Arweave
             const bufferSize = fs.statSync(cidFilePath).size;
             const bufferSizeFactory = () => bufferSize;
@@ -166,6 +243,8 @@ app.post('/arweave/upload/string', async (req, res) => {
 
             console.log(`File uploaded successfully with ID: ${id}, Owner: ${owner}`);
             fs.unlinkSync(cidFilePath);
+            fs.unlinkSync(filePath);
+
 
             res.json({
                 message: cid.toString(),
@@ -185,6 +264,7 @@ app.post('/arweave/upload/string', async (req, res) => {
         }
 
     } catch (err) {
+        console.log(err)
         const { error, stderr } = err as ExecPromiseError;
         console.error(`Getting database failed: ${error}`)
         res.status(500).send('Backup failed: ' + stderr);

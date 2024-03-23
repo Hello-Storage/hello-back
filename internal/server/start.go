@@ -144,7 +144,7 @@ func Start(ctx context.Context) {
 	
 	statisticsData := api.GetStatisticsInstance()
 	// Arweave data
-	arweaveDbBackupData := arweave.GetArweaveDBBackupInstance()
+	arweave.GetArweaveDBBackupInstance()
 
 
 	initialUsersStats, err := usersData.CalculateWeeklyUsersStats()
@@ -179,7 +179,6 @@ func Start(ctx context.Context) {
 	}
 */
 
-	log.Printf("arweaveDbBackupData: %v", arweaveDbBackupData)
 	
 
 	// Graceful HTTP server shutdown.
