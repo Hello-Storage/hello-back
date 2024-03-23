@@ -1,5 +1,8 @@
 # Use the official Node.js 16 image as a parent image
-FROM node:18-alpine
+FROM node:20-alpine
+
+# Install PostgreSQL client
+RUN apk update && apk add --no-cache postgresql-client
 
 # Set the working directory
 WORKDIR /usr/src/app
@@ -8,16 +11,16 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Install dependencies
-RUN yarn
+RUN yarn install
+RUN yarn global add nodemon ts-node typescript
 
 # Copy the rest of your application's code
 COPY . .
 
-# Build your TypeScript files
-RUN yarn version
 
 # Expose the port the app runs on
 EXPOSE 3000
 
 # Command to run your app
 CMD ["yarn", "start"]
+

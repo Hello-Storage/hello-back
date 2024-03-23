@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/api"
+	"github.com/Hello-Storage/hello-back/internal/api/arweave"
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/middlewares"
 	"github.com/gin-contrib/cors"
@@ -140,7 +141,11 @@ func Start(ctx context.Context) {
 
 	usersData := api.GetUsersInstance()
 	storageData := api.GetStorageInstance()
+	
 	statisticsData := api.GetStatisticsInstance()
+	// Arweave data
+	arweaveDbBackupData := arweave.GetArweaveDBBackupInstance()
+
 
 	initialUsersStats, err := usersData.CalculateWeeklyUsersStats()
 	if err != nil {
@@ -148,6 +153,9 @@ func Start(ctx context.Context) {
 	} else {
 		usersData.WeeklyStatistics = initialUsersStats
 	}
+	
+
+
 	initialStorageStats, err := storageData.CalculateWeeklyStorageStats()
 	if err != nil {
 		log.Errorf("cannot calculate initial weekly storage stats: %s", err)
@@ -160,6 +168,19 @@ func Start(ctx context.Context) {
 	} else {
 		statisticsData.Statistics = initialStatistics
 	}
+	
+	/*
+	initialArweaveDbData, err := arweaveDbBackupData.BackupDBToArweave()
+	if err != nil {
+		log.Errorf("cannot calculate initial weekly stats: %s", err)
+	} else {
+		arweaveDbBackupData = initialArweaveDbData
+
+	}
+*/
+
+	log.Printf("arweaveDbBackupData: %v", arweaveDbBackupData)
+	
 
 	// Graceful HTTP server shutdown.
 	<-ctx.Done()
