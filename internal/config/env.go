@@ -36,6 +36,8 @@ type EnvVar struct {
 	EncryptionKey string
 	// MailGun
 	MailGunApiKey string
+	// Arweave
+	NodejsServerEndpoint string
 }
 
 var env EnvVar
@@ -86,6 +88,8 @@ func LoadEnv() (err error) {
 		EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
 		// MailGun
 		MailGunApiKey: os.Getenv("MAILGUN_API"),
+		// Arweave
+		NodejsServerEndpoint: os.Getenv("NODEJS_SERVER_ENDPOINT"),
 	}
 
 	values := reflect.ValueOf(env)

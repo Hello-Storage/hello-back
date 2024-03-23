@@ -51,8 +51,6 @@ func (s *SharedUsersData) CalculateWeeklyUsersStats() ([]WeeklyUsersStats, error
 			return nil, fmt.Errorf("cannot get total users: %s", err)
 		}
 
-		// Agregar información al registro
-		log.Infof("Total users for week %s: %d", weekStartDate.Format("2006-01-02"), totalUsers)
 
 		// Verificar si totalUsers es cero antes de hacer la división
 		if totalUsers != 0 {
