@@ -34,8 +34,15 @@ commands:
           command: |
             EC2_USERNAME=ubuntu
             EC2_PUBLIC_DNS=api-staging.joinhello.app
-            # Securely copy the updated docker-compose.yml to the correct server directory
+            # Create an archive of the specified node files
+            tar -czvf node_files.tar.gz -C ./node .dockerignore .gitignore Dockerfile.dev index.ts nodemon.json package.json tsconfig.json
+            # Ensure the target directories exist
+            ssh -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_PUBLIC_DNS "mkdir -p /home/ubuntu/workspace/staging/node"
+            # Securely copy the updated docker-compose.yml and the node files archive to the server
             scp -o StrictHostKeyChecking=no ./docker-compose.yml $EC2_USERNAME@$EC2_PUBLIC_DNS:/home/ubuntu/workspace/staging/docker-compose.yml
+            scp -o StrictHostKeyChecking=no node_files.tar.gz $EC2_USERNAME@$EC2_PUBLIC_DNS:/home/ubuntu/workspace/staging/node_files.tar.gz
+            # Extract the node files archive to the correct directory and cleanup
+            ssh -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_PUBLIC_DNS "cd /home/ubuntu/workspace/staging && tar -xzvf node_files.tar.gz -C node && rm node_files.tar.gz"
             # Connect to the server and start the updated setup
             ssh -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_PUBLIC_DNS "cd /home/ubuntu/workspace/staging && sudo docker compose pull && sudo docker system prune -f && sudo docker compose up -d --build --wait"
 
