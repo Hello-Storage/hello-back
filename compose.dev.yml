@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.9"
 
 ## FOR TEST AND DEVELOPMENT ONLY, DO NOT USE IN PRODUCTION   ##
 
@@ -70,3 +70,4 @@ volumes:
   postgres-data:
     external: true
     name: postgres-data
+
