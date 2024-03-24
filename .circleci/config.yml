@@ -34,10 +34,11 @@ commands:
           command: |
             EC2_USERNAME=ubuntu
             EC2_PUBLIC_DNS=api-staging.joinhello.app
-            # Securely copy the updated docker-compose.yml to the server
-            scp -o StrictHostKeyChecking=no ./docker-compose.yml $EC2_USERNAME@$EC2_PUBLIC_DNS:/workspace/staging/docker-compose.yml
+            # Securely copy the updated docker-compose.yml to the correct server directory
+            scp -o StrictHostKeyChecking=no ./docker-compose.yml $EC2_USERNAME@$EC2_PUBLIC_DNS:/home/ubuntu/workspace/staging/docker-compose.yml
             # Connect to the server and start the updated setup
-            ssh -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_PUBLIC_DNS "cd workspace/staging && sudo docker compose pull && sudo docker system prune -f && sudo docker compose up -d --build --wait"
+            ssh -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_PUBLIC_DNS "cd /home/ubuntu/workspace/staging && sudo docker compose pull && sudo docker system prune -f && sudo docker compose up -d --build --wait"
+
 jobs:
   build:
     executor: go
