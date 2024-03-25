@@ -37,7 +37,6 @@ func UpdateFolderRoot(router *gin.RouterGroup) {
 		// Check if the current user is the owner of the folder
 		isOwner, err := entity.IsFolderOwner(uintID, authPayload.UserID)
 		if err != nil {
-			log.Error("entity.IsFolderOwner != nil")
 			log.Error(ctx.Errors)
 			AbortBadRequest(ctx)
 			return
