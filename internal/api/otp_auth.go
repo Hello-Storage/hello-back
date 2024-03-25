@@ -122,6 +122,10 @@ func StartOTP(router *gin.RouterGroup) {
 				return
 			}
 
+			//save the referal before trying to update the storage
+			tx.Commit()
+			tx = db.Db().Begin()
+
 			if err == nil {
 				referral := entity.Referral{
 					ReferrerID:   referrer_id,

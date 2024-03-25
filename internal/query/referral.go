@@ -76,16 +76,17 @@ func FindReferrerIdFromReferredId(referred_id uint) uint {
 func UpdateReferralStorage(user_id uint) error {
 	detail := &entity.UserDetail{}
 
-	if err := db.Db().Where("user_id = ?", user_id).First(&detail).Error; err != nil {
+	if err := db.Db().Preload("Referrals").Where("user_id = ?", user_id).First(&detail).Error; err != nil {
 		return err
 	}
-
-	//if detail.ReferralStorage is greater than 90 GB, return
-	if detail.ReferralStorage > uint(90 * 1024 * 1024 * 1024) {
+	// 100 GB = 100 * 1024 * 1024 * 1024
+	// if referral storage is 100 GB then return nil as storage limit reached already
+	if detail.ReferralStorage == 100 * 1024 * 1024 * 1024  {
+		fmt.Println("storage limit reached")
 		return nil
 	}
 
-	detail.ReferralStorage = detail.ReferralStorage +uint(5 * 1024 * 1024 * 1024) // 5 GB
+	detail.ReferralStorage = uint((len(detail.Referrals)+1) * 5 * 1024 * 1024 * 1024) // 5 GB per referral
 
 	if err := detail.Save(); err != nil {
 		return err
