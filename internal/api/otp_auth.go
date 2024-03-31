@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -30,7 +31,8 @@ func StartOTP(router *gin.RouterGroup) {
 		}
 
 		if err := ctx.ShouldBindJSON(&f); err != nil {
-			ctx.JSON(http.StatusBadRequest, ErrorResponse(err))
+			log.Errorf("failed to bind json: %v", err)
+			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000001"))
 			return
 		}
 
@@ -40,25 +42,23 @@ func StartOTP(router *gin.RouterGroup) {
 			Period:      30 * 60,
 		})
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+			log.Errorf("failed to generate key: %v", err)
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000002"))
 			return
 		}
 
-		u := query.FindUserByEmail(f.Email)
+		uSearch := query.FindUserByEmail(f.Email)
 
 		tx := db.Db().Begin()
 
-		if u == nil {
+		if uSearch == nil {
 
 			isValidEthereumAddress := crypto.IsValidEthereumAddress(f.WalletAddress)
 			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(f.PrivateKey)
 			if !isValidEthereumAddress || !isValidEthereumPrivateKey {
-				log.Errorf("invalid ethereum address or private key")
-				tx.Rollback()
-				ctx.JSON(
-					http.StatusBadRequest,
-					gin.H{"status": "fail", "message": "invalid ethereum address or private key"},
-				)
+				log.Errorf("invalid wallet address or private key")
+				ctx.JSON(http.StatusBadRequest, 
+					ErrorResponse(errors.New("invalid wallet address or private key") ,"/otp/start:00000003"))
 				return
 			}
 
@@ -66,12 +66,12 @@ func StartOTP(router *gin.RouterGroup) {
 			if err != nil {
 				log.Errorf("failed to encrypt private key: %v", err)
 				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000004"))
 				return
 			}
 
 			// create new user
-			u = &entity.User{
+			u := entity.User{
 				Name: strings.Split(f.Email, "@")[0],
 				Email: &entity.Email{
 					Email:  f.Email,
@@ -87,7 +87,7 @@ func StartOTP(router *gin.RouterGroup) {
 			if err := u.TxCreate(tx); err != nil {
 				log.Errorf("failed to create user: %v", err)
 				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000005"))
 				return
 			}
 
@@ -100,7 +100,7 @@ func StartOTP(router *gin.RouterGroup) {
 				if err := referral.TxCreate(tx); err != nil {
 					log.Errorf("failed to save referral: %v", err)
 					tx.Rollback()
-					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000006"))
 					return
 				}
 			}
@@ -115,10 +115,7 @@ func StartOTP(router *gin.RouterGroup) {
 			if err := user_detail.TxCreate(tx); err != nil {
 				log.Errorf("failed to create user detail: %v", err)
 				tx.Rollback()
-				ctx.JSON(
-					http.StatusInternalServerError,
-					gin.H{"status": "fail", "message": err.Error()},
-				)
+				ctx.JSON(http.StatusInternalServerError,ErrorResponse(err,"/otp/start:00000007"))
 				return
 			}
 
@@ -126,7 +123,7 @@ func StartOTP(router *gin.RouterGroup) {
 			tx.Commit()
 			tx = db.Db().Begin()
 
-			if err == nil {
+			if err == nil && referrer_id != 0 && user_detail.ID != 0 && u.ID != 0 {
 				referral := entity.Referral{
 					ReferrerID:   referrer_id,
 					ReferredID:   u.ID,
@@ -135,10 +132,9 @@ func StartOTP(router *gin.RouterGroup) {
 
 				if err := referral.TxCreate(tx); err != nil {
 					log.Errorf("failed to create referral: %v", err)
-					tx.Rollback()
 					ctx.JSON(
 						http.StatusInternalServerError,
-						gin.H{"status": "fail", "message": err.Error()},
+						ErrorResponse(err,"/otp/start:00000008"),
 					)
 					return
 				}
@@ -148,26 +144,29 @@ func StartOTP(router *gin.RouterGroup) {
 					tx.Rollback()
 					ctx.JSON(
 						http.StatusInternalServerError,
-						gin.H{"status": "fail", "message": err.Error()},
+						ErrorResponse(err,"/otp/start:00000009"),
 					)
 					return
 				}
 			}
+			uSearch = &u;
 
 		} else {
-			email := u.Email
+			email := uSearch.Email
 			email.Secret = key.Secret()
 
 			if err := email.Save(); err != nil {
-				log.Errorf("failed to save secret: %v", err)
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+				log.Errorf("failed to save email: %v", err)
+				tx.Rollback()
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000010"))
 				return
 			}
 		}
 
+
 		userLogin := &entity.UserLogin{
 			LoginDate:  time.Now(),
-			WalletAddr: u.Wallet.Address,
+			WalletAddr: uSearch.Wallet.Address,
 		}
 
 		if err := userLogin.TxCreate(tx); err != nil {
@@ -175,14 +174,14 @@ func StartOTP(router *gin.RouterGroup) {
 			tx.Rollback()
 			ctx.JSON(
 				http.StatusInternalServerError,
-				gin.H{"status": "fail", "message": err.Error()},
+				ErrorResponse(err,"/otp/start:00000011"),
 			)
 			return
 		}
 
 		code, err := totp.GenerateCode(key.Secret(), time.Now())
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, ErrorResponse(err))
+			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000012"))
 			return
 		}
 
@@ -206,7 +205,7 @@ func StartOTP(router *gin.RouterGroup) {
 
 		if err != nil {
 			log.Errorf("failed to send email: %v", err)
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000013"))
 			return
 		}
 

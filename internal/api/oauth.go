@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -27,7 +28,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			log.Errorf("Authorization code not provided!")
 			ctx.JSON(
 				http.StatusUnauthorized,
-				gin.H{"status": "fail", "message": "Authorization code not provided!"},
+				ErrorResponse(errors.New("code not provided"), "/oauth/google:00000001"),
 			)
 			return
 		}
@@ -36,7 +37,9 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 
 		if err != nil {
 			log.Errorf("failed to get google user: %v", err)
-			ctx.JSON(http.StatusBadGateway, gin.H{"status": "fail", "message": err.Error()})
+			ctx.JSON(http.StatusBadGateway, 
+				ErrorResponse(err, "/oauth/google:00000002"),
+			)
 			return
 		}
 
@@ -64,7 +67,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 				tx.Rollback()
 				ctx.JSON(
 					http.StatusBadRequest,
-					gin.H{"status": "fail", "message": "invalid ethereum address or private key"},
+					ErrorResponse(errors.New("invalid wallet address or private key"), "/oauth/google:00000003"),
 				)
 				return
 			}
@@ -73,7 +76,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			if err != nil {
 				log.Errorf("failed to encrypt private key: %v", err)
 				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000004"))
 				return
 			}
 
@@ -95,7 +98,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			if err := new.TxCreate(tx); err != nil {
 				log.Errorf("failed to create user: %v", err)
 				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000005"))
 				return
 			}
 
@@ -108,7 +111,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 				if err := referral.TxCreate(tx); err != nil {
 					log.Errorf("failed to save referral: %v", err)
 					tx.Rollback()
-					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000006"))
 					return
 				}
 			}
@@ -125,12 +128,12 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 				tx.Rollback()
 				ctx.JSON(
 					http.StatusInternalServerError,
-					gin.H{"status": "fail", "message": err.Error()},
+					ErrorResponse(err,"/oauth/google:00000007"),
 				)
 				return
 			}
 
-			if err == nil {
+			if err == nil && referrer_id != 0 && user_detail.ID != 0 && new.ID != 0 {
 				referral := entity.Referral{
 					ReferrerID:   referrer_id,
 					ReferredID:   new.ID,
@@ -142,7 +145,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 					tx.Rollback()
 					ctx.JSON(
 						http.StatusInternalServerError,
-						gin.H{"status": "fail", "message": err.Error()},
+						ErrorResponse(err,"/oauth/google:00000008"),
 					)
 					return
 				}
@@ -151,7 +154,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 					log.Errorf("failed to update referral storage: %v", err)
 					ctx.JSON(
 						http.StatusInternalServerError,
-						gin.H{"status": "fail", "message": err.Error()},
+						ErrorResponse(err,"/oauth/google:00000009"),
 					)
 					return
 				}
@@ -170,7 +173,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 		if err != nil {
 			tx.Rollback()
 			log.Errorf("failed to create access token: %v", err)
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000010"))
 			return
 		}
 
@@ -183,7 +186,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 		if err != nil {
 			log.Errorf("failed to create refresh token: %v", err)
 			tx.Rollback()
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000011"))
 			return
 		}
 
@@ -207,7 +210,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			tx.Rollback()
 			ctx.JSON(
 				http.StatusInternalServerError,
-				gin.H{"status": "fail", "message": err.Error()},
+				ErrorResponse(err,"/oauth/google:00000012"),
 			)
 			return
 		}
