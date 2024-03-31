@@ -12,7 +12,7 @@ func CheckReferralCode(referral_code string) (uint, error) {
 	m := &entity.Wallet{}
 
 	//must be a referral code
-	if referral_code == "" || len(referral_code) != 5 {
+	if referral_code == "" || len(referral_code) < 5 {
 		return 0, fmt.Errorf("invalid referral code: %s", referral_code)
 	}
 
