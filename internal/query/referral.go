@@ -13,7 +13,7 @@ func CheckReferralCode(referral_code string) (uint, error) {
 
 	//must be a referral code
 	if referral_code == "" || len(referral_code) != 5 {
-		return 0, fmt.Errorf("invalid referral code")
+		return 0, fmt.Errorf("invalid referral code: %s", referral_code)
 	}
 
 	// Find matching record.

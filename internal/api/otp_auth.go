@@ -31,13 +31,13 @@ func StartOTP(router *gin.RouterGroup) {
 			PrivateKey    string `json:"private-key"`
 		}
 
-		spew.Dump(f)
-
 		if err := ctx.ShouldBindJSON(&f); err != nil {
 			log.Errorf("failed to bind json: %v", err)
 			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000001"))
 			return
 		}
+
+		spew.Dump(f)
 
 		key, err := totp.Generate(totp.GenerateOpts{
 			Issuer:      "hello.app",
@@ -270,8 +270,6 @@ func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
 		ReferredID:   userID,
 		UserDetailID: user_detailID,
 	}
-
-	spew.Dump(referral)
 
 	if err := referral.Create(); err != nil {
 		log.Errorf("failed to create referral: %v", err)
