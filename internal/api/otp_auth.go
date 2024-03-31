@@ -25,9 +25,9 @@ func StartOTP(router *gin.RouterGroup) {
 	router.POST("/otp/start", func(ctx *gin.Context) {
 		var f struct {
 			Email         string `json:"email" binding:"required"`
-			ReferrerCode  string `json:"referrer-code"`
-			WalletAddress string `json:"wallet-address"`
-			PrivateKey    string `json:"private-key"`
+			ReferrerCode  string `json:"referrer_code"`
+			WalletAddress string `json:"wallet_address"`
+			PrivateKey    string `json:"private_key"`
 		}
 
 		if err := ctx.ShouldBindJSON(&f); err != nil {

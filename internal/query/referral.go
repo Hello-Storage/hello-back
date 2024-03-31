@@ -114,8 +114,12 @@ func FindReferrerIdFromReferredId(referred_id uint) uint {
 
 func UpdateReferralStorage(user_id uint) error {
 	detail := &entity.UserDetail{}
+	referals := []entity.Referral{}
 
-	if err := db.Db().Preload("Referrals").Where("user_id = ?", user_id).First(&detail).Error; err != nil {
+	if err := db.Db().Where("user_id = ?", user_id).First(&detail).Error; err != nil {
+		return err
+	}
+	if err := db.Db().Where("user_detail_id = ?", detail.ID).First(&referals).Error; err != nil {
 		return err
 	}
 	// 100 GB = 100 * 1024 * 1024 * 1024
@@ -125,7 +129,7 @@ func UpdateReferralStorage(user_id uint) error {
 		return nil
 	}
 
-	detail.ReferralStorage = uint((len(detail.Referrals)) * 5 * 1024 * 1024 * 1024) // 5 GB per referral
+	detail.ReferralStorage = uint((len(referals)) * 5 * 1024 * 1024 * 1024) // 5 GB per referral
 
 	if err := detail.Save(); err != nil {
 		return err
