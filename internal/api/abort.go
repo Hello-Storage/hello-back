@@ -75,6 +75,12 @@ func AbortBusy(c *gin.Context) {
 	Abort(c, http.StatusTooManyRequests, "Busy, please try again later")
 }
 
-func ErrorResponse(err error) gin.H {
-	return gin.H{"error": err.Error()}
+func ErrorResponse(err error, code ...string) gin.H {
+    response := gin.H{"error": err.Error(), "status": "fail"}
+
+    if len(code) > 0 {
+        response["code"] = code
+    }
+
+    return response
 }
