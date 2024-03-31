@@ -8,10 +8,10 @@ import (
 )
 
 type Referral struct {
-	ID           uint `gorm:"primarykey"                                         json:"id"`
-	ReferrerID   uint `gorm:"index;not null;references:ID;referencedTable:users" json:"referrer_id"`
-	ReferredID   uint `gorm:"index;not null;references:ID;referencedTable:users" json:"referred_id"`
-	UserDetailID uint `gorm:"index;not null;references:ID;referencedTable:user_details" json:"user_detail_id"`
+    ID           uint `gorm:"primarykey"           json:"id"`
+    ReferrerID   uint `gorm:"references:ID"       json:"referrer_id"`
+    ReferredID   uint `gorm:"references:ID"       json:"referred_id"`
+    UserDetailID uint `gorm:"references:ID"       json:"user_detail_id"`
 }
 
 // TableName returns the entity table name.
