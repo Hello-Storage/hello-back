@@ -26,9 +26,9 @@ func StartOTP(router *gin.RouterGroup) {
 	router.POST("/otp/start", func(ctx *gin.Context) {
 		var f struct {
 			Email         string `json:"email" binding:"required"`
-			ReferrerCode  string `json:"referrer_code"`
-			WalletAddress string `json:"wallet_address"`
-			PrivateKey    string `json:"private_key"`
+			ReferrerCode  string `json:"referrer-code"`
+			WalletAddress string `json:"wallet-address"`
+			PrivateKey    string `json:"private-key"`
 		}
 
 		spew.Dump(f)
@@ -87,9 +87,8 @@ func StartOTP(router *gin.RouterGroup) {
 				},
 			}
 
-			if err := u.TxCreate(tx); err != nil {
+			if err := u.Create(); err != nil {
 				log.Errorf("failed to create user: %v", err)
-				tx.Rollback()
 				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000005"))
 				return
 			}
@@ -107,6 +106,7 @@ func StartOTP(router *gin.RouterGroup) {
 					return
 				}
 			}
+
 			referrer_id, err := query.CheckReferralCode(f.ReferrerCode)
 			if err != nil {
 				log.Errorf("failed to check referral code: %v", err)
@@ -124,7 +124,13 @@ func StartOTP(router *gin.RouterGroup) {
 			}
 
 			if err == nil && referrer_id != 0 && user_detail.ID != 0 && u.ID != 0 {
-				CreateReferral(referrer_id, u.ID, user_detail.ID, ctx)
+				err := CreateReferral(referrer_id, u.ID, user_detail.ID)
+
+				if err != nil {
+					log.Errorf("failed to create referral: %v", err)
+					ctx.JSON(http.StatusInternalServerError,ErrorResponse(err,"/otp/start:00000008"))
+					return
+				}
 			}
 			uSearch = &u;
 
@@ -135,7 +141,7 @@ func StartOTP(router *gin.RouterGroup) {
 			if err := email.Save(); err != nil {
 				log.Errorf("failed to save email: %v", err)
 				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000008"))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000009"))
 				return
 			}
 		}
@@ -151,14 +157,14 @@ func StartOTP(router *gin.RouterGroup) {
 			tx.Rollback()
 			ctx.JSON(
 				http.StatusInternalServerError,
-				ErrorResponse(err,"/otp/start:00000009"),
+				ErrorResponse(err,"/otp/start:00000010"),
 			)
 			return
 		}
 
 		code, err := totp.GenerateCode(key.Secret(), time.Now())
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000010"))
+			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000011"))
 			return
 		}
 
@@ -182,7 +188,7 @@ func StartOTP(router *gin.RouterGroup) {
 
 		if err != nil {
 			log.Errorf("failed to send email: %v", err)
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000011"))
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000012"))
 			return
 		}
 
@@ -258,7 +264,7 @@ func VerifyOTP(router *gin.RouterGroup, tokenMaker token.Maker) {
 
 
 // Create referal
-func CreateReferral(referrer_id uint, userID uint, user_detailID uint, ctx *gin.Context) {
+func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
 	referral := entity.Referral{
 		ReferrerID:   referrer_id,
 		ReferredID:   userID,
@@ -269,19 +275,13 @@ func CreateReferral(referrer_id uint, userID uint, user_detailID uint, ctx *gin.
 
 	if err := referral.Create(); err != nil {
 		log.Errorf("failed to create referral: %v", err)
-		ctx.JSON(
-			http.StatusInternalServerError,
-			ErrorResponse(err,"func:CreateReferral::00000001"),
-		)
-		return
+		return errors.New("failed to create referral")
 	}
 
 	if err := query.UpdateReferralStorage(referrer_id); err != nil {
 		log.Errorf("failed to update referral storage: %v", err)
-		ctx.JSON(
-			http.StatusInternalServerError,
-			ErrorResponse(err,"func:CreateReferral:00000002"),
-		)
-		return
+		return errors.New("failed to update referral storage")
 	}
+
+	return nil
 }

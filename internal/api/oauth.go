@@ -51,14 +51,14 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 		if u == nil {
 
 			var req struct {
-				WalletAddress string `json:"wallet_address" binding:"required"`
-				PrivateKey    string `json:"private_key" binding:"required"`
-				ReferralCode  string `json:"referrer_code" binding:"required"`
+				WalletAddress string `json:"wallet-address" binding:"required"`
+				PrivateKey    string `json:"private-key" binding:"required"`
+				ReferralCode  string `json:"referrer-code" binding:"required"`
 			}
 
-			req.WalletAddress = ctx.Query("wallet_address")
-			req.PrivateKey = ctx.Query("private_key")
-			req.ReferralCode = ctx.Query("referrer_code")
+			req.WalletAddress = ctx.Query("wallet-address")
+			req.PrivateKey = ctx.Query("private-key")
+			req.ReferralCode = ctx.Query("referrer-code")
 
 			isValidEthereumAddress := crypto.IsValidEthereumAddress(req.WalletAddress)
 			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(req.PrivateKey)
@@ -113,7 +113,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 					return
 				}
 			}
-			
+
 			referrer_id, err := query.CheckReferralCode(req.ReferralCode)
 
 			if err != nil {
@@ -138,7 +138,13 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			}
 
 			if err == nil && referrer_id != 0 && user_detail.ID != 0 && new.ID != 0 {
-				CreateReferral(referrer_id, new.ID, user_detail.ID, ctx)
+				err := CreateReferral(referrer_id, new.ID, user_detail.ID)
+
+				if err != nil {
+					log.Errorf("failed to create referral: %v", err)
+					ctx.JSON(http.StatusInternalServerError,ErrorResponse(err,"/otp/start:00000008"))
+					return
+				}
 			}
 
 			u = &new
