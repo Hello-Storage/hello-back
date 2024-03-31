@@ -1,35 +1,47 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Create referal
 func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
-	referral := entity.Referral{
-		ReferrerID:   referrer_id,
-		ReferredID:   userID,
-		UserDetailID: user_detailID,
-	}
 
 	//check existance of the referal parts
-	// newUser := &entity.User{}
-	// newUserDetail := &entity.UserDetail{}
+	reffered := &entity.User{}
+	newUser := &entity.User{}
+	newUserDetail := &entity.UserDetail{}
 
-	// err := db.Db().Where("ID = ?", userID).First(newUser).Error
-	// if err != nil {
-	// 	spew.Dump(err)
-	// 	return errors.New("invalid user id")
-	// }
-	// err = db.Db().Where("ID = ?", user_detailID).First(newUserDetail).Error
-	// if err != nil {
-	// 	spew.Dump(err)
-	// 	return errors.New("invalid user detail id")
-	// }
+	err := db.Db().Where("ID = ?", referrer_id).First(reffered).Error
+	if err != nil {
+		spew.Dump(err)
+		return errors.New("invalid user id")
+	}
+
+	err = db.Db().Where("ID = ?", userID).First(newUser).Error
+	if err != nil {
+		spew.Dump(err)
+		return errors.New("invalid user id")
+	}
+	err = db.Db().Where("ID = ?", user_detailID).First(newUserDetail).Error
+	if err != nil {
+		spew.Dump(err)
+		return errors.New("invalid user detail id")
+	}
 	
+	referral := entity.Referral{
+		ReferrerID:   reffered.ID,
+		ReferredID:   newUser.ID,
+		UserDetailID: newUserDetail.ID,
+	}
+
+	spew.Dump(referral)
+
 	if err := db.Db().Create(&referral).Error; err != nil {
 		log.Errorf("failed to create referral: %v", err)
 		db.Db().Create(&referral)
