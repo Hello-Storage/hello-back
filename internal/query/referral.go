@@ -33,7 +33,8 @@ func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
 	
 	if err := db.Db().Create(&referral).Error; err != nil {
 		log.Errorf("failed to create referral: %v", err)
-		return errors.New("failed to create referral")
+		db.Db().Create(&referral)
+		// return errors.New("failed to create referral")
 	}
 
 	if err := UpdateReferralStorage(referrer_id); err != nil {
