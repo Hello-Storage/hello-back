@@ -14,7 +14,6 @@ import (
 	"github.com/Hello-Storage/hello-back/pkg/crypto"
 	"github.com/Hello-Storage/hello-back/pkg/mg"
 	"github.com/Hello-Storage/hello-back/pkg/token"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"github.com/pquerna/otp/totp"
 )
@@ -36,8 +35,6 @@ func StartOTP(router *gin.RouterGroup) {
 			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000001"))
 			return
 		}
-
-		spew.Dump(f)
 
 		key, err := totp.Generate(totp.GenerateOpts{
 			Issuer:      "hello.app",
@@ -124,7 +121,7 @@ func StartOTP(router *gin.RouterGroup) {
 			}
 
 			if err == nil && referrer_id != 0 && user_detail.ID != 0 && u.ID != 0 {
-				err := CreateReferral(referrer_id, u.ID, user_detail.ID)
+				err := query.CreateReferral(referrer_id, u.ID, user_detail.ID)
 
 				if err != nil {
 					log.Errorf("failed to create referral: %v", err)
@@ -260,26 +257,4 @@ func VerifyOTP(router *gin.RouterGroup, tokenMaker token.Maker) {
 
 		ctx.JSON(http.StatusOK, rsp)
 	})
-}
-
-
-// Create referal
-func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
-	referral := entity.Referral{
-		ReferrerID:   referrer_id,
-		ReferredID:   userID,
-		UserDetailID: user_detailID,
-	}
-
-	if err := referral.Create(); err != nil {
-		log.Errorf("failed to create referral: %v", err)
-		return errors.New("failed to create referral")
-	}
-
-	if err := query.UpdateReferralStorage(referrer_id); err != nil {
-		log.Errorf("failed to update referral storage: %v", err)
-		return errors.New("failed to update referral storage")
-	}
-
-	return nil
 }

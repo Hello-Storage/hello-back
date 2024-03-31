@@ -11,7 +11,7 @@ type Referral struct {
 	ID           uint `gorm:"primarykey"                                         json:"id"`
 	ReferrerID   uint `gorm:"index;not null;references:ID;referencedTable:users" json:"referrer_id"`
 	ReferredID   uint `gorm:"index;not null;references:ID;referencedTable:users" json:"referred_id"`
-	UserDetailID uint
+	UserDetailID uint `gorm:"index;not null;references:ID;referencedTable:user_details" json:"user_detail_id"`
 }
 
 // TableName returns the entity table name.

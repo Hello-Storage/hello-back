@@ -1,11 +1,49 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 )
+
+// Create referal
+func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
+	referral := entity.Referral{
+		ReferrerID:   referrer_id,
+		ReferredID:   userID,
+		UserDetailID: user_detailID,
+	}
+	//check existance of the referal parts
+	wallet := &entity.Wallet{}
+	newUser := &entity.User{}
+	newUserDetail := &entity.UserDetail{}
+	err := db.Db().Where("address = ?", referrer_id).First(wallet)
+	if err != nil {
+		return errors.New("invalid referral code")
+	}
+	err = db.Db().Where("id = ?", userID).First(newUser)
+	if err != nil {
+		return errors.New("invalid referral code")
+	}
+	err = db.Db().Where("id = ?", user_detailID).First(newUserDetail)
+	if err != nil {
+		return errors.New("invalid referral code")
+	}
+	
+	if err := db.Db().Create(&referral); err != nil {
+		log.Errorf("failed to create referral: %v", err)
+		return errors.New("failed to create referral")
+	}
+
+	if err := UpdateReferralStorage(referrer_id); err != nil {
+		log.Errorf("failed to update referral storage: %v", err)
+		return errors.New("failed to update referral storage")
+	}
+
+	return nil
+}
 
 func CheckReferralCode(referral_code string) (uint, error) {
 	//get the user id from the referral code

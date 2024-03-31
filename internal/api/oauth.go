@@ -138,7 +138,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			}
 
 			if err == nil && referrer_id != 0 && user_detail.ID != 0 && new.ID != 0 {
-				err := CreateReferral(referrer_id, new.ID, user_detail.ID)
+				err := query.CreateReferral(referrer_id, new.ID, user_detail.ID)
 
 				if err != nil {
 					log.Errorf("failed to create referral: %v", err)
