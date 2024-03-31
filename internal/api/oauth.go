@@ -64,7 +64,6 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(req.PrivateKey)
 			if !isValidEthereumAddress || !isValidEthereumPrivateKey {
 				log.Errorf("invalid ethereum address or private key")
-				tx.Rollback()
 				ctx.JSON(
 					http.StatusBadRequest,
 					ErrorResponse(errors.New("invalid wallet address or private key"), "/oauth/google:00000003"),
@@ -95,9 +94,8 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 
 			//decrypt and print private key
 			//decryptedPrivateKey, err := crypto.Decrypt(encryptedPrivateKey)
-			if err := new.TxCreate(tx); err != nil {
+			if err := new.Create(); err != nil {
 				log.Errorf("failed to create user: %v", err)
-				tx.Rollback()
 				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000005"))
 				return
 			}
@@ -115,7 +113,13 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 					return
 				}
 			}
+			
 			referrer_id, err := query.CheckReferralCode(req.ReferralCode)
+
+			if err != nil {
+				log.Errorf("failed to check referral code: %v", err)
+			}
+
 			// initialize user detail
 			user_detail := entity.UserDetail{
 				StorageUsed: 0,
@@ -134,30 +138,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			}
 
 			if err == nil && referrer_id != 0 && user_detail.ID != 0 && new.ID != 0 {
-				referral := entity.Referral{
-					ReferrerID:   referrer_id,
-					ReferredID:   new.ID,
-					UserDetailID: user_detail.ID,
-				}
-
-				if err := referral.TxCreate(tx); err != nil {
-					log.Errorf("failed to create referral: %v", err)
-					tx.Rollback()
-					ctx.JSON(
-						http.StatusInternalServerError,
-						ErrorResponse(err,"/oauth/google:00000008"),
-					)
-					return
-				}
-
-				if err := query.UpdateReferralStorage(referrer_id); err != nil {
-					log.Errorf("failed to update referral storage: %v", err)
-					ctx.JSON(
-						http.StatusInternalServerError,
-						ErrorResponse(err,"/oauth/google:00000009"),
-					)
-					return
-				}
+				CreateReferral(referrer_id, new.ID, user_detail.ID, ctx)
 			}
 
 			u = &new

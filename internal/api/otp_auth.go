@@ -14,6 +14,7 @@ import (
 	"github.com/Hello-Storage/hello-back/pkg/crypto"
 	"github.com/Hello-Storage/hello-back/pkg/mg"
 	"github.com/Hello-Storage/hello-back/pkg/token"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"github.com/pquerna/otp/totp"
 )
@@ -29,6 +30,8 @@ func StartOTP(router *gin.RouterGroup) {
 			WalletAddress string `json:"wallet_address"`
 			PrivateKey    string `json:"private_key"`
 		}
+
+		spew.Dump(f)
 
 		if err := ctx.ShouldBindJSON(&f); err != nil {
 			log.Errorf("failed to bind json: %v", err)
@@ -105,6 +108,9 @@ func StartOTP(router *gin.RouterGroup) {
 				}
 			}
 			referrer_id, err := query.CheckReferralCode(f.ReferrerCode)
+			if err != nil {
+				log.Errorf("failed to check referral code: %v", err)
+			}
 			// initialize user detail
 			user_detail := entity.UserDetail{
 				StorageUsed: 0,
@@ -112,42 +118,13 @@ func StartOTP(router *gin.RouterGroup) {
 				ReferredBy:  referrer_id,
 			}
 
-			if err := user_detail.TxCreate(tx); err != nil {
-				log.Errorf("failed to create user detail: %v", err)
-				tx.Rollback()
+			if err := user_detail.Create(); err != nil {
 				ctx.JSON(http.StatusInternalServerError,ErrorResponse(err,"/otp/start:00000007"))
 				return
 			}
 
-			//save the referal before trying to update the storage
-			tx.Commit()
-			tx = db.Db().Begin()
-
 			if err == nil && referrer_id != 0 && user_detail.ID != 0 && u.ID != 0 {
-				referral := entity.Referral{
-					ReferrerID:   referrer_id,
-					ReferredID:   u.ID,
-					UserDetailID: user_detail.ID,
-				}
-
-				if err := referral.TxCreate(tx); err != nil {
-					log.Errorf("failed to create referral: %v", err)
-					ctx.JSON(
-						http.StatusInternalServerError,
-						ErrorResponse(err,"/otp/start:00000008"),
-					)
-					return
-				}
-
-				if err := query.UpdateReferralStorage(referrer_id); err != nil {
-					log.Errorf("failed to update referral storage: %v", err)
-					tx.Rollback()
-					ctx.JSON(
-						http.StatusInternalServerError,
-						ErrorResponse(err,"/otp/start:00000009"),
-					)
-					return
-				}
+				CreateReferral(referrer_id, u.ID, user_detail.ID, ctx)
 			}
 			uSearch = &u;
 
@@ -158,7 +135,7 @@ func StartOTP(router *gin.RouterGroup) {
 			if err := email.Save(); err != nil {
 				log.Errorf("failed to save email: %v", err)
 				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000010"))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000008"))
 				return
 			}
 		}
@@ -174,14 +151,14 @@ func StartOTP(router *gin.RouterGroup) {
 			tx.Rollback()
 			ctx.JSON(
 				http.StatusInternalServerError,
-				ErrorResponse(err,"/otp/start:00000011"),
+				ErrorResponse(err,"/otp/start:00000009"),
 			)
 			return
 		}
 
 		code, err := totp.GenerateCode(key.Secret(), time.Now())
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000012"))
+			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000010"))
 			return
 		}
 
@@ -205,7 +182,7 @@ func StartOTP(router *gin.RouterGroup) {
 
 		if err != nil {
 			log.Errorf("failed to send email: %v", err)
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000013"))
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000011"))
 			return
 		}
 
@@ -277,4 +254,34 @@ func VerifyOTP(router *gin.RouterGroup, tokenMaker token.Maker) {
 
 		ctx.JSON(http.StatusOK, rsp)
 	})
+}
+
+
+// Create referal
+func CreateReferral(referrer_id uint, userID uint, user_detailID uint, ctx *gin.Context) {
+	referral := entity.Referral{
+		ReferrerID:   referrer_id,
+		ReferredID:   userID,
+		UserDetailID: user_detailID,
+	}
+
+	spew.Dump(referral)
+
+	if err := referral.Create(); err != nil {
+		log.Errorf("failed to create referral: %v", err)
+		ctx.JSON(
+			http.StatusInternalServerError,
+			ErrorResponse(err,"func:CreateReferral::00000001"),
+		)
+		return
+	}
+
+	if err := query.UpdateReferralStorage(referrer_id); err != nil {
+		log.Errorf("failed to update referral storage: %v", err)
+		ctx.JSON(
+			http.StatusInternalServerError,
+			ErrorResponse(err,"func:CreateReferral:00000002"),
+		)
+		return
+	}
 }

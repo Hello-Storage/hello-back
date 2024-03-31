@@ -10,13 +10,15 @@ import (
 func CheckReferralCode(referral_code string) (uint, error) {
 	//get the user id from the referral code
 	m := &entity.Wallet{}
-	stmt := db.Db()
 
-	stmt = stmt.Where("address = ?", referral_code)
+	//must be a referral code
+	if referral_code == "" || len(referral_code) != 5 {
+		return 0, fmt.Errorf("invalid referral code")
+	}
 
 	// Find matching record.
 	fmt.Println("referral_code: ", referral_code)
-	if err := stmt.First(m).Error; err != nil {
+	if err := db.Db().Where("address = ?", referral_code).First(m).Error; err != nil {
 		return 0, err
 	}
 
