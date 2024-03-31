@@ -25,15 +25,15 @@ func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
 	newUserDetail := &entity.UserDetail{}
 	err := db.Db().Where("id = ?", referrer_id).First(wallet)
 	if err != nil {
-		return errors.New("invalid referral code")
+		return errors.New("invalid referral id")
 	}
 	err = db.Db().Where("id = ?", userID).First(newUser)
 	if err != nil {
-		return errors.New("invalid referral code")
+		return errors.New("invalid user id")
 	}
 	err = db.Db().Where("id = ?", user_detailID).First(newUserDetail)
 	if err != nil {
-		return errors.New("invalid referral code")
+		return errors.New("invalid user detail id")
 	}
 	
 	if err := db.Db().Create(&referral); err != nil {
