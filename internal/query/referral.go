@@ -1,7 +1,6 @@
 package query
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/Hello-Storage/hello-back/internal/db"
@@ -39,7 +38,8 @@ func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
 
 	if err := UpdateReferralStorage(referrer_id); err != nil {
 		log.Errorf("failed to update referral storage: %v", err)
-		return errors.New("failed to update referral storage")
+		// return errors.New("failed to update referral storage")
+		UpdateReferralStorage(referrer_id)
 	}
 
 	return nil
