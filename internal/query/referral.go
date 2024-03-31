@@ -6,6 +6,7 @@ import (
 
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Create referal
@@ -15,11 +16,14 @@ func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
 		ReferredID:   userID,
 		UserDetailID: user_detailID,
 	}
+
+	spew.Dump(referral)
+
 	//check existance of the referal parts
 	wallet := &entity.Wallet{}
 	newUser := &entity.User{}
 	newUserDetail := &entity.UserDetail{}
-	err := db.Db().Where("address = ?", referrer_id).First(wallet)
+	err := db.Db().Where("id = ?", referrer_id).First(wallet)
 	if err != nil {
 		return errors.New("invalid referral code")
 	}
