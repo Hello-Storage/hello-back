@@ -6,7 +6,6 @@ import (
 
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // Create referal
@@ -19,18 +18,15 @@ func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
 
 	err := db.Db().Where("ID = ?", referrer_id).First(reffered).Error
 	if err != nil {
-		spew.Dump(err)
 		return errors.New("invalid user id")
 	}
 
 	err = db.Db().Where("ID = ?", userID).First(newUser).Error
 	if err != nil {
-		spew.Dump(err)
 		return errors.New("invalid user id")
 	}
 	err = db.Db().Where("ID = ?", user_detailID).First(newUserDetail).Error
 	if err != nil {
-		spew.Dump(err)
 		return errors.New("invalid user detail id")
 	}
 	
@@ -40,12 +36,12 @@ func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
 		UserDetailID: newUserDetail.ID,
 	}
 
-	spew.Dump(referral)
 
 	if err := db.Db().Create(&referral).Error; err != nil {
 		log.Errorf("failed to create referral: %v", err)
 		return errors.New("failed to create referral")
 	}
+
 
 	if err := UpdateReferralStorage(reffered.ID); err != nil {
 		log.Errorf("failed to update referral storage: %v", err)
@@ -131,14 +127,14 @@ func UpdateReferralStorage(user_id uint) error {
 		fmt.Println("user_detail not found, user_id: ", user_id)
 		return err
 	}
-	if err := db.Db().Where("user_detail_id = ?", detail.ID).Find(&referals).Error; err != nil {
+	
+	if err := db.Db().Where("referrer_id = ?", detail.UserID).Find(&referals).Error; err != nil {
 		fmt.Println("referrals not found, user_id: ", user_id)
 		return err
 	}
 	// 100 GB = 100 * 1024 * 1024 * 1024
 	// if referral storage is 100 GB then return nil as storage limit reached already
 	if detail.ReferralStorage == 100 * 1024 * 1024 * 1024  {
-		fmt.Println("storage limit reached")
 		return nil
 	}
 
