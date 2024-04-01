@@ -47,7 +47,7 @@ func CreateReferral(referrer_id uint, userID uint, user_detailID uint) error {
 		return errors.New("failed to create referral")
 	}
 
-	if err := UpdateReferralStorage(referrer_id); err != nil {
+	if err := UpdateReferralStorage(reffered.ID); err != nil {
 		log.Errorf("failed to update referral storage: %v", err)
 		return errors.New("failed to update referral storage")
 	}
@@ -128,9 +128,11 @@ func UpdateReferralStorage(user_id uint) error {
 	referals := []entity.Referral{}
 
 	if err := db.Db().Where("user_id = ?", user_id).First(&detail).Error; err != nil {
+		fmt.Println("user_detail not found, user_id: ", user_id)
 		return err
 	}
-	if err := db.Db().Where("user_detail_id = ?", detail.ID).First(&referals).Error; err != nil {
+	if err := db.Db().Where("user_detail_id = ?", detail.ID).Find(&referals).Error; err != nil {
+		fmt.Println("referrals not found, user_id: ", user_id)
 		return err
 	}
 	// 100 GB = 100 * 1024 * 1024 * 1024

@@ -331,32 +331,15 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 				return
 			}
 
-			if err == nil {
-				referral := entity.Referral{
-					ReferrerID:   referrer_id,
-					ReferredID:   new.ID,
-					UserDetailID: user_detail.ID,
-				}
 
-				if err := referral.TxCreate(tx); err != nil {
+			if err == nil && referrer_id != 0 && user_detail.ID != 0 && new.ID != 0 {
+				err := query.CreateReferral(referrer_id, new.ID, user_detail.ID)
+
+				if err != nil {
 					log.Errorf("failed to create referral: %v", err)
-					tx.Rollback()
-					ctx.JSON(
-						http.StatusInternalServerError,
-						gin.H{"status": "fail", "message": err.Error()},
-					)
+					ctx.JSON(http.StatusInternalServerError,ErrorResponse(err,"/otp/start:00000008"))
 					return
 				}
-
-
-			if err := query.UpdateReferralStorage(referrer_id); err != nil {
-				log.Errorf("failed to update referral storage: %v", err)
-				ctx.JSON(
-					http.StatusInternalServerError,
-					gin.H{"status": "fail", "message": err.Error()},
-				)
-				return
-			}
 			}
 
 			u = &new
