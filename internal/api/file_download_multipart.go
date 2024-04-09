@@ -2,12 +2,16 @@ package api
 
 import (
 	"fmt"
-	"github.com/Hello-Storage/hello-back/internal/config"
-	"github.com/Hello-Storage/hello-back/internal/query"
-	"github.com/Hello-Storage/hello-back/pkg/s3"
-	"github.com/gin-gonic/gin"
 	"io"
 	"net/http"
+	"time"
+
+	"github.com/Hello-Storage/hello-back/internal/config"
+	"github.com/Hello-Storage/hello-back/internal/constant"
+	"github.com/Hello-Storage/hello-back/internal/query"
+	"github.com/Hello-Storage/hello-back/pkg/s3"
+	"github.com/Hello-Storage/hello-back/pkg/token"
+	"github.com/gin-gonic/gin"
 )
 
 const ChunkSize = 5 * 1024 * 1024 // 5MB
@@ -19,8 +23,9 @@ const ChunkSize = 5 * 1024 * 1024 // 5MB
 // @return 200 {string} string "ok"
 func DownloadMultipartFile(router *gin.RouterGroup) {
 	router.GET("/download/multipart/:uid", func(ctx *gin.Context) {
-		// TO-DO check user auth & add user uid
-		//authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+		_ = ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
+        ctx.Request.Header.Set("X-Read-Timeout", (3*time.Hour).String())
+        ctx.Request.Header.Set("X-Write-Timeout", (3*time.Hour).String())
 
 		file_uid := ctx.Param("uid")
 
