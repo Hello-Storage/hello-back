@@ -35,6 +35,7 @@ var Entities = Tables{
 	ApiKeyFile{}.TableName():               &ApiKeyFile{},
 	FileShareStatesUserShared{}.TableName(): &FileShareStatesUserShared{},
 	PublicFileUserShared{}.TableName():     &PublicFileUserShared{},
+	ArweaveTransaction{}.TableName():       &ArweaveTransaction{},
 }
 
 // WaitForMigration waits for the database migration to be successful.

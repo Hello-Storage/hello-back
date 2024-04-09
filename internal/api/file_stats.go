@@ -25,24 +25,7 @@ type Statistics struct {
 	// CountDailyStorage    int64 `json:"CountDailyStorage"`
 }
 
-type SharedStatistics struct {
-	Statistics Statistics
-	timer      *time.Timer
-}
 
-var (
-	statisticsInstance *SharedStatistics
-	statisticsOnce     sync.Once
-	statisticsMutex    sync.Mutex
-)
-
-func GetStatisticsInstance() *SharedStatistics {
-	statisticsOnce.Do(func() {
-		statisticsInstance = &SharedStatistics{}
-		statisticsInstance.startStatisticsBackgroundJob()
-	})
-	return statisticsInstance
-}
 
 type UserStatistics struct {
 	CountTotalUsedStorageUser    int64 `json:"CountTotalUsedStorageUser"`
@@ -71,6 +54,28 @@ type UserMonthlyStatistics struct {
 	CountDailyFilesUser          [30]int64 `json:"CountDailyFilesUser"`
 	CountDailyPublicFilesUser    [30]int64 `json:"CountDailyPublicFilesUser"`
 	CountDailyEncryptedFilesUser [30]int64 `json:"CountDailyEncryptedFilesUser"`
+}
+
+type SharedStatistics struct {
+	Statistics Statistics
+	timer      *time.Timer
+}
+
+var (
+	statisticsInstance *SharedStatistics
+	statisticsOnce     sync.Once
+	statisticsMutex    sync.Mutex
+)
+
+
+
+
+func GetStatisticsInstance() *SharedStatistics {
+	statisticsOnce.Do(func() {
+		statisticsInstance = &SharedStatistics{}
+		statisticsInstance.startStatisticsBackgroundJob()
+	})
+	return statisticsInstance
 }
 
 func (s *SharedStatistics) startStatisticsBackgroundJob() {

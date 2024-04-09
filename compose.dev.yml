@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.9"
 
 ## FOR TEST AND DEVELOPMENT ONLY, DO NOT USE IN PRODUCTION   ##
 
@@ -47,9 +47,27 @@ services:
       timeout: 5s
       retries: 5
 
+  nodejs-server:
+    container_name: nodejs-server-dev
+    build:
+      context: ./node
+      dockerfile: ./Dockerfile.dev # Adjust if your Dockerfile has a different name or path
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./node:/usr/src/app # This mounts your host node directory to the container's working directory
+      - ./arweave-wallet.json:/usr/src/app/arweave-wallet.json:ro
+      - /usr/src/app/node_modules # Persists node_modules folder to avoid being overridden by the bind mount
+    networks:
+      - network-backend
+
 networks:
   network-backend:
 volumes:
   postgres-data:
     external: true
     name: postgres-data
+

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Hello-Storage/hello-back/internal/api"
+	"github.com/Hello-Storage/hello-back/internal/api/arweave"
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/middlewares"
 	"github.com/gin-contrib/cors"
@@ -36,30 +37,7 @@ func Start(ctx context.Context) {
 	//cors protection
 	ApiKeyAPIv1CorsConfig := cors.New(cors.Config{
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
-		AllowOrigins: []string{
-			//development
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-			//production
-			"https://joinhello.app",
-			"https://staging.joinhello.app",
-			"https://www.staging.joinhello.app",
-			"https://www.joinhello.app",
-			"https://joinhello.vercel.app",
-			"https://www.joinhello.vercel.app",
-			"https://hello.storage",
-			"https://www.hello.storage",
-			"https://space.hello.app",
-			"https://hello.app",
-			"https://www.hello.app",
-			"https://stats.hello.app",
-			"https://www.stats.hello.app",
-			"https://www.space.hello.app",
-			"https://space.hello.storage",
-			"https://www.space.hello.storage",
-			"https://space.hello.ws",
-			"https://www.space.hello.ws",
-		},
+		AllowAllOrigins: true,
 		AllowHeaders: []string{
 			"Origin",
 			"Content-Length",
@@ -75,6 +53,16 @@ func Start(ctx context.Context) {
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
 			//production
+			//ipfs
+			"http://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.localhost:8080",
+			"https://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.cf-ipfs.com",
+			"https://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.dweb.link",
+			"https://bafybeicm4w4vstqisfm6y67sfuusemftosfhmf4kluzeczaweyynunxele.ipfs.infura-ipfs.io",
+			"https://ipfs.hello.app",
+			"https://www.ipfs.hello.app",
+			// normal
+			"https://helloapp.eth",
+			"https://www.helloapp.eth",
 			"https://joinhello.app",
 			"https://staging.joinhello.app",
 			"https://www.staging.joinhello.app",
@@ -140,7 +128,11 @@ func Start(ctx context.Context) {
 
 	usersData := api.GetUsersInstance()
 	storageData := api.GetStorageInstance()
+	
 	statisticsData := api.GetStatisticsInstance()
+	// Arweave data
+	arweave.GetArweaveDBBackupInstance()
+
 
 	initialUsersStats, err := usersData.CalculateWeeklyUsersStats()
 	if err != nil {
@@ -148,6 +140,9 @@ func Start(ctx context.Context) {
 	} else {
 		usersData.WeeklyStatistics = initialUsersStats
 	}
+	
+
+
 	initialStorageStats, err := storageData.CalculateWeeklyStorageStats()
 	if err != nil {
 		log.Errorf("cannot calculate initial weekly storage stats: %s", err)
@@ -160,6 +155,18 @@ func Start(ctx context.Context) {
 	} else {
 		statisticsData.Statistics = initialStatistics
 	}
+	
+	/*
+	initialArweaveDbData, err := arweaveDbBackupData.BackupDBToArweave()
+	if err != nil {
+		log.Errorf("cannot calculate initial weekly stats: %s", err)
+	} else {
+		arweaveDbBackupData = initialArweaveDbData
+
+	}
+*/
+
+	
 
 	// Graceful HTTP server shutdown.
 	<-ctx.Done()

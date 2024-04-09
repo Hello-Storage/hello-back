@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/Hello-Storage/hello-back/internal/api"
+	"github.com/Hello-Storage/hello-back/internal/api/arweave"
 	v1 "github.com/Hello-Storage/hello-back/internal/api/v1"
 	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/middlewares"
@@ -77,6 +78,8 @@ func registerRoutes(router *gin.Engine) {
 	api.DownloadMultipartFolder(AuthAPIv1)
 	api.DeleteFolder(AuthAPIv1)
 	api.UpdateFolderRoot(AuthAPIv1)
+
+	arweave.GetArweaveTransactions(APIv1.Group("/arweave"))
 
 }
 

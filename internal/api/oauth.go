@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -27,7 +28,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			log.Errorf("Authorization code not provided!")
 			ctx.JSON(
 				http.StatusUnauthorized,
-				gin.H{"status": "fail", "message": "Authorization code not provided!"},
+				ErrorResponse(errors.New("code not provided"), "/oauth/google:00000001"),
 			)
 			return
 		}
@@ -36,7 +37,9 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 
 		if err != nil {
 			log.Errorf("failed to get google user: %v", err)
-			ctx.JSON(http.StatusBadGateway, gin.H{"status": "fail", "message": err.Error()})
+			ctx.JSON(http.StatusBadGateway, 
+				ErrorResponse(err, "/oauth/google:00000002"),
+			)
 			return
 		}
 
@@ -61,10 +64,9 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(req.PrivateKey)
 			if !isValidEthereumAddress || !isValidEthereumPrivateKey {
 				log.Errorf("invalid ethereum address or private key")
-				tx.Rollback()
 				ctx.JSON(
 					http.StatusBadRequest,
-					gin.H{"status": "fail", "message": "invalid ethereum address or private key"},
+					ErrorResponse(errors.New("invalid wallet address or private key"), "/oauth/google:00000003"),
 				)
 				return
 			}
@@ -73,7 +75,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			if err != nil {
 				log.Errorf("failed to encrypt private key: %v", err)
 				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000004"))
 				return
 			}
 
@@ -92,10 +94,9 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 
 			//decrypt and print private key
 			//decryptedPrivateKey, err := crypto.Decrypt(encryptedPrivateKey)
-			if err := new.TxCreate(tx); err != nil {
+			if err := new.Create(); err != nil {
 				log.Errorf("failed to create user: %v", err)
-				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000005"))
 				return
 			}
 
@@ -108,11 +109,17 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 				if err := referral.TxCreate(tx); err != nil {
 					log.Errorf("failed to save referral: %v", err)
 					tx.Rollback()
-					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000006"))
 					return
 				}
 			}
+
 			referrer_id, err := query.CheckReferralCode(req.ReferralCode)
+
+			if err != nil {
+				log.Errorf("failed to check referral code: %v", err)
+			}
+
 			// initialize user detail
 			user_detail := entity.UserDetail{
 				StorageUsed: 0,
@@ -125,34 +132,17 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 				tx.Rollback()
 				ctx.JSON(
 					http.StatusInternalServerError,
-					gin.H{"status": "fail", "message": err.Error()},
+					ErrorResponse(err,"/oauth/google:00000007"),
 				)
 				return
 			}
 
-			if err == nil {
-				referral := entity.Referral{
-					ReferrerID:   referrer_id,
-					ReferredID:   new.ID,
-					UserDetailID: user_detail.ID,
-				}
+			if err == nil && referrer_id != 0 && user_detail.ID != 0 && new.ID != 0 {
+				err := query.CreateReferral(referrer_id, new.ID, user_detail.ID)
 
-				if err := referral.TxCreate(tx); err != nil {
+				if err != nil {
 					log.Errorf("failed to create referral: %v", err)
-					tx.Rollback()
-					ctx.JSON(
-						http.StatusInternalServerError,
-						gin.H{"status": "fail", "message": err.Error()},
-					)
-					return
-				}
-
-				if err := query.UpdateReferralStorage(referrer_id); err != nil {
-					log.Errorf("failed to update referral storage: %v", err)
-					ctx.JSON(
-						http.StatusInternalServerError,
-						gin.H{"status": "fail", "message": err.Error()},
-					)
+					ctx.JSON(http.StatusInternalServerError,ErrorResponse(err,"/otp/start:00000008"))
 					return
 				}
 			}
@@ -170,7 +160,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 		if err != nil {
 			tx.Rollback()
 			log.Errorf("failed to create access token: %v", err)
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000010"))
 			return
 		}
 
@@ -183,7 +173,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 		if err != nil {
 			log.Errorf("failed to create refresh token: %v", err)
 			tx.Rollback()
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err))
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/oauth/google:00000011"))
 			return
 		}
 
@@ -207,7 +197,7 @@ func OAuthGoogle(router *gin.RouterGroup, tokenMaker token.Maker) {
 			tx.Rollback()
 			ctx.JSON(
 				http.StatusInternalServerError,
-				gin.H{"status": "fail", "message": err.Error()},
+				ErrorResponse(err,"/oauth/google:00000012"),
 			)
 			return
 		}
@@ -341,32 +331,15 @@ func OAuthGithub(router *gin.RouterGroup, tokenMaker token.Maker) {
 				return
 			}
 
-			if err == nil {
-				referral := entity.Referral{
-					ReferrerID:   referrer_id,
-					ReferredID:   new.ID,
-					UserDetailID: user_detail.ID,
-				}
 
-				if err := referral.TxCreate(tx); err != nil {
+			if err == nil && referrer_id != 0 && user_detail.ID != 0 && new.ID != 0 {
+				err := query.CreateReferral(referrer_id, new.ID, user_detail.ID)
+
+				if err != nil {
 					log.Errorf("failed to create referral: %v", err)
-					tx.Rollback()
-					ctx.JSON(
-						http.StatusInternalServerError,
-						gin.H{"status": "fail", "message": err.Error()},
-					)
+					ctx.JSON(http.StatusInternalServerError,ErrorResponse(err,"/otp/start:00000008"))
 					return
 				}
-
-
-			if err := query.UpdateReferralStorage(referrer_id); err != nil {
-				log.Errorf("failed to update referral storage: %v", err)
-				ctx.JSON(
-					http.StatusInternalServerError,
-					gin.H{"status": "fail", "message": err.Error()},
-				)
-				return
-			}
 			}
 
 			u = &new
