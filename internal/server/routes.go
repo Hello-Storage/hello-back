@@ -67,7 +67,6 @@ func registerRoutes(router *gin.Engine) {
 	api.EncryptFile(FileRoutes)
 	api.UploadFileMultipart(FileRoutes)
 
-
 	api.GetPublishedFileName(router.Group("/api/file"))
 
 	// folder routes
@@ -93,6 +92,14 @@ func RegisterApiRoutes(router *gin.Engine) {
 	}
 
 	// Create router groups.
+
+	//Public route without apiKey
+	ApiPublic := router.Group("/public-api/v1")
+	//Public api route
+	v1.InvestPostData(ApiPublic)
+	v1.InvestGetDataByCode(ApiPublic)
+
+	//Public route with apiKey
 	ApiKeyAPIv1 = router.Group("/public-api/v1")
 	ApiKeyAPIv1.Use(middlewares.APIKeyAuthMiddleware(tokenMaker))
 
@@ -103,4 +110,5 @@ func RegisterApiRoutes(router *gin.Engine) {
 	v1.FileUpdate(ApiKeyAPIv1)
 	v1.DeleteFile(ApiKeyAPIv1)
 	v1.DownloadFile(ApiKeyAPIv1)
+
 }
