@@ -108,7 +108,7 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 		for name, entity = range list {
 			if name == "users" || name == "wallets" || name == "githubs" {
 				// if db.Migrator().HasTable(name) {
-					continue
+				continue
 				// }
 			}
 			if err := db.AutoMigrate(entity); err != nil {
