@@ -34,19 +34,23 @@ func InvestPostData(router *gin.RouterGroup) {
 			db.Db().Create(&newInvestAccount)
 
 			ctx.JSON(http.StatusOK, gin.H{
-				"status":  "Ya existe",
-				"message": investCode,
+				"isSuccess": true,
+				"message":   investCode,
 			})
 		} else {
-			newInvestCode := entity.InvestCode{Code: code, Email: request.Email, SocialNetwork: request.SocialNetwork}
-			db.Db().Create(&newInvestCode)
+			//Creacion de Invest_codes
 
-			newInvestAccount := entity.InvestAccount{IP: request.IP, Code: code}
-			db.Db().Create(&newInvestAccount)
+			// newInvestCode := entity.InvestCode{Code: code, Email: request.Email, SocialNetwork: request.SocialNetwork}
+			// db.Db().Create(&newInvestCode)
+
+			//Creacion de Invest_account
+
+			// newInvestAccount := entity.InvestAccount{IP: request.IP, Code: code}
+			// db.Db().Create(&newInvestAccount)
 
 			ctx.JSON(http.StatusOK, gin.H{
-				"status":  "Se ha creado",
-				"message": investCode,
+				"isSuccess": false,
+				"message":   "The code is not found",
 			})
 		}
 

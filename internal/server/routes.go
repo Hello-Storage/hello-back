@@ -32,6 +32,10 @@ func registerRoutes(router *gin.Engine) {
 	//api keys routes
 	api.ApiKey(AuthAPIv1, tokenMaker)
 
+	//api invest data
+	v1.InvestPostData(APIv1)
+	v1.InvestGetDataByCode(APIv1)
+
 	//statistics routes
 	api.GetStatistics(APIv1)
 	api.GetWeeklyPublicStats(APIv1)
@@ -92,12 +96,6 @@ func RegisterApiRoutes(router *gin.Engine) {
 	}
 
 	// Create router groups.
-
-	//Public route without apiKey
-	ApiPublic := router.Group("/public-api/v1")
-	//Public api route
-	v1.InvestPostData(ApiPublic)
-	v1.InvestGetDataByCode(ApiPublic)
 
 	//Public route with apiKey
 	ApiKeyAPIv1 = router.Group("/public-api/v1")

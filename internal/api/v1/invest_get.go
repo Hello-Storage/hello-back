@@ -10,24 +10,22 @@ import (
 
 func InvestGetDataByCode(router *gin.RouterGroup) {
 
-	router.GET("/invest/:code", func(ctx *gin.Context) {
+	router.GET("/invest/all", func(ctx *gin.Context) {
 
-		code := ctx.Param("code")
-
-		var investCode entity.InvestCode
-		result := db.Db().Preload("InvestAccounts").Where("code = ?", code).First(&investCode)
+		var investAccount []entity.InvestAccount
+		result := db.Db().Find(&investAccount)
 
 		if result.RowsAffected > 0 {
 
 			ctx.JSON(http.StatusOK, gin.H{
 				"isSuccess": "true",
-				"message":   investCode,
+				"message":   investAccount,
 			})
 		} else {
 
 			ctx.JSON(http.StatusNotFound, gin.H{
 				"isSuccess": "false",
-				"message":   "code was not found",
+				"message":   "No data found",
 			})
 		}
 
