@@ -12,30 +12,32 @@ type Tables map[string]interface{}
 
 // Entities contains database entities and their table names.
 var Entities = Tables{
-	Error{}.TableName():                    &Error{},
-	User{}.TableName():                     &User{},
-	UserDetail{}.TableName():               &UserDetail{},
-	UserLogin{}.TableName():                &UserLogin{},
-	ReferredUser{}.TableName():             &ReferredUser{},
-	Plan{}.TableName():                     &Plan{},
-	Subscription{}.TableName():             &Subscription{},
-	Email{}.TableName():                    &Email{},
-	Wallet{}.TableName():                   &Wallet{},
-	Github{}.TableName():                   &Github{},
-	File{}.TableName():                     &File{},
-	FileShareState{}.TableName():           &FileShareState{},
-	PublicFile{}.TableName():               &PublicFile{},
-	Folder{}.TableName():                   &Folder{},
-	FileUser{}.TableName():                 &FileUser{},
-	FolderUser{}.TableName():               &FolderUser{},
-	Referral{}.TableName():                 &Referral{},
-	PublicFileShareGroup{}.TableName():     &PublicFileShareGroup{},
-	ShareGroup{}.TableName():               &ShareGroup{},
-	ApiKey{}.TableName():                   &ApiKey{},
-	ApiKeyFile{}.TableName():               &ApiKeyFile{},
+	Error{}.TableName():                     &Error{},
+	User{}.TableName():                      &User{},
+	UserDetail{}.TableName():                &UserDetail{},
+	UserLogin{}.TableName():                 &UserLogin{},
+	ReferredUser{}.TableName():              &ReferredUser{},
+	Plan{}.TableName():                      &Plan{},
+	Subscription{}.TableName():              &Subscription{},
+	Email{}.TableName():                     &Email{},
+	Wallet{}.TableName():                    &Wallet{},
+	Github{}.TableName():                    &Github{},
+	File{}.TableName():                      &File{},
+	FileShareState{}.TableName():            &FileShareState{},
+	PublicFile{}.TableName():                &PublicFile{},
+	Folder{}.TableName():                    &Folder{},
+	FileUser{}.TableName():                  &FileUser{},
+	FolderUser{}.TableName():                &FolderUser{},
+	Referral{}.TableName():                  &Referral{},
+	PublicFileShareGroup{}.TableName():      &PublicFileShareGroup{},
+	ShareGroup{}.TableName():                &ShareGroup{},
+	ApiKey{}.TableName():                    &ApiKey{},
+	ApiKeyFile{}.TableName():                &ApiKeyFile{},
 	FileShareStatesUserShared{}.TableName(): &FileShareStatesUserShared{},
-	PublicFileUserShared{}.TableName():     &PublicFileUserShared{},
-	ArweaveTransaction{}.TableName():       &ArweaveTransaction{},
+	PublicFileUserShared{}.TableName():      &PublicFileUserShared{},
+	ArweaveTransaction{}.TableName():        &ArweaveTransaction{},
+	InvestCode{}.TableName():                &InvestCode{},
+	InvestAccount{}.TableName():             &InvestAccount{},
 }
 
 // WaitForMigration waits for the database migration to be successful.
@@ -106,7 +108,7 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 		for name, entity = range list {
 			if name == "users" || name == "wallets" || name == "githubs" {
 				// if db.Migrator().HasTable(name) {
-				continue
+					continue
 				// }
 			}
 			if err := db.AutoMigrate(entity); err != nil {
