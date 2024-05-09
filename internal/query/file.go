@@ -76,7 +76,7 @@ func FindFileByCID(cid string) (*entity.File, error) {
 
 // FilesByRoot return files in a given folder root.
 func FindFilesByRoot(root string) (files entity.Files, err error) {
-	if err := db.Db().Where("root = ?", root).Find(&files).Error; err != nil {
+	if err := db.Db().Where("root = ? AND deleted_at IS NULL", root).Find(&files).Error; err != nil {
 		return files, err
 	}
 
@@ -196,35 +196,6 @@ func CreateShareState(tx *gorm.DB, file *entity.File) (file_share_state *entity.
 	}
 
 	return file_share_state, nil
-}
-
-// Query daily storage used by all users in the last 24 hours
-// func CountDailyStorage(daystring string) (dailystorage int64, err error) {
-// 	log.Infof("daystring: %s", daystring)
-
-// 	query := db.Db().Table("files").Select("SUM(size)")
-
-// 	// Apply the date range filter
-// 	query = query.Where("created_at >= DATE_TRUNC('DAY', TIMESTAMP ?) AND created_at < DATE_TRUNC('DAY', TIMESTAMP ?) + INTERVAL '1 DAY'", daystring, "2023-09-14 17:52:29")
-
-// 	// Execute and scan the result
-// 	if err := query.Scan(&dailystorage).Error; err != nil {
-// 		return dailystorage, err
-// 	}
-
-// 	return dailystorage, nil
-// }
-
-func FindRootFilesByUser(user_id uint) (files entity.Files, err error) {
-	if err := db.Db().
-		Table("files").
-		Joins("LEFT JOIN files_users on files_users.file_id = files.id").
-		Where("files.root = '/' AND files_users.permission <> 'deleted' AND files_users.user_id = ? AND files.deleted_at IS NULL", user_id).
-		Find(&files).Error; err != nil {
-		return files, err
-	}
-
-	return files, nil
 }
 
 func FindUsersByFileCID(cid string) ([]uint, error) {
