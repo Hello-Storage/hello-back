@@ -100,6 +100,11 @@ func (m *File) UpdateRootOnly() error {
 	return db.Db().Model(m).Where("UID = ?", m.UID).Update("Root", m.Root).Error
 }
 
+// update ipfshash
+func (m *File) UpdateIpfsHash() error {
+	return db.Db().Model(m).Where("UID = ?", m.UID).Update("ipfs_hash", m.IPFSHash).Error
+}
+
 // checks if a user is the owner of a file
 func IsFileOwner(fileID uint, userID uint) (bool, error) {
 	var count int64

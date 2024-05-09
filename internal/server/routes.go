@@ -66,6 +66,7 @@ func registerRoutes(router *gin.Engine) {
 	api.GetPublishedFile(FileRoutes)
 	api.EncryptFile(FileRoutes)
 	api.UploadFileMultipart(FileRoutes)
+	api.UpdateFileIpfs(FileRoutes)
 
 
 	api.GetPublishedFileName(router.Group("/api/file"))

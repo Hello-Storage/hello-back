@@ -1,15 +1,14 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"sync"
 
 	"github.com/Hello-Storage/hello-back/internal/constant"
-	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
+	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-gonic/gin"
 )
@@ -23,7 +22,6 @@ var fileMutex = sync.Mutex{}
 // @return 200 {string} string "ok"
 func UpdateFileRoot(router *gin.RouterGroup) {
 	router.PUT("/update/root", func(ctx *gin.Context) {
-		fmt.Println("UpdateFileRoot")
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 		var form form.UpdateFileRoot
 
@@ -54,14 +52,13 @@ func UpdateFileRoot(router *gin.RouterGroup) {
 			return
 		}
 
-		file := entity.File{}
-
-		// Query the database to populate the 'File' entity with existing data.
-		if err := db.Db().Where("UID = ?", form.Uid).First(&file).Error; err != nil {
-			log.Errorf("db.Db().Where != nil: %s", err)
+		// get file
+		file, err := query.FindFileByUID(form.Uid)
+		if err != nil {
 			AbortBadRequest(ctx)
 			return
 		}
+
 		file.ID = uintID
 		file.UID = form.Uid
 		file.Root = form.Root
@@ -72,18 +69,35 @@ func UpdateFileRoot(router *gin.RouterGroup) {
 			return
 		}
 
-		// Add select db for return id of file
+		ctx.JSON(http.StatusOK, file)
+	})
+}
 
-		//file_user := entity.FileUser{
-		//FileID:     file.ID,
-		//UserID:     authPayload.UserID,
-		//Permission: entity.OwnerPermission,
-		//}
+func UpdateFileIpfs(router *gin.RouterGroup) {
+	router.PUT("/update/ipfshash", func(ctx *gin.Context) {
+		var form form.UpdateFileIpfsHash
+		if err := ctx.BindJSON(&form); err != nil {
+			log.Errorf("ctx.BindJSON: %s", err)
+			AbortBadRequest(ctx)
+			return
+		}
 
-		//if err := file_user.Update(); err != nil {
-		//AbortBadRequest(ctx)
-		//return
-		//}
+		// get file
+		file, err := query.FindFileByUID(form.Uid)
+		if err != nil {
+			AbortBadRequest(ctx)
+			return
+		}
+
+		// update ipfshash
+		file.IPFSHash = &form.IpfsHash
+
+		// save ipfshash
+		if err := file.UpdateIpfsHash(); err != nil {
+			log.Errorf("file.UpdateIpfsHash != nil: %s", err)
+			AbortBadRequest(ctx)
+			return
+		}
 
 		ctx.JSON(http.StatusOK, file)
 	})
