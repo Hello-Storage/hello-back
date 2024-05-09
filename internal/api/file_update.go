@@ -90,7 +90,7 @@ func UpdateFileIpfs(router *gin.RouterGroup) {
 		}
 
 		// update ipfshash
-		file.IPFSHash = &form.IpfsHash
+		file.IPFSHash = form.IpfsHash
 
 		// save ipfshash
 		if err := file.UpdateIpfsHash(); err != nil {
