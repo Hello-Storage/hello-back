@@ -41,7 +41,6 @@ arweave-wallet.json
 .env.production.local
 .drone.secrets
 
-.air.toml
 # Go workspace file
 go.work
 
