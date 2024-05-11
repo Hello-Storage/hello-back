@@ -34,9 +34,8 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 			root = "/"
 		}
 		
-		if folders, err := query.FoldersByRoot(root); err != nil {
+		if folders, err := query.FoldersByRootWithPermision(root, authPayload.UserID); err != nil {
 			log.Errorf("folders by root: %s", err)
-
 			AbortInternalServerError(ctx)
 			return
 		} else {
@@ -44,7 +43,7 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 		}
 
 		// files
-		if files, err := query.FindFilesByRoot(root); err != nil {
+		if files, err := query.FindFilesByRootWithPermision(root, authPayload.UserID); err != nil {
 			log.Errorf("file: %s", err)
 			AbortInternalServerError(ctx)
 			return
