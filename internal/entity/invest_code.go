@@ -7,7 +7,6 @@ import (
 type InvestCode struct {
 	Code           string          `gorm:"primarykey"                      json:"code"`
 	SocialNetwork  string          `gorm:"type:varchar(64)"                json:"social_network"`
-	InvestAccounts []InvestAccount `gorm:"foreignKey:Code;references:Code"`
 }
 
 // TableName returns the entity table name.

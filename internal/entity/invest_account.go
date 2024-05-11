@@ -14,7 +14,7 @@ type InvestAccount struct {
 	UpdatedAt  time.Time      `                                           json:"updated_at"`
 	DeletedAt  gorm.DeletedAt `gorm:"index"                               json:"deleted_at"`
 	Code       string         `gorm:"type:varchar(64);index"              json:"code"`
-	InvestCode InvestCode     `gorm:"foreignKey:Code;references:Code"     json:"-"`
+	InvestCode InvestCode     `gorm:"foreignKey:Code"     json:"-"`
 }
 
 // TableName returns the entity table name.
