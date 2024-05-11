@@ -42,6 +42,14 @@ func FoldersByRoot(root string) (folders entity.Folders, err error) {
 	return folders, nil
 }
 
+func FoldersByRootWithPermision(root string,userId uint) (folders entity.Folders, err error) {
+	if err := db.Db().Table("folders").Joins("INNER JOIN folders_users ON folders_users.folder_id = folders.id").Where("folders.root = ? AND folders_users.user_id = ? AND folders.deleted_at IS NULL", root,userId).Find(&folders).Error; err != nil {
+		return folders, err
+	}
+
+	return folders, nil
+}
+
 func FindFolderByTitleAndRoot(title, root string) *entity.Folder {
 	m := &entity.Folder{}
 

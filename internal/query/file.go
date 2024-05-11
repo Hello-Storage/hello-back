@@ -80,8 +80,16 @@ func FindFilesByRoot(root string) (files entity.Files, err error) {
 		return files, err
 	}
 
-	return files, err
+	return files, nil
 }
+func FindFilesByRootWithPermision(root string, userId uint) (files entity.Files, err error) {
+	if err := db.Db().Table("files").Joins("INNER JOIN files_users ON files_users.file_id = files.id").Where("files.root = ? AND files_users.user_id = ? AND files.deleted_at IS NULL", root, userId).Find(&files).Error; err != nil {
+		return files, err
+	}
+
+	return files, nil
+}
+
 
 // FindSharedFilesByRoot returns shared files in a given folder root.
 func FindPublicFilesByRoot(root string) (publicFiles []entity.PublicFile, err error) {
