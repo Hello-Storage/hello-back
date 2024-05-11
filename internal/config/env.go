@@ -100,10 +100,6 @@ func LoadEnv() (err error) {
 		}
 	}
 
-	if err != nil {
-		return
-	}
-
 	return
 }
 

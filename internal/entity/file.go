@@ -39,8 +39,9 @@ type File struct {
 	DeletedAt            gorm.DeletedAt `gorm:"index"                               json:"deleted_at"`
 	Path                 string         `gorm:"type:varchar(1024);"                 json:"path"` // full path
 	IsInPool             *bool          `gorm:"type:boolean;default:false;"         json:"is_in_pool"`
+	IPFSHash             string        `gorm:"type:varchar(256);default:NULL"                    json:"ipfs_hash"`
 	//sharestates are referenced by this file's UID at file share state
-	FileShareState FileShareState `gorm:"foreignKey:FileUID;references:UID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"file_share_state"`
+	FileShareState   FileShareState   `gorm:"foreignKey:FileUID;references:UID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"file_share_state"`
 	EncryptionStatus EncryptionStatus `gorm:"type:encryption_status;default:'public'" json:"encryption_status"`
 }
 
@@ -97,6 +98,11 @@ func (m *File) FirstOrCreateFile() *File {
 // update
 func (m *File) UpdateRootOnly() error {
 	return db.Db().Model(m).Where("UID = ?", m.UID).Update("Root", m.Root).Error
+}
+
+// update ipfshash
+func (m *File) UpdateIpfsHash() error {
+	return db.Db().Model(m).Where("UID = ?", m.UID).Update("IPFSHash", m.IPFSHash).Error
 }
 
 // checks if a user is the owner of a file

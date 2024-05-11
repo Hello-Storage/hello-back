@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/Hello-Storage/hello-back/internal/constant"
@@ -31,60 +30,34 @@ func SearchFolderByRoot(router *gin.RouterGroup) {
 		authPayload := ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
 		resp := FolderResponse{Root: root}
 
-		if root == "/" {
-			if folders, err := query.FindRootFoldersByUser(authPayload.UserID); err != nil {
-				log.Errorf("folder find root by user: %s", err)
+		if root == "" {
+			root = "/"
+		}
+		
+		if folders, err := query.FoldersByRoot(root); err != nil {
+			log.Errorf("folders by root: %s", err)
 
-				AbortInternalServerError(ctx)
-				return
-			} else {
-				resp.Folders = folders
-			}
-
-			// files
-			if files, err := query.FindRootFilesByUser(authPayload.UserID); err != nil {
-				AbortInternalServerError(ctx)
-				return
-			} else {
-				filesMaped := []entity.File{}
-				for _, file := range files {
-					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
-					if err == nil {
-						file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
-					}else{
-						fmt.Println(err)
-					}
-					filesMaped = append(filesMaped, file)
-				}
-				resp.Files = filesMaped
-			}
-
+			AbortInternalServerError(ctx)
+			return
 		} else {
-			if folders, err := query.FoldersByRoot(root); err != nil {
-				log.Errorf("folders by root: %s", err)
+			resp.Folders = folders
+		}
 
-				AbortInternalServerError(ctx)
-				return
-			} else {
-				resp.Folders = folders
-			}
-
-			// files
-			if files, err := query.FindFilesByRoot(root); err != nil {
-				log.Errorf("file: %s", err)
-				AbortInternalServerError(ctx)
-				return
-			} else {
-				filesMaped := []entity.File{}
-				for _, file := range files {
-					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
-					if err == nil {
-						file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
-					}
-					filesMaped = append(filesMaped, file)
+		// files
+		if files, err := query.FindFilesByRoot(root); err != nil {
+			log.Errorf("file: %s", err)
+			AbortInternalServerError(ctx)
+			return
+		} else {
+			filesMaped := []entity.File{}
+			for _, file := range files {
+				sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
+				if err == nil {
+					file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
 				}
-				resp.Files = filesMaped
+				filesMaped = append(filesMaped, file)
 			}
+			resp.Files = filesMaped
 		}
 
 		// add path
