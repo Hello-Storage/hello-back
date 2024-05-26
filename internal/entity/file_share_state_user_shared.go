@@ -9,7 +9,7 @@ type FileShareStatesUserShared struct {
 	ID                   uint                 `gorm:"primarykey"                          json:"id"`
 	FileUID              string               `gorm:"type:varchar(42);index;references:UID;referencedTable:files"              json:"file_uid"`
 	UserID               uint                 `gorm:"type:int" json:"user_id"`
-	PublicFileUserShared PublicFileUserShared `gorm:"foreignKey:FileUID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"public_file"`
+	PublicFileUserShared PublicFileUserShared `gorm:"foreignKey:FileUID;reference:FileUID"`
 }
 
 func (FileShareStatesUserShared) TableName() string {
