@@ -91,8 +91,6 @@ func LoginUser(router *gin.RouterGroup, tokenMaker token.Maker) {
 			return
 		}
 
-		log.Infof("nonce: %s", nonce)
-
 		// validate signature
 		result := web3.ValidateMessageSignature(
 			f.WalletAddress,

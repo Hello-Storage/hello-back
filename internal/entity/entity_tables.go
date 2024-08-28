@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"runtime/debug"
+
 	"github.com/Hello-Storage/hello-back/internal/migrate"
 	"gorm.io/gorm"
 )
@@ -12,19 +14,24 @@ type Tables map[string]interface{}
 
 // Entities contains database entities and their table names.
 var Entities = Tables{
-	Error{}.TableName():                     &Error{},
-	User{}.TableName():                      &User{},
-	UserDetail{}.TableName():                &UserDetail{},
-	UserLogin{}.TableName():                 &UserLogin{},
-	ReferredUser{}.TableName():              &ReferredUser{},
-	Plan{}.TableName():                      &Plan{},
-	Subscription{}.TableName():              &Subscription{},
-	Email{}.TableName():                     &Email{},
-	Wallet{}.TableName():                    &Wallet{},
-	Github{}.TableName():                    &Github{},
-	File{}.TableName():                      &File{},
-	FileShareState{}.TableName():            &FileShareState{},
-	PublicFile{}.TableName():                &PublicFile{},
+
+	Error{}.TableName(): &Error{},
+
+	User{}.TableName():       &User{},
+	UserDetail{}.TableName(): &UserDetail{},
+	UserLogin{}.TableName():  &UserLogin{},
+
+	ReferredUser{}.TableName(): &ReferredUser{},
+	Plan{}.TableName():         &Plan{},
+	Subscription{}.TableName(): &Subscription{},
+	Email{}.TableName():        &Email{},
+	Wallet{}.TableName():       &Wallet{},
+	Github{}.TableName():       &Github{},
+
+	File{}.TableName():           &File{},
+	FileShareState{}.TableName(): &FileShareState{},
+	PublicFile{}.TableName():     &PublicFile{},
+
 	Folder{}.TableName():                    &Folder{},
 	FileUser{}.TableName():                  &FileUser{},
 	FolderUser{}.TableName():                &FolderUser{},
@@ -38,31 +45,6 @@ var Entities = Tables{
 	ArweaveTransaction{}.TableName():        &ArweaveTransaction{},
 	InvestCode{}.TableName():                &InvestCode{},
 	InvestAccount{}.TableName():             &InvestAccount{},
-}
-
-// WaitForMigration waits for the database migration to be successful.
-func (list Tables) WaitForMigration(db *gorm.DB) {
-	type RowCount struct {
-		Count int
-	}
-
-	attempts := 100
-	for name := range list {
-		for i := 0; i <= attempts; i++ {
-			count := RowCount{}
-			if err := db.Raw(fmt.Sprintf("SELECT COUNT(*) AS count FROM %s", name)).Scan(&count).Error; err == nil {
-				log.Tracef("migrate: %s migrated", name)
-				break
-			} else {
-				log.Tracef("migrate: waiting for %s migration (%s)", name, err.Error())
-				time.Sleep(100 * time.Millisecond)
-			}
-
-			if i == attempts {
-				panic("migration failed")
-			}
-		}
-	}
 }
 
 // Truncate removes all data from tables without dropping them.
@@ -93,6 +75,8 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("migrate: %s in %s (panic)", r, name)
+			log.Error("stack trace:\n", string(debug.Stack())) // Print the stack trace
+
 		}
 	}()
 
@@ -100,18 +84,21 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 
 	// Run pre migrations, if any.
 	if err := migrate.Run(db, opt.Pre()); err != nil {
-		log.Error(err)
+		log.Errorf("migrate: pre-migration error: %v", err)
 	}
 
 	// Run ORM auto migrations.
 	if opt.AutoMigrate {
 		for name, entity = range list {
+
 			if name == "users" || name == "wallets" || name == "githubs" {
-				// if db.Migrator().HasTable(name) {
-				continue
-				// }
+				if db.Migrator().HasTable(name) {
+					continue
+				}
 			}
 			if err := db.AutoMigrate(entity); err != nil {
+				log.Errorf("migrate: initial error migrating %s: %v", name, err)
+
 				log.Debugf("migrate: %s (waiting 1s)", err)
 
 				time.Sleep(time.Second)
@@ -126,7 +113,8 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 
 	// Run main migrations, if any.
 	if err := migrate.Run(db, opt); err != nil {
-		log.Error(err)
+		log.Errorf("migrate: main migration error: %v", err)
+
 	}
 }
 
