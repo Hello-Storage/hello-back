@@ -24,8 +24,8 @@ type EnvVar struct {
 	DBPassword string
 	DBPort     string
 	// Github OAuth credential
-	GithubClientID     string
-	GithubClientSecret string
+	//GithubClientID     string
+	//GithubClientSecret string
 	// Wasabi keys
 	WasabiAccessKey string
 	WasabiSecretKey string
@@ -76,8 +76,8 @@ func LoadEnv() (err error) {
 		DBPassword: os.Getenv("POSTGRES_PASSWORD"),
 		DBPort:     os.Getenv("POSTGRES_PORT"),
 		// Github OAuth credentail
-		GithubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
-		GithubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		//GithubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+		//GithubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
 		//Wasabi keys
 		WasabiAccessKey: os.Getenv("WASABI_ACCESS_KEY"),
 		WasabiSecretKey: os.Getenv("WASABI_SECRET_KEY"),
