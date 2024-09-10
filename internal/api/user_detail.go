@@ -117,6 +117,9 @@ func GetUserDetail(router *gin.RouterGroup) {
 				if _, exists := sharedByUserMap[file.ID]; exists {
 					continue
 				}
+				/*|| !query.IsInSharedFolder(file.Root, authPayload.UserID) */
+				// TODO: check if the file/forder is in a shared folder or not
+				// (because if we only show the files in Root, the elements in a non-shared folder will not be shown)
 				sharedByUser = append(sharedByUser, *file)
 				sharedByUserMap[file.ID] = struct{}{}
 			}
@@ -143,6 +146,8 @@ func GetUserDetail(router *gin.RouterGroup) {
 
 			if file.ID != 0 && fileUser.Permission == entity.SharedPermission && len(usersWithFileFiltered) > 0 {
 				if file.Root == "/" {
+					// TODO: check if the file/forder is in a shared folder or not
+					// (because if we only show the files in Root, the elements in a non-shared folder will not be shown)
 					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
 					if err == nil {
 						file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
