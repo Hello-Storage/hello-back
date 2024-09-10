@@ -143,7 +143,7 @@ func GetShareState(router *gin.RouterGroup) {
 		//get share state, if doesn't exist, create it
 		share_state, _, err := query.FindShareStateByFileUID(file_uid)
 		if err != nil {
-			log.Errorf("Error finding share state: %s", err)
+			//log.Errorf("Error finding share state: %s", err)
 			share_state, err = query.CreateShareState(tx, f)
 			if err != nil {
 				log.Errorf("cannot create share state: %s", err)
@@ -188,7 +188,7 @@ func GetShareState(router *gin.RouterGroup) {
 			// get share state, if doesn't exist, create it
 			shareState, _, err := query.FindShareStateByFileUID(fileUID)
 			if err != nil {
-				log.Errorf("Error finding share state: %s", err)
+				//log.Errorf("Error finding share state: %s", err)
 				shareState, err = query.CreateShareState(tx, f)
 				if err != nil {
 					log.Errorf("cannot create share state: %s", err)
@@ -411,7 +411,7 @@ func PublishFile(router *gin.RouterGroup) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid share type"})
 			return
 		}
-		
+
 		//cancel if user not found
 		receiverNil := shareWithUser == nil || shareWithUser.ID == 0
 		if receiverNil {
@@ -458,7 +458,7 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(db.Db(),f.UID, shareWithUser.ID)
+		query.DeleteFileShareStatesUserShared(db.Db(), f.UID, shareWithUser.ID)
 		// create a new share state user shared
 		shareState, err := query.CreateShareStateUserShared(tx, newFile, shareWithUser.ID)
 		if err != nil {

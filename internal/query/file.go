@@ -90,7 +90,6 @@ func FindFilesByRootWithPermision(root string, userId uint) (files entity.Files,
 	return files, nil
 }
 
-
 // FindSharedFilesByRoot returns shared files in a given folder root.
 func FindPublicFilesByRoot(root string) (publicFiles []entity.PublicFile, err error) {
 	files, err := FindFilesByRoot(root)
@@ -626,7 +625,7 @@ func FindFilesNotInPool() (files entity.Files, err error) {
 }
 
 // get if file is in a shared folder or not
-func IsInSharedFolder(fileRoot string, userID uint) (bool) {
+func IsInSharedFolder(fileRoot string, userID uint) bool {
 
 	// if file root is empty or user id is 0, return false
 	if fileRoot == "" || userID == 0 || fileRoot == "/" {
@@ -647,11 +646,11 @@ func IsInSharedFolder(fileRoot string, userID uint) (bool) {
 
 	// get folder user by folder id and user id
 	query = db.Db().Table("folder_users").Select("*").
-	Where("user_id = ? AND folder_id = ?", userID, folderID)
+		Where("user_id = ? AND folder_id = ?", userID, folderID)
 
 	var folderUser entity.FolderUser
 
-	if err := query.Scan(&folderUser) .Error; err != nil {
+	if err := query.Scan(&folderUser).Error; err != nil {
 		return false
 	}
 
