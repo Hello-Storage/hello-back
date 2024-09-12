@@ -7,9 +7,9 @@ import (
 
 type FileShareStatesUserShared struct {
 	ID                   uint                 `gorm:"primarykey"                          json:"id"`
-	FileUID              string               `gorm:"type:varchar(42);index;references:UID;referencedTable:files"              json:"file_uid"`
+	FileUID              string               `gorm:"type:varchar(42);uniqueIndex;references:UID;referencedTable:files" json:"file_uid"`
 	UserID               uint                 `gorm:"type:int" json:"user_id"`
-	PublicFileUserShared PublicFileUserShared `gorm:"foreignKey:FileUID;reference:FileUID"`
+	PublicFileUserShared PublicFileUserShared `gorm:"foreignKey:FileUID;references:FileUID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"public_files_user_shared"`
 }
 
 func (FileShareStatesUserShared) TableName() string {

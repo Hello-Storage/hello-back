@@ -52,7 +52,6 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 20.10.14
           docker_layer_caching: true
       - build-docker-image
       - run:
@@ -67,7 +66,6 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker:
-          version: 20.10.14
           docker_layer_caching: true
       - attach_workspace:
           at: /tmp/workspace

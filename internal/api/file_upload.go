@@ -66,9 +66,6 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			headObject, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
 			if err != nil {
 				//this means that the object doesn't exist at S3, so we can return CID to frontend for later upload of binary and metadata
-				log.Info("CID not found:")
-				log.Info(customFileMeta.CID)
-
 			} else {
 				//this means that the object exists at S3, so we can create a file entry on database for the file
 
@@ -155,7 +152,8 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 			}
 
 			if headObject == nil {
-				log.Print("headObject is nil")
+				//file doesn't exist on pool
+				//log.Print("headObject is nil")
 			}
 		}
 
