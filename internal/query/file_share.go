@@ -157,7 +157,7 @@ func DeleteFileShareStatesUserShared(db *gorm.DB, fileUID string, userID uint) e
 		// Check if the error is due to the record not being found, which isn't considered an error in this context.
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			// Possibly log this as info or debug, as it's an expected situation that doesn't require an action.
-			log.Infof("No file share state found for UID: %s, UserID: %d. Nothing to delete.", fileUID, userID)
+			//log.Infof("No file share state found for UID: %s, UserID: %d. Nothing to delete.", fileUID, userID)
 			// Return nil to continue the transaction without considering this as an error.
 			return nil
 		} else {
@@ -168,9 +168,9 @@ func DeleteFileShareStatesUserShared(db *gorm.DB, fileUID string, userID uint) e
 	}
 
 	db.Unscoped().Delete(&fileShareState.PublicFileUserShared)
-	db.Unscoped().Delete(&fileShareState);	// Perform the second delete operation only if the previous operations were successful.
+	db.Unscoped().Delete(&fileShareState) // Perform the second delete operation only if the previous operations were successful.
 	db.Unscoped().Where("file_uid = ?", fileUID).Delete(&filepublicf)
-		
+
 	// If everything was successful, return nil indicating no error occurred.
 	return nil
 }
@@ -183,7 +183,7 @@ func DeleteFileShareState(tx *gorm.DB, fileUID string) {
 	if result.Error == nil {
 		tx.Unscoped().Delete(&fileShareState.PublicFile)
 		tx.Unscoped().Delete(&fileShareState)
-	// if error is record not found, ignore it
+		// if error is record not found, ignore it
 	} else if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		log.Errorf("Error while finding file share state: %v", result.Error)
 	}
