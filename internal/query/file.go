@@ -588,12 +588,12 @@ func FindFilesNotInPool() (files entity.Files, err error) {
 
 	s3Config := aws.Config{
 		Credentials: credentials.NewStaticCredentials(
-			config.Env().WasabiAccessKey,
-			config.Env().WasabiSecretKey,
+			config.Env().StorageAccessKey,
+			config.Env().StorageSecretKey,
 			"",
 		),
-		Endpoint:         aws.String(config.Env().WasabiEndpoint),
-		Region:           aws.String(config.Env().WasabiRegion),
+		Endpoint:         aws.String(config.Env().StorageEndpoint),
+		Region:           aws.String(config.Env().StorageRegion),
 		S3ForcePathStyle: aws.Bool(true),
 	}
 
@@ -602,7 +602,7 @@ func FindFilesNotInPool() (files entity.Files, err error) {
 
 	for i, file := range allFiles {
 		if _, checked := cidChecked[file.CID]; !checked {
-			_, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, file.CID)
+			_, err := s3.HeadObject(s3Config, config.Env().StorageBucket, file.CID)
 			cidChecked[file.CID] = (err == nil) // true if exists in S3, false otherwise
 
 			if i%100 == 0 || i == totalFiles-1 {

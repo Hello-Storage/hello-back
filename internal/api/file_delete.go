@@ -59,12 +59,12 @@ func DeleteFile(router *gin.RouterGroup) {
 
 		s3Config := aws.Config{
 			Credentials: credentials.NewStaticCredentials(
-				config.Env().WasabiAccessKey,
-				config.Env().WasabiSecretKey,
+				config.Env().StorageAccessKey,
+				config.Env().StorageSecretKey,
 				"",
 			),
-			Endpoint:         aws.String(config.Env().WasabiEndpoint),
-			Region:           aws.String(config.Env().WasabiRegion),
+			Endpoint:         aws.String(config.Env().StorageEndpoint),
+			Region:           aws.String(config.Env().StorageRegion),
 			S3ForcePathStyle: aws.Bool(true),
 		}
 		keyPath := f.CID
@@ -239,7 +239,7 @@ func DeleteFile(router *gin.RouterGroup) {
 }
 
 // internal delete one file
-// DeleteFileFromS3 delete file from s3. key must be unique in wasabi bucket. This is needed for file deletion to work
+// DeleteFileFromS3 delete file from s3. key must be unique in storage bucket. This is needed for file deletion to work
 //
 // @param keyPath - path to file in s3
 // @param s3Config - aws. Config to use for delete
@@ -254,7 +254,7 @@ func DeleteFileFromS3(keyPath string, s3Config aws.Config) error {
 
 	//delete file from s3
 
-	if err := s3.DeleteObject(s3Config, config.Env().WasabiBucket, keyPath); err != nil {
+	if err := s3.DeleteObject(s3Config, config.Env().StorageBucket, keyPath); err != nil {
 		log.Errorf("DeleteFileFromS3: delete file from s3 error: %v", err)
 		return err
 	}

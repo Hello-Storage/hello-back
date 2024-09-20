@@ -26,12 +26,12 @@ type EnvVar struct {
 	// Github OAuth credential
 	//GithubClientID     string
 	//GithubClientSecret string
-	// Wasabi keys
-	WasabiAccessKey string
-	WasabiSecretKey string
-	WasabiBucket    string
-	WasabiEndpoint  string
-	WasabiRegion    string
+	// storage keys
+	StorageAccessKey string
+	StorageSecretKey string
+	StorageBucket    string
+	StorageEndpoint  string
+	StorageRegion    string
 	// Encryption
 	EncryptionKey string
 	// MailGun
@@ -78,12 +78,12 @@ func LoadEnv() (err error) {
 		// Github OAuth credentail
 		//GithubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
 		//GithubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
-		//Wasabi keys
-		WasabiAccessKey: os.Getenv("WASABI_ACCESS_KEY"),
-		WasabiSecretKey: os.Getenv("WASABI_SECRET_KEY"),
-		WasabiBucket:    os.Getenv("WASABI_BUCKET"),
-		WasabiEndpoint:  os.Getenv("WASABI_ENDPOINT"),
-		WasabiRegion:    os.Getenv("WASABI_REGION"),
+		//Storage keys
+		StorageAccessKey: os.Getenv("STORAGE_ACCESS_KEY"),
+		StorageSecretKey: os.Getenv("STORAGE_SECRET_KEY"),
+		StorageBucket:    os.Getenv("STORAGE_BUCKET"),
+		StorageEndpoint:  os.Getenv("STORAGE_ENDPOINT"),
+		StorageRegion:    os.Getenv("STORAGE_REGION"),
 		// Encryption
 		EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
 		// MailGun

@@ -126,7 +126,7 @@ func UploadFileMultipart(router *gin.RouterGroup) {
 }
 
 func initiateMultipartUpload(svc *s3.S3, cid string) (*multipartUploadState, error) {
-	var awsBucketName = config.Env().WasabiBucket
+	var awsBucketName = config.Env().StorageBucket
 	input := &s3.CreateMultipartUploadInput{
 		Bucket: aws.String(awsBucketName),
 		Key:    aws.String(cid),
@@ -145,7 +145,7 @@ func initiateMultipartUpload(svc *s3.S3, cid string) (*multipartUploadState, err
 }
 
 func uploadPart(svc *s3.S3, state *multipartUploadState, file multipart.File, fileHeader *multipart.FileHeader, cid string) (*s3.CompletedPart, error) {
-	var awsBucketName = config.Env().WasabiBucket
+	var awsBucketName = config.Env().StorageBucket
 	buffer := make([]byte, fileHeader.Size)
 	_, err := file.Read(buffer)
 	if err != nil {
@@ -183,7 +183,7 @@ func uploadPart(svc *s3.S3, state *multipartUploadState, file multipart.File, fi
 }
 
 func completeMultipartUpload(svc *s3.S3, state *multipartUploadState, cid string) error {
-	var awsBucketName = config.Env().WasabiBucket
+	var awsBucketName = config.Env().StorageBucket
 	completeInput := &s3.CompleteMultipartUploadInput{
 		Bucket:   aws.String(awsBucketName),
 		Key:      aws.String(cid), // cid should be passed or derived
@@ -213,7 +213,7 @@ func abortMultipartUploadAsync(svc *s3.S3, cid string) {
 
 		// Prepare the input for the multipart upload abort
 		abortInput := &s3.AbortMultipartUploadInput{
-			Bucket:   aws.String(config.Env().WasabiBucket),
+			Bucket:   aws.String(config.Env().StorageBucket),
 			Key:      aws.String(cid),
 			UploadId: aws.String(state.UploadID),
 		}

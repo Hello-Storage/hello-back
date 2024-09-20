@@ -24,8 +24,8 @@ const ChunkSize = 5 * 1024 * 1024 // 5MB
 func DownloadMultipartFile(router *gin.RouterGroup) {
 	router.GET("/download/multipart/:uid", func(ctx *gin.Context) {
 		_ = ctx.MustGet(constant.AuthorizationPayloadKey).(*token.Payload)
-        ctx.Request.Header.Set("X-Read-Timeout", (3*time.Hour).String())
-        ctx.Request.Header.Set("X-Write-Timeout", (3*time.Hour).String())
+		ctx.Request.Header.Set("X-Read-Timeout", (3 * time.Hour).String())
+		ctx.Request.Header.Set("X-Write-Timeout", (3 * time.Hour).String())
 
 		file_uid := ctx.Param("uid")
 
@@ -43,13 +43,13 @@ func DownloadMultipartFile(router *gin.RouterGroup) {
 
 		// Open a stream to the S3 object
 		s3Service := *s3.NewS3Service(
-			config.Env().WasabiAccessKey,
-			config.Env().WasabiSecretKey,
-			config.Env().WasabiRegion,
-			config.Env().WasabiEndpoint,
+			config.Env().StorageAccessKey,
+			config.Env().StorageSecretKey,
+			config.Env().StorageRegion,
+			config.Env().StorageEndpoint,
 		)
 
-		reader, contentLength, contentType, err := s3Service.OpenStream(config.Env().WasabiBucket, keyPath)
+		reader, contentLength, contentType, err := s3Service.OpenStream(config.Env().StorageBucket, keyPath)
 		if err != nil {
 			handleError(ctx, err)
 			return

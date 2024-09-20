@@ -29,12 +29,11 @@ func DownloadMultipartFolder(router *gin.RouterGroup) {
 			return
 		}
 
-
 		ctx.Writer.Header().Set("Content-Type", "multipart/mixed; boundary=boundary")
 
 		for _, file := range allFiles {
 			keyPath := file.CID
-			
+
 			// Stream each file
 			streamFile(ctx, keyPath, file)
 
@@ -49,13 +48,13 @@ func DownloadMultipartFolder(router *gin.RouterGroup) {
 func streamFile(ctx *gin.Context, keyPath string, file entity.File) {
 	// Open a stream to the S3 object
 	s3Service := *s3.NewS3Service(
-		config.Env().WasabiAccessKey,
-		config.Env().WasabiSecretKey,
-		config.Env().WasabiRegion,
-		config.Env().WasabiEndpoint,
+		config.Env().StorageAccessKey,
+		config.Env().StorageSecretKey,
+		config.Env().StorageRegion,
+		config.Env().StorageEndpoint,
 	)
 
-	reader, _, contentType, err := s3Service.OpenStream(config.Env().WasabiBucket, keyPath)
+	reader, _, contentType, err := s3Service.OpenStream(config.Env().StorageBucket, keyPath)
 	if err != nil {
 		handleError(ctx, err)
 		return

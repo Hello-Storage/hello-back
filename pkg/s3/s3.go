@@ -22,10 +22,10 @@ var (
 
 func GetS3Client() *s3.S3 {
 	once.Do(func() {
-		var awsAccessKeyID = config.Env().WasabiAccessKey
-		var awsSecretAccessKey = config.Env().WasabiSecretKey
-		var awsBucketRegion = config.Env().WasabiRegion
-		var awsEndpoint = config.Env().WasabiEndpoint
+		var awsAccessKeyID = config.Env().StorageAccessKey
+		var awsSecretAccessKey = config.Env().StorageSecretKey
+		var awsBucketRegion = config.Env().StorageRegion
+		var awsEndpoint = config.Env().StorageEndpoint
 
 		creds := credentials.NewStaticCredentials(awsAccessKeyID, awsSecretAccessKey, "")
 		_, err := creds.Get()

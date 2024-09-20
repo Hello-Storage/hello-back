@@ -1,6 +1,8 @@
 # Copyright © 2023 Hello Storage Inc. All rights reserved.
 #
 export GO111MODULE=on
+export DOCKER_BUILDKIT=1
+
 
 # 
 APP_NAME=hello

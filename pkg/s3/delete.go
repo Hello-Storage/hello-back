@@ -24,7 +24,7 @@ func DeleteObject(s3Config aws.Config, bucket, key string) error {
 
 	// create put object input
 	deleteObjectInput := &s3.DeleteObjectInput{
-		Bucket: aws.String(config.Env().WasabiBucket),
+		Bucket: aws.String(config.Env().StorageBucket),
 		Key:    aws.String(key),
 	}
 

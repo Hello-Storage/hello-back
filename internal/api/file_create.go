@@ -66,15 +66,15 @@ func CreateFile(router *gin.RouterGroup) {
 			// Check if files exist in s3
 			s3Config := aws.Config{
 				Credentials: credentials.NewStaticCredentials(
-					config.Env().WasabiAccessKey,
-					config.Env().WasabiSecretKey,
+					config.Env().StorageAccessKey,
+					config.Env().StorageSecretKey,
 					"",
 				),
-				Endpoint:         aws.String(config.Env().WasabiEndpoint),
-				Region:           aws.String(config.Env().WasabiRegion),
+				Endpoint:         aws.String(config.Env().StorageEndpoint),
+				Region:           aws.String(config.Env().StorageRegion),
 				S3ForcePathStyle: aws.Bool(true),
 			}
-			_, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
+			_, err := s3.HeadObject(s3Config, config.Env().StorageBucket, customFileMeta.CID)
 			if err != nil {
 				log.Printf("error: %s", err)
 				//this means that the object doesn't exist at S3

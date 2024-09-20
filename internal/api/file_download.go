@@ -93,16 +93,16 @@ func DownloadFile(router *gin.RouterGroup) {
 func DownloadFileFromS3(key string) (*awsS3.GetObjectOutput, error) {
 	s3Config := aws.Config{
 		Credentials: credentials.NewStaticCredentials(
-			config.Env().WasabiAccessKey,
-			config.Env().WasabiSecretKey,
+			config.Env().StorageAccessKey,
+			config.Env().StorageSecretKey,
 			"",
 		),
-		Endpoint:         aws.String(config.Env().WasabiEndpoint),
-		Region:           aws.String(config.Env().WasabiRegion),
+		Endpoint:         aws.String(config.Env().StorageEndpoint),
+		Region:           aws.String(config.Env().StorageRegion),
 		S3ForcePathStyle: aws.Bool(true),
 	}
 
-	out, err := s3.DownloadObject(s3Config, config.Env().WasabiBucket, key)
+	out, err := s3.DownloadObject(s3Config, config.Env().StorageBucket, key)
 
 	return out, err
 }

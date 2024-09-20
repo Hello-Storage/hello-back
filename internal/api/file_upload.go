@@ -39,12 +39,12 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 		// Check if files exist in s3
 		s3Config := aws.Config{
 			Credentials: credentials.NewStaticCredentials(
-				config.Env().WasabiAccessKey,
-				config.Env().WasabiSecretKey,
+				config.Env().StorageAccessKey,
+				config.Env().StorageSecretKey,
 				"",
 			),
-			Endpoint:         aws.String(config.Env().WasabiEndpoint),
-			Region:           aws.String(config.Env().WasabiRegion),
+			Endpoint:         aws.String(config.Env().StorageEndpoint),
+			Region:           aws.String(config.Env().StorageRegion),
 			S3ForcePathStyle: aws.Bool(true),
 		}
 
@@ -63,7 +63,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 		var firstRootUID string
 		for _, customFileMeta := range customFileMetas {
 
-			headObject, err := s3.HeadObject(s3Config, config.Env().WasabiBucket, customFileMeta.CID)
+			headObject, err := s3.HeadObject(s3Config, config.Env().StorageBucket, customFileMeta.CID)
 			if err != nil {
 				//this means that the object doesn't exist at S3, so we can return CID to frontend for later upload of binary and metadata
 			} else {
@@ -166,7 +166,7 @@ func CheckFilesExistInPool(router *gin.RouterGroup) {
 	})
 }
 
-// UploadFiles upload files to wasabi using s3
+// UploadFiles upload files to storage using s3
 //
 // POST /api/file/upload
 // Form: MultipartForm
@@ -417,16 +417,16 @@ func UploadFileToS3(file *multipart.FileHeader, key string) error {
 
 	s3Config := aws.Config{
 		Credentials: credentials.NewStaticCredentials(
-			config.Env().WasabiAccessKey,
-			config.Env().WasabiSecretKey,
+			config.Env().StorageAccessKey,
+			config.Env().StorageSecretKey,
 			"",
 		),
-		Endpoint:         aws.String(config.Env().WasabiEndpoint),
-		Region:           aws.String(config.Env().WasabiRegion),
+		Endpoint:         aws.String(config.Env().StorageEndpoint),
+		Region:           aws.String(config.Env().StorageRegion),
 		S3ForcePathStyle: aws.Bool(true),
 	}
 
-	err := s3.UploadObject(s3Config, file, config.Env().WasabiBucket, key)
+	err := s3.UploadObject(s3Config, file, config.Env().StorageBucket, key)
 
 	return err
 }

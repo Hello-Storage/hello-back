@@ -46,12 +46,12 @@ func DeleteFile(router *gin.RouterGroup) {
 
 		s3Config := aws.Config{
 			Credentials: credentials.NewStaticCredentials(
-				config.Env().WasabiAccessKey,
-				config.Env().WasabiSecretKey,
+				config.Env().StorageAccessKey,
+				config.Env().StorageSecretKey,
 				"",
 			),
-			Endpoint:         aws.String(config.Env().WasabiEndpoint),
-			Region:           aws.String(config.Env().WasabiRegion),
+			Endpoint:         aws.String(config.Env().StorageEndpoint),
+			Region:           aws.String(config.Env().StorageRegion),
 			S3ForcePathStyle: aws.Bool(true),
 		}
 

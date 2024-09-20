@@ -14,13 +14,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 )
 
-//max part size of 5 KB
-var maxPartSize = int64(5 * 1024 * 1024) // 5MB 
+// max part size of 5 KB
+var maxPartSize = int64(5 * 1024 * 1024) // 5MB
 var maxRetries = 3
-var awsAccessKeyID = config.Env().WasabiAccessKey
-var awsSecretAccessKey = config.Env().WasabiSecretKey
-var awsBucketRegion = aws.String(config.Env().WasabiRegion)
-var awsBucketName = config.Env().WasabiBucket
+var awsAccessKeyID = config.Env().StorageAccessKey
+var awsSecretAccessKey = config.Env().StorageSecretKey
+var awsBucketRegion = aws.String(config.Env().StorageRegion)
+var awsBucketName = config.Env().StorageBucket
 
 func UploadMultipart(
 	file *multipart.FileHeader,
