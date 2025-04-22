@@ -34,8 +34,9 @@ type EnvVar struct {
 	WasabiRegion    string
 	// Encryption
 	EncryptionKey string
-	// MailGun
-	MailGunApiKey string
+	// Mailing Service
+	EthermailApiKey    string
+	EthermailApiSecret string
 	// Arweave
 	NodejsServerEndpoint string
 }
@@ -87,7 +88,8 @@ func LoadEnv() (err error) {
 		// Encryption
 		EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
 		// MailGun
-		MailGunApiKey: os.Getenv("MAILGUN_API"),
+		EthermailApiKey:    os.Getenv("ETHERMAIL_API_KEY"),
+		EthermailApiSecret: os.Getenv("ETHERMAIL_API_SECRET"),
 		// Arweave
 		NodejsServerEndpoint: os.Getenv("NODEJS_SERVER_ENDPOINT"),
 	}

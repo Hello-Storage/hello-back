@@ -1,20 +1,21 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
-	"github.com/Hello-Storage/hello-back/pkg/mg"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-gonic/gin"
 )
@@ -484,7 +485,7 @@ func PublishFile(router *gin.RouterGroup) {
 		// Send email with the file link to the user if the share type is email
 		if shareType == "email" {
 			// Send email with the file link to the user and pass also the sender user's email
-			sendEmailLinkToUser(authPayload.UserName, accountIdentifier, newFile, publicFile)
+			sendEmailLinkToUser(authPayload.UserName, accountIdentifier, shareWithUser.Wallet.Address, newFile, publicFile)
 		}
 
 		// Save the updated shareState.PublicFile
@@ -518,33 +519,57 @@ func formatBytes(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
-func sendEmailLinkToUser(username string, email string, file *entity.File, publicFile *entity.PublicFileUserShared) {
+func sendEmailLinkToUser(username string, email string, recipientWallet string, file *entity.File, publicFile *entity.PublicFileUserShared) {
 
-	mg := mg.Mailgun{
-		Domain: "hello.app",
-		ApiKey: config.Env().MailGunApiKey,
-	}
-
-	mg.Init()
-	//id, err := mg.SendEmail(
-	_, err := mg.SendEmail(
-		"noreply@hello.app",
-		email,
-		"hello.app | Received file named "+file.Name+"",
-		"received-file",
-		map[string]interface{}{
-			"filename":   file.Name,
-			"filesize":   formatBytes(file.Size),
-			"filelink":   "https://hello.app/space/shared/public/" + publicFile.ShareHash,
-			"sendername": username,
-			"username":   email,
+	emailReq := EmailRequest{
+		SenderName:  "hello.app",
+		SenderEmail: "noreply@hello.app",
+		ToName:      username,
+		ToEmail:     email,
+		Subject:     "hello.app | Received file named " + file.Name + "",
+		ReplyTo:     email,
+		TemplateID:  "6807add19d805166a3d1c440",
+		MergeData: map[string]interface{}{
+			"filename":      file.Name,
+			"filesize":      formatBytes(file.Size),
+			"filelink":      "https://hello.app/space/shared/public/" + publicFile.ShareHash,
+			"sendername":    username,
+			"username":      email,
+			"walletAddress": recipientWallet,
 		},
-	)
+	}
 
 	//log.Infof("id: %s", id)
 
+	payloadBuf := new(bytes.Buffer)
+	if err := json.NewEncoder(payloadBuf).Encode(emailReq); err != nil {
+		log.Errorf("failed to encode payload: %v", err)
+		return
+	}
+
+	req, err := http.NewRequest("POST", ETHERMAIL_API_URL, payloadBuf)
 	if err != nil {
-		log.Errorf("failed to send email: %v", err)
+		log.Errorf("failed to create request: %v", err)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", ETHERMAIL_API_KEY)
+	req.Header.Set("x-api-secret", ETHERMAIL_API_KEY_SECRET)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Errorf("failed to send request: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusCreated {
+		log.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
+		return
 	}
 
 }

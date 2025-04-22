@@ -1,7 +1,10 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -12,11 +15,26 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
 	"github.com/Hello-Storage/hello-back/pkg/crypto"
-	"github.com/Hello-Storage/hello-back/pkg/mg"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-gonic/gin"
 	"github.com/pquerna/otp/totp"
 )
+
+const ETHERMAIL_API_URL = "https://hub-gateway.ethermail.io/v1/transactional-emails"
+
+var ETHERMAIL_API_KEY = config.Env().EthermailApiKey
+var ETHERMAIL_API_KEY_SECRET = config.Env().EthermailApiSecret
+
+type EmailRequest struct {
+	SenderName  string `json:"sender_name"`
+	SenderEmail string `json:"sender_email"`
+	ToName      string `json:"to_name"`
+	ToEmail     string `json:"to_email"`
+	Subject     string `json:"subject"`
+	ReplyTo     string `json:"reply_to"`
+	TemplateID  string `json:"template_id"`
+	MergeData   any    `json:"merge_data"`
+}
 
 // OTP Auth (one-time-passcode auth)
 //
@@ -32,7 +50,7 @@ func StartOTP(router *gin.RouterGroup) {
 
 		if err := ctx.ShouldBindJSON(&f); err != nil {
 			log.Errorf("failed to bind json: %v", err)
-			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000001"))
+			ctx.JSON(http.StatusBadRequest, ErrorResponse(err, "/otp/start:00000001"))
 			return
 		}
 
@@ -43,7 +61,7 @@ func StartOTP(router *gin.RouterGroup) {
 		})
 		if err != nil {
 			log.Errorf("failed to generate key: %v", err)
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000002"))
+			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err, "/otp/start:00000002"))
 			return
 		}
 
@@ -57,8 +75,8 @@ func StartOTP(router *gin.RouterGroup) {
 			isValidEthereumPrivateKey := crypto.IsValidEthereumPrivateKey(f.PrivateKey)
 			if !isValidEthereumAddress || !isValidEthereumPrivateKey {
 				log.Errorf("invalid wallet address or private key")
-				ctx.JSON(http.StatusBadRequest, 
-					ErrorResponse(errors.New("invalid wallet address or private key") ,"/otp/start:00000003"))
+				ctx.JSON(http.StatusBadRequest,
+					ErrorResponse(errors.New("invalid wallet address or private key"), "/otp/start:00000003"))
 				return
 			}
 
@@ -66,7 +84,7 @@ func StartOTP(router *gin.RouterGroup) {
 			if err != nil {
 				log.Errorf("failed to encrypt private key: %v", err)
 				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000004"))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err, "/otp/start:00000004"))
 				return
 			}
 
@@ -86,7 +104,7 @@ func StartOTP(router *gin.RouterGroup) {
 
 			if err := u.Create(); err != nil {
 				log.Errorf("failed to create user: %v", err)
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000005"))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err, "/otp/start:00000005"))
 				return
 			}
 
@@ -99,7 +117,7 @@ func StartOTP(router *gin.RouterGroup) {
 				if err := referral.TxCreate(tx); err != nil {
 					log.Errorf("failed to save referral: %v", err)
 					tx.Rollback()
-					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000006"))
+					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err, "/otp/start:00000006"))
 					return
 				}
 			}
@@ -116,7 +134,7 @@ func StartOTP(router *gin.RouterGroup) {
 			}
 
 			if err := user_detail.Create(); err != nil {
-				ctx.JSON(http.StatusInternalServerError,ErrorResponse(err,"/otp/start:00000007"))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err, "/otp/start:00000007"))
 				return
 			}
 
@@ -125,11 +143,11 @@ func StartOTP(router *gin.RouterGroup) {
 
 				if err != nil {
 					log.Errorf("failed to create referral: %v", err)
-					ctx.JSON(http.StatusInternalServerError,ErrorResponse(err,"/otp/start:00000008"))
+					ctx.JSON(http.StatusInternalServerError, ErrorResponse(err, "/otp/start:00000008"))
 					return
 				}
 			}
-			uSearch = &u;
+			uSearch = &u
 
 		} else {
 			email := uSearch.Email
@@ -138,11 +156,10 @@ func StartOTP(router *gin.RouterGroup) {
 			if err := email.Save(); err != nil {
 				log.Errorf("failed to save email: %v", err)
 				tx.Rollback()
-				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000009"))
+				ctx.JSON(http.StatusInternalServerError, ErrorResponse(err, "/otp/start:00000009"))
 				return
 			}
 		}
-
 
 		userLogin := &entity.UserLogin{
 			LoginDate:  time.Now(),
@@ -154,38 +171,59 @@ func StartOTP(router *gin.RouterGroup) {
 			tx.Rollback()
 			ctx.JSON(
 				http.StatusInternalServerError,
-				ErrorResponse(err,"/otp/start:00000010"),
+				ErrorResponse(err, "/otp/start:00000010"),
 			)
 			return
 		}
 
 		code, err := totp.GenerateCode(key.Secret(), time.Now())
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, ErrorResponse(err,"/otp/start:00000011"))
+			ctx.JSON(http.StatusBadRequest, ErrorResponse(err, "/otp/start:00000011"))
 			return
 		}
 
-		mg := mg.Mailgun{
-			Domain: "hello.app",
-			ApiKey: config.Env().MailGunApiKey,
+		email := EmailRequest{
+			SenderName:  "hello.app",
+			SenderEmail: "noreply@hello.app",
+			ToName:      f.Email,
+			ToEmail:     f.Email,
+			Subject:     "Hello from hello.app!",
+			ReplyTo:     f.Email,
+			TemplateID:  "6807a4239d805166a3cebc12",
+			MergeData: map[string]interface{}{
+				"code":          code,
+				"walletAddress": f.WalletAddress,
+			},
 		}
 
-		mg.Init()
-		id, err := mg.SendEmail(
-			"noreply@hello.app",
-			f.Email,
-			"Login to hello.app",
-			"magic-code",
-			map[string]interface{}{
-				"code": code,
-			},
-		)
+		payloadBuf := new(bytes.Buffer)
+		if err := json.NewEncoder(payloadBuf).Encode(email); err != nil {
+			log.Errorf("failed to encode payload: %v", err)
+			return
+		}
 
-		log.Infof("id: %s", id)
-
+		req, err := http.NewRequest("POST", ETHERMAIL_API_URL, payloadBuf)
 		if err != nil {
-			log.Errorf("failed to send email: %v", err)
-			ctx.JSON(http.StatusInternalServerError, ErrorResponse(err,"/otp/start:00000012"))
+			log.Errorf("failed to create request: %v", err)
+			return
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("x-api-key", ETHERMAIL_API_KEY)
+		req.Header.Set("x-api-secret", ETHERMAIL_API_KEY_SECRET)
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Errorf("failed to send request: %v", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		body, _ := ioutil.ReadAll(resp.Body)
+
+		if resp.StatusCode != http.StatusCreated {
+			log.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 			return
 		}
 
