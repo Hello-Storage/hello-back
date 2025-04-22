@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Hello-Storage/hello-back/internal/config"
 	"github.com/Hello-Storage/hello-back/internal/constant"
 	"github.com/Hello-Storage/hello-back/internal/db"
 	"github.com/Hello-Storage/hello-back/internal/entity"
@@ -554,8 +555,8 @@ func sendEmailLinkToUser(username string, email string, recipientWallet string, 
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", ETHERMAIL_API_KEY)
-	req.Header.Set("x-api-secret", ETHERMAIL_API_KEY_SECRET)
+	req.Header.Set("x-api-key", config.Env().EthermailApiKey)
+	req.Header.Set("x-api-secret", config.Env().EthermailApiSecret)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

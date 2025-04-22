@@ -22,9 +22,6 @@ import (
 
 const ETHERMAIL_API_URL = "https://hub-gateway.ethermail.io/v1/transactional-emails"
 
-var ETHERMAIL_API_KEY = config.Env().EthermailApiKey
-var ETHERMAIL_API_KEY_SECRET = config.Env().EthermailApiSecret
-
 type EmailRequest struct {
 	SenderName  string `json:"sender_name"`
 	SenderEmail string `json:"sender_email"`
@@ -196,21 +193,22 @@ func StartOTP(router *gin.RouterGroup) {
 			},
 		}
 
-		payloadBuf := new(bytes.Buffer)
-		if err := json.NewEncoder(payloadBuf).Encode(email); err != nil {
-			log.Errorf("failed to encode payload: %v", err)
+		payloadBytes, err := json.Marshal(email)
+		if err != nil {
+			log.Errorf("failed to marshal payload: %v", err)
 			return
 		}
 
-		req, err := http.NewRequest("POST", ETHERMAIL_API_URL, payloadBuf)
+		req, err := http.NewRequest("POST", ETHERMAIL_API_URL, bytes.NewBuffer(payloadBytes))
+
 		if err != nil {
 			log.Errorf("failed to create request: %v", err)
 			return
 		}
 
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("x-api-key", ETHERMAIL_API_KEY)
-		req.Header.Set("x-api-secret", ETHERMAIL_API_KEY_SECRET)
+		req.Header.Set("x-api-key", config.Env().EthermailApiKey)
+		req.Header.Set("x-api-secret", config.Env().EthermailApiSecret)
 
 		client := &http.Client{}
 		resp, err := client.Do(req)
