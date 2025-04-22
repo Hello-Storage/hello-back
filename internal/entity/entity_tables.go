@@ -105,7 +105,10 @@ func (list Tables) Migrate(db *gorm.DB, opt migrate.Options) {
 
 				if err = db.AutoMigrate(entity); err != nil {
 					log.Errorf("migrate: failed migrating %s", name)
-					panic(err)
+					if name != "public_files_user_shared" {
+						log.Errorf("migrate: failed migrating %s", name)
+						panic(err)
+					}
 				}
 			}
 		}
