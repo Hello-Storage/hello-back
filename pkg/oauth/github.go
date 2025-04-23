@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/Hello-Storage/hello-back/internal/config"
 )
 
 type GithubUser struct {
@@ -24,8 +22,8 @@ func GetGithubOAuthToken(code string) (string, error) {
 
 	values := url.Values{}
 	values.Add("code", code)
-	values.Add("client_id", config.Env().GithubClientID)
-	values.Add("client_secret", config.Env().GithubClientSecret)
+	//values.Add("client_id", config.Env().GithubClientID)
+	//values.Add("client_secret", config.Env().GithubClientSecret)
 
 	query := values.Encode()
 

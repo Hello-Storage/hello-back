@@ -24,8 +24,8 @@ type EnvVar struct {
 	DBPassword string
 	DBPort     string
 	// Github OAuth credential
-	GithubClientID     string
-	GithubClientSecret string
+	//GithubClientID     string
+	//GithubClientSecret string
 	// Wasabi keys
 	WasabiAccessKey string
 	WasabiSecretKey string
@@ -34,8 +34,9 @@ type EnvVar struct {
 	WasabiRegion    string
 	// Encryption
 	EncryptionKey string
-	// MailGun
-	MailGunApiKey string
+	// Mailing Service
+	EthermailApiKey    string
+	EthermailApiSecret string
 	// Arweave
 	NodejsServerEndpoint string
 }
@@ -76,8 +77,8 @@ func LoadEnv() (err error) {
 		DBPassword: os.Getenv("POSTGRES_PASSWORD"),
 		DBPort:     os.Getenv("POSTGRES_PORT"),
 		// Github OAuth credentail
-		GithubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
-		GithubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		//GithubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+		//GithubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
 		//Wasabi keys
 		WasabiAccessKey: os.Getenv("WASABI_ACCESS_KEY"),
 		WasabiSecretKey: os.Getenv("WASABI_SECRET_KEY"),
@@ -87,7 +88,8 @@ func LoadEnv() (err error) {
 		// Encryption
 		EncryptionKey: os.Getenv("ENCRYPTION_KEY"),
 		// MailGun
-		MailGunApiKey: os.Getenv("MAILGUN_API"),
+		EthermailApiKey:    os.Getenv("ETHERMAIL_API_KEY"),
+		EthermailApiSecret: os.Getenv("ETHERMAIL_API_SECRET"),
 		// Arweave
 		NodejsServerEndpoint: os.Getenv("NODEJS_SERVER_ENDPOINT"),
 	}
@@ -98,10 +100,6 @@ func LoadEnv() (err error) {
 		if values.Field(i).String() == "" {
 			return fmt.Errorf("config: %s is missing", types.Field(i).Name)
 		}
-	}
-
-	if err != nil {
-		return
 	}
 
 	return

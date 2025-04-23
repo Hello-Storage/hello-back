@@ -72,71 +72,96 @@ func GetUserDetail(router *gin.RouterGroup) {
 			return
 		}
 
-		// get user files from the table "file_user" (where permission != deleted)
+		// get filesUser from the table "file_user" (where permission != deleted)
 		filesUser, err := query.GetFilesUserFromUser(user.ID)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching user files"})
 			return
 		}
 
-		// start variables for shared files
 		var sharedWithUser entity.Files
 		var sharedByUser entity.Files
+		sharedByUserMap := make(map[uint]struct{})
+		sharedWithUserMap := make(map[string]struct{})
 
-		// iterate over files
+		// Create a channel to fetch files concurrently
+		type fileResult struct {
+			file *entity.File
+			err  error
+		}
+		fileChan := make(chan fileResult, len(filesUser))
+
+		// Fetch files concurrently using goroutines
 		for _, fileUser := range filesUser {
-			// try to get file by its id
-			file, err := query.FindFileByID(fileUser.FileID)
-			if err != nil {
-				log.Errorf("error fetching file: %v", err)
-				if err != gorm.ErrRecordNotFound {
-					// if it's not a "not found" error it means it's probably an internal error, so stop here
+			go func(fileUser entity.FileUser) {
+				file, err := query.FindFileByID(fileUser.FileID)
+				fileChan <- fileResult{file: file, err: err}
+			}(fileUser)
+		}
+
+		for _, fileUser := range filesUser {
+			fileResult := <-fileChan
+			if fileResult.err != nil {
+				log.Errorf("error fetching file: %v", fileResult.err)
+				if fileResult.err != gorm.ErrRecordNotFound {
 					ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching file"})
 					return
 				}
-				// if it's a "not found" error, continue with the next file
 				continue
 			}
 
-			// get users with file CID
+			file := fileResult.file
+
+			// Filter files shared by the user
+			if file.FileShareState.ID != 0 && fileUser.Permission == entity.OwnerPermission {
+				if _, exists := sharedByUserMap[file.ID]; exists {
+					continue
+				}
+				/*|| !query.IsInSharedFolder(file.Root, authPayload.UserID) */
+				// TODO: check if the file/forder is in a shared folder or not
+				// (because if we only show the files in Root, the elements in a non-shared folder will not be shown)
+				sharedByUser = append(sharedByUser, *file)
+				sharedByUserMap[file.ID] = struct{}{}
+			}
+
+			// Check if the file CID has already been processed
+			if _, exists := sharedWithUserMap[file.CID]; exists {
+				continue // Skip processing the file if this CID has already been processed
+			}
+
+			// Concurrently fetch users with the file CID
 			usersWithFile, err := query.FindUsersByFileCID(file.CID)
 			if err != nil {
 				ctx.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching users with file"})
 				return
 			}
 
-			// filter out usersID that belong to others than the current user
-			usersWithFileFiltered := []uint{}
+			// Filter out usersID that belong to others than the current user
+			usersWithFileFiltered := make([]uint, 0, len(usersWithFile))
 			for _, usrID := range usersWithFile {
 				if usrID != user.ID {
 					usersWithFileFiltered = append(usersWithFileFiltered, usrID)
 				}
 			}
 
-			if file.ID != 0 {
-				if fileUser.Permission == entity.SharedPermission && len(usersWithFileFiltered) > 0 {
-					// if the file is shared to current user and its more than one user with the file
-					// then it's a shared (with the user) file
-					if file.Root == "/" /*|| !query.IsInSharedFolder(file.Root, authPayload.UserID) */{
-						// if the file was shared by email or wallet, we need to get
-						// the public file and its share state
-						sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
-						if err == nil {
-							file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
-						}
-						sharedWithUser = append(sharedWithUser, *file)
+			if file.ID != 0 && fileUser.Permission == entity.SharedPermission && len(usersWithFileFiltered) > 0 {
+				if file.Root == "/" {
+					// TODO: check if the file/forder is in a shared folder or not
+					// (because if we only show the files in Root, the elements in a non-shared folder will not be shown)
+					sharestatefound, err := query.GetFileShareStateByFileUIDAndUserID(file.UID, authPayload.UserID)
+					if err == nil {
+						file.FileShareState = query.ConvertToDomainEntities(sharestatefound)
 					}
-				} else if fileUser.Permission == entity.OwnerPermission && len(usersWithFileFiltered) > 0 {
-					// if the file owned by current user and its more than one user with the file
-					// then it's a shared (by the user) file
-					if file.Root == "/" /*|| !query.IsInSharedFolder(file.Root, authPayload.UserID) */{
-						// TODO: check if the file/forder is in a shared folder or not 
-						// (because if we only show the files in Root, the elements in a non-shared folder will not be shown)
-						sharedByUser = append(sharedByUser, *file)
-					}
+
+					sharedWithUser = append(sharedWithUser, *file)
+					// Mark this CID as processed to avoid duplicate entries
+					sharedWithUserMap[file.CID] = struct{}{}
 				}
 			}
 		}
+
+		// Close the channel after processing
+		close(fileChan)
 
 		// at this point we have all the shared files, now we need to get the folders
 
@@ -185,7 +210,7 @@ func GetUserDetail(router *gin.RouterGroup) {
 			if folder.ID != 0 {
 				if folderUser.Permission == entity.SharedPermission && len(usersWithFolderFiltered) > 0 {
 					if folder.Root == "/" /*|| !query.IsInSharedFolder(folder.Root, authPayload.UserID)*/ {
-						// TODO: check if the file/forder is in a shared folder or not 
+						// TODO: check if the file/forder is in a shared folder or not
 						// (because if we only show the files in Root, the elements in a non-shared folder will not be shown)
 						FoldersharedwithUser = append(FoldersharedwithUser, *folder)
 					}

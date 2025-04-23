@@ -35,19 +35,15 @@ func FindFolder(find entity.Folder) *entity.Folder {
 
 // FoldersByRoot returns folders in a given directory.
 func FoldersByRoot(root string) (folders entity.Folders, err error) {
-	if err := db.Db().Where("root = ?", root).Find(&folders).Error; err != nil {
+	if err := db.Db().Where("root = ? AND deleted_at IS NULL", root).Find(&folders).Error; err != nil {
 		return folders, err
 	}
 
 	return folders, nil
 }
 
-func FindRootFoldersByUser(user_id uint) (folders entity.Folders, err error) {
-	if err := db.Db().
-		Table("folders").
-		Joins("LEFT JOIN folders_users on folders_users.folder_id = folders.id").
-		Where("((folders.root = '/' AND folders_users.permission = 'owner') OR (folders.root = '/' AND folders_users.permission = 'shared')) AND folders_users.user_id = ?", user_id).
-		Find(&folders).Error; err != nil {
+func FoldersByRootWithPermision(root string,userId uint) (folders entity.Folders, err error) {
+	if err := db.Db().Table("folders").Joins("INNER JOIN folders_users ON folders_users.folder_id = folders.id").Where("folders.root = ? AND folders_users.user_id = ? AND folders.deleted_at IS NULL", root,userId).Find(&folders).Error; err != nil {
 		return folders, err
 	}
 

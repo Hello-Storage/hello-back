@@ -184,6 +184,7 @@ func ShareWithUserHandler(formget form.SharedFolder, parentRoot string, authPayl
 
 	return true
 }
+
 // ShareFolderHandler handles the sharing of a folder.
 //
 // It takes a form.SharedFolder and a shareType string as parameters and returns a boolean.
@@ -306,6 +307,7 @@ func CreateFolder(router *gin.RouterGroup) {
 		var form form.CreateFolder
 
 		if err := ctx.BindJSON(&form); err != nil {
+			log.Errorf("error when creating folder_user: %v", err)
 			AbortBadRequest(ctx)
 			return
 		}
@@ -320,6 +322,7 @@ func CreateFolder(router *gin.RouterGroup) {
 		}
 
 		if err := folder.Create(); err != nil {
+			log.Errorf("error when creating folder_user: %v", err)
 			AbortBadRequest(ctx)
 			return
 		}
@@ -331,6 +334,7 @@ func CreateFolder(router *gin.RouterGroup) {
 		}
 
 		if err := folder_user.Create(); err != nil {
+			log.Errorf("error when creating folder_user: %v", err)
 			AbortBadRequest(ctx)
 			return
 		}

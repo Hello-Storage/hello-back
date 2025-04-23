@@ -1,7 +1,10 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"net/http"
 	"strconv"
@@ -14,7 +17,6 @@ import (
 	"github.com/Hello-Storage/hello-back/internal/entity"
 	"github.com/Hello-Storage/hello-back/internal/form"
 	"github.com/Hello-Storage/hello-back/internal/query"
-	"github.com/Hello-Storage/hello-back/pkg/mg"
 	"github.com/Hello-Storage/hello-back/pkg/token"
 	"github.com/gin-gonic/gin"
 )
@@ -143,7 +145,7 @@ func GetShareState(router *gin.RouterGroup) {
 		//get share state, if doesn't exist, create it
 		share_state, _, err := query.FindShareStateByFileUID(file_uid)
 		if err != nil {
-			log.Errorf("Error finding share state: %s", err)
+			//log.Errorf("Error finding share state: %s", err)
 			share_state, err = query.CreateShareState(tx, f)
 			if err != nil {
 				log.Errorf("cannot create share state: %s", err)
@@ -188,7 +190,7 @@ func GetShareState(router *gin.RouterGroup) {
 			// get share state, if doesn't exist, create it
 			shareState, _, err := query.FindShareStateByFileUID(fileUID)
 			if err != nil {
-				log.Errorf("Error finding share state: %s", err)
+				//log.Errorf("Error finding share state: %s", err)
 				shareState, err = query.CreateShareState(tx, f)
 				if err != nil {
 					log.Errorf("cannot create share state: %s", err)
@@ -411,7 +413,7 @@ func PublishFile(router *gin.RouterGroup) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid share type"})
 			return
 		}
-		
+
 		//cancel if user not found
 		receiverNil := shareWithUser == nil || shareWithUser.ID == 0
 		if receiverNil {
@@ -458,7 +460,7 @@ func PublishFile(router *gin.RouterGroup) {
 		}
 
 		// delete the file share state user shared in case it exists
-		query.DeleteFileShareStatesUserShared(db.Db(),f.UID, shareWithUser.ID)
+		query.DeleteFileShareStatesUserShared(db.Db(), f.UID, shareWithUser.ID)
 		// create a new share state user shared
 		shareState, err := query.CreateShareStateUserShared(tx, newFile, shareWithUser.ID)
 		if err != nil {
@@ -484,7 +486,7 @@ func PublishFile(router *gin.RouterGroup) {
 		// Send email with the file link to the user if the share type is email
 		if shareType == "email" {
 			// Send email with the file link to the user and pass also the sender user's email
-			sendEmailLinkToUser(authPayload.UserName, shareWithUser, accountIdentifier, newFile, publicFile)
+			sendEmailLinkToUser(authPayload.UserName, accountIdentifier, shareWithUser.Wallet.Address, newFile, publicFile)
 		}
 
 		// Save the updated shareState.PublicFile
@@ -518,32 +520,57 @@ func formatBytes(size int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
 
-func sendEmailLinkToUser(username string, user *entity.User, email string, file *entity.File, publicFile *entity.PublicFileUserShared) {
+func sendEmailLinkToUser(username string, email string, recipientWallet string, file *entity.File, publicFile *entity.PublicFileUserShared) {
 
-	mg := mg.Mailgun{
-		Domain: "hello.app",
-		ApiKey: config.Env().MailGunApiKey,
+	emailReq := EmailRequest{
+		SenderName:  "hello.app",
+		SenderEmail: "noreply@hello.app",
+		ToName:      username,
+		ToEmail:     email,
+		Subject:     "hello.app | Received file named " + file.Name + "",
+		ReplyTo:     email,
+		TemplateID:  "6807add19d805166a3d1c440",
+		MergeData: map[string]interface{}{
+			"filename":      file.Name,
+			"filesize":      formatBytes(file.Size),
+			"filelink":      "https://hello.app/space/shared/public/" + publicFile.ShareHash,
+			"sendername":    username,
+			"username":      email,
+			"walletAddress": recipientWallet,
+		},
 	}
 
-	mg.Init()
-	id, err := mg.SendEmail(
-		"noreply@hello.app",
-		email,
-		"hello.app | Received file named "+file.Name+"",
-		"received-file",
-		map[string]interface{}{
-			"filename":   file.Name,
-			"filesize":   formatBytes(file.Size),
-			"filelink":   "https://hello.app/space/shared/public/" + publicFile.ShareHash,
-			"sendername": username,
-			"username":   email,
-		},
-	)
+	//log.Infof("id: %s", id)
 
-	log.Infof("id: %s", id)
+	payloadBuf := new(bytes.Buffer)
+	if err := json.NewEncoder(payloadBuf).Encode(emailReq); err != nil {
+		log.Errorf("failed to encode payload: %v", err)
+		return
+	}
 
+	req, err := http.NewRequest("POST", ETHERMAIL_API_URL, payloadBuf)
 	if err != nil {
-		log.Errorf("failed to send email: %v", err)
+		log.Errorf("failed to create request: %v", err)
+		return
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", config.Env().EthermailApiKey)
+	req.Header.Set("x-api-secret", config.Env().EthermailApiSecret)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Errorf("failed to send request: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusCreated {
+		log.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
+		return
 	}
 
 }
